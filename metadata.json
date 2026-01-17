@@ -1,0 +1,5 @@
+{
+  "name": "Employee Time Clock",
+  "description": "A secure employee time attendance system featuring a PIN-based check-in/out interface with real-time clock and responsive design.",
+  "requestFramePermissions": []
+}
