@@ -6,6 +6,8 @@ import AdminLayout from './layouts/AdminLayout';
 import DashboardPage from './pages/admin/DashboardPage';
 import EmployeesPage from './pages/admin/EmployeesPage';
 import AttendancePage from './pages/admin/AttendancePage';
+import RequestsPage from './pages/admin/RequestsPage';
+import LeaveTypesPage from './pages/admin/LeaveTypesPage';
 import { AuthProvider } from './contexts/AuthContext';
 
 const App: React.FC = () => {
@@ -24,6 +26,8 @@ const App: React.FC = () => {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="employees" element={<EmployeesPage />} />
             <Route path="attendance" element={<AttendancePage />} />
+            <Route path="requests" element={<RequestsPage />} />
+            <Route path="leave-types" element={<LeaveTypesPage />} />
           </Route>
 
           {/* Fallback */}

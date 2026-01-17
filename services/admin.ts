@@ -94,9 +94,11 @@ export const updateEmployee = async (id: string, updates: { name?: string; pin?:
 
 export const deleteEmployee = async (id: string) => {
     try {
+        // 使用軟刪除：將 is_active 設為 false，而非真正刪除記錄
+        // 這樣可以保留歷史打卡記錄，避免外鍵約束問題
         const { error } = await supabase
             .from('employees')
-            .delete()
+            .update({ is_active: false })
             .eq('id', id);
 
         if (error) throw error;

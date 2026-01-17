@@ -1,14 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { Plus, Pencil, Trash2, Search, Upload, Download } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Employee } from '../../services/attendance';
 import { createEmployee, updateEmployee, deleteEmployee } from '../../services/admin';
 import EmployeeModal from '../../components/admin/EmployeeModal';
 
+interface ImportResult {
+    success: number;
+    failed: number;
+    errors: string[];
+}
+
 const EmployeesPage: React.FC = () => {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [importing, setImporting] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,7 +53,7 @@ const EmployeesPage: React.FC = () => {
     };
 
     const handleDelete = async (employee: Employee) => {
-        if (!confirm(`確定要刪除員工 ${employee.name} 嗎？此操作無法復原。`)) {
+        if (!confirm(`確定要將員工 ${employee.name} 設為離職狀態嗎？`)) {
             return;
         }
 
@@ -53,7 +61,7 @@ const EmployeesPage: React.FC = () => {
         if (result.success) {
             fetchEmployees();
         } else {
-            alert(`刪除失敗: ${result.error}`);
+            alert(`操作失敗: ${result.error}`);
         }
     };
 
@@ -72,6 +80,142 @@ const EmployeesPage: React.FC = () => {
         fetchEmployees();
     };
 
+    // CSV 匯入功能
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        // 檢查檔案類型
+        if (!file.name.endsWith('.csv')) {
+            alert('請選擇 CSV 檔案');
+            return;
+        }
+
+        setImporting(true);
+        const reader = new FileReader();
+
+        reader.onload = async (e) => {
+            try {
+                const text = e.target?.result as string;
+                const result = await parseAndImportCSV(text);
+
+                // 顯示結果
+                let message = `匯入完成！\n成功：${result.success} 筆\n失敗：${result.failed} 筆`;
+                if (result.errors.length > 0) {
+                    message += '\n\n錯誤詳情：\n' + result.errors.join('\n');
+                }
+                alert(message);
+
+                // 重新載入員工列表
+                await fetchEmployees();
+            } catch (error: any) {
+                alert(`匯入失敗：${error.message}`);
+            } finally {
+                setImporting(false);
+                // 清空 input 以允許重複選擇同一檔案
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+            }
+        };
+
+        reader.readAsText(file, 'UTF-8');
+    };
+
+    const parseAndImportCSV = async (csvText: string): Promise<ImportResult> => {
+        const lines = csvText.split('\n').filter(line => line.trim());
+        const result: ImportResult = {
+            success: 0,
+            failed: 0,
+            errors: []
+        };
+
+        // 跳過標題行（第一行）
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            try {
+                // 解析 CSV 行（處理逗號分隔）
+                const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+
+                if (values.length < 3) {
+                    result.failed++;
+                    result.errors.push(`第 ${i + 1} 行：欄位不足（需要：姓名,PIN碼,部門）`);
+                    continue;
+                }
+
+                const [name, pin, department] = values;
+
+                // 驗證資料
+                if (!name || !pin || !department) {
+                    result.failed++;
+                    result.errors.push(`第 ${i + 1} 行：有空白欄位`);
+                    continue;
+                }
+
+                if (pin.length !== 6 || !/^\d+$/.test(pin)) {
+                    result.failed++;
+                    result.errors.push(`第 ${i + 1} 行：PIN 碼必須是 6 位數字（${name}）`);
+                    continue;
+                }
+
+                // 檢查 PIN 是否已存在
+                const { data: existing } = await supabase
+                    .from('employees')
+                    .select('id')
+                    .eq('pin', pin)
+                    .single();
+
+                if (existing) {
+                    result.failed++;
+                    result.errors.push(`第 ${i + 1} 行：PIN 碼 ${pin} 已存在（${name}）`);
+                    continue;
+                }
+
+                // 建立員工
+                const createResult = await createEmployee(name, pin, department);
+
+                if (createResult.success) {
+                    result.success++;
+                } else {
+                    result.failed++;
+                    result.errors.push(`第 ${i + 1} 行：${createResult.error}（${name}）`);
+                }
+            } catch (error: any) {
+                result.failed++;
+                result.errors.push(`第 ${i + 1} 行：${error.message}`);
+            }
+        }
+
+        return result;
+    };
+
+    // 下載 CSV 範本
+    const handleDownloadTemplate = () => {
+        const template = '姓名,PIN碼,部門\n張三,123456,IT Dept\n李四,234567,HR Dept\n王五,345678,Sales Dept';
+        const blob = new Blob(['\uFEFF' + template], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+
+        // 加入時間戳記讓檔案名稱更明顯
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        link.download = `員工匯入範本_${timestamp}.csv`;
+
+        link.click();
+        URL.revokeObjectURL(url);
+
+        // 顯示下載成功提示
+        setTimeout(() => {
+            alert('範本已下載！\n\n檔案位置：瀏覽器的下載資料夾\n檔案名稱：員工匯入範本_' + timestamp + '.csv\n\n在 macOS 上通常是：/Users/您的使用者名稱/Downloads/');
+        }, 100);
+    };
+
     const filteredEmployees = employees.filter(emp =>
         emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -87,16 +231,53 @@ const EmployeesPage: React.FC = () => {
                         管理所有員工資料、PIN 碼與部門資訊。
                     </p>
                 </div>
-                <div className="mt-4 sm:mt-0">
+                <div className="mt-4 sm:mt-0 flex gap-2">
+                    <button
+                        type="button"
+                        onClick={handleDownloadTemplate}
+                        className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                        <Download className="h-4 w-4 mr-2" />
+                        下載範本
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleImportClick}
+                        disabled={importing}
+                        className="inline-flex items-center justify-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
+                    >
+                        <Upload className="h-4 w-4 mr-2" />
+                        {importing ? '匯入中...' : '匯入 CSV'}
+                    </button>
                     <button
                         type="button"
                         onClick={handleCreate}
-                        className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto"
+                        className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                     >
                         <Plus className="h-4 w-4 mr-2" />
                         新增員工
                     </button>
                 </div>
+            </div>
+
+            {/* 隱藏的檔案輸入 */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileChange}
+                className="hidden"
+            />
+
+            {/* 使用說明 */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="text-sm font-medium text-blue-800 mb-2">📋 CSV 匯入說明</h3>
+                <ul className="text-sm text-blue-700 space-y-1">
+                    <li>• CSV 檔案格式：姓名,PIN碼,部門</li>
+                    <li>• PIN 碼必須是 6 位數字且不可重複</li>
+                    <li>• 第一行為標題行，將被忽略</li>
+                    <li>• 建議先下載範本參考格式</li>
+                </ul>
             </div>
 
             {/* Search */}
@@ -158,8 +339,8 @@ const EmployeesPage: React.FC = () => {
                                             </td>
                                             <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">
                                                 <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${(person as any).is_active
-                                                        ? 'bg-green-100 text-green-800'
-                                                        : 'bg-red-100 text-red-800'
+                                                    ? 'bg-green-100 text-green-800'
+                                                    : 'bg-red-100 text-red-800'
                                                     }`}>
                                                     {(person as any).is_active ? '在職' : '離職'}
                                                 </span>

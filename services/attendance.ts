@@ -54,3 +54,24 @@ export const logAttendance = async (employeeId: string, type: 'IN' | 'OUT'): Pro
         return { success: false, error: 'Network or system error' };
     }
 };
+
+export const getRecentAttendance = async (employeeId: string, limit: number = 5): Promise<any[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('attendance_logs')
+            .select('*')
+            .eq('employee_id', employeeId)
+            .order('timestamp', { ascending: false })
+            .limit(limit);
+
+        if (error) {
+            console.error('Error fetching recent attendance:', error);
+            return [];
+        }
+
+        return data || [];
+    } catch (err) {
+        console.error('Unexpected error fetching attendance logs:', err);
+        return [];
+    }
+};

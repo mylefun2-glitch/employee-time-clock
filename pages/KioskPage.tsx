@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { KeypadValue } from '../types';
-import { checkPin, logAttendance } from '../services/attendance';
+import { checkPin, logAttendance, getRecentAttendance, Employee } from '../services/attendance';
+import SuccessOverlay from '../components/SuccessOverlay';
+import FailureOverlay from '../components/FailureOverlay';
+import LeaveRequestForm from '../components/LeaveRequestForm';
 
 // Helper to format date in Traditional Chinese
 const formatDate = (date: Date) => {
@@ -27,6 +30,17 @@ const KioskPage: React.FC = () => {
     const [pin, setPin] = useState<string>('');
     const [isAnimating, setIsAnimating] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(false);
+    const [successData, setSuccessData] = useState<{
+        employee: Employee;
+        type: 'IN' | 'OUT';
+        time: string;
+        recentLogs: any[];
+    } | null>(null);
+    const [showFailure, setShowFailure] = useState(false);
+    const [failureMessage, setFailureMessage] = useState('');
+    const [showRequestForm, setShowRequestForm] = useState(false);
+    const [lastVerifiedEmployee, setLastVerifiedEmployee] = useState<Employee | null>(null);
 
     // Update clock every second
     useEffect(() => {
@@ -70,7 +84,8 @@ const KioskPage: React.FC = () => {
 
             if (!employee) {
                 // PIN not found
-                alert('驗證失敗：找不到此 PIN 碼');
+                setFailureMessage('驗證失敗：找不到此 PIN 碼');
+                setShowFailure(true);
                 setPin('');
                 setIsAnimating(true);
                 setTimeout(() => setIsAnimating(false), 500);
@@ -83,15 +98,56 @@ const KioskPage: React.FC = () => {
             const result = await logAttendance(employee.id, typeStr);
 
             if (result.success) {
-                const actionText = type === 'in' ? '上班打卡' : '下班打卡';
-                alert(`${actionText}成功！\n姓名: ${employee.name}\n部門: ${employee.department}\n時間: ${formatTime(currentTime)}`);
+                // 3. Fetch recent logs for the overlay
+                const recentLogs = await getRecentAttendance(employee.id);
+
+                setSuccessData({
+                    employee,
+                    type: type === 'in' ? 'IN' : 'OUT',
+                    time: formatTime(currentTime),
+                    recentLogs
+                });
+                setShowSuccess(true);
                 setPin('');
             } else {
-                alert(`打卡失敗：${result.error || '未知錯誤'}`);
+                setFailureMessage(`打卡失敗：${result.error || '未知錯誤'}`);
+                setShowFailure(true);
             }
         } catch (error) {
             console.error(error);
-            alert('系統發生錯誤，請稍後再試');
+            setFailureMessage('系統發生錯誤，請稍後再試');
+            setShowFailure(true);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleRequestLeave = async () => {
+        if (pin.length !== 6 || isLoading) {
+            if (pin.length !== 6) {
+                setIsAnimating(true);
+                setTimeout(() => setIsAnimating(false), 500);
+            }
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const employee = await checkPin(pin);
+            if (!employee) {
+                setFailureMessage('驗證失敗：找不到此 PIN 碼');
+                setShowFailure(true);
+                setPin('');
+                setIsAnimating(true);
+                setTimeout(() => setIsAnimating(false), 500);
+                return;
+            }
+            setLastVerifiedEmployee(employee);
+            setShowRequestForm(true);
+        } catch (error) {
+            console.error(error);
+            setFailureMessage('系統發生錯誤，請稍後再試');
+            setShowFailure(true);
         } finally {
             setIsLoading(false);
         }
@@ -190,7 +246,54 @@ const KioskPage: React.FC = () => {
                         />
                     </div>
                 </div>
+
+                {/* Additional Actions */}
+                <div className="px-6 pb-6 mt-[-12px]">
+                    <button
+                        onClick={handleRequestLeave}
+                        disabled={pin.length !== 6 || isLoading}
+                        className={`w-full py-3 flex items-center justify-center gap-2 rounded-xl border transition-all font-medium ${pin.length === 6 && !isLoading
+                                ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 dark:shadow-blue-900/30'
+                                : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 opacity-60'
+                            }`}
+                    >
+                        <span className="material-symbols-outlined text-xl">event_note</span>
+                        我要申請出差勤
+                    </button>
+                </div>
             </main>
+
+            {/* Success Overlay */}
+            {showSuccess && successData && (
+                <SuccessOverlay
+                    employee={successData.employee}
+                    checkType={successData.type}
+                    time={successData.time}
+                    recentLogs={successData.recentLogs}
+                    onClose={() => setShowSuccess(false)}
+                />
+            )}
+
+            {/* Failure Overlay */}
+            {showFailure && (
+                <FailureOverlay
+                    message={failureMessage}
+                    onClose={() => setShowFailure(false)}
+                />
+            )}
+
+            {/* Leave Request Form */}
+            {showRequestForm && lastVerifiedEmployee && (
+                <LeaveRequestForm
+                    employeeId={lastVerifiedEmployee.id}
+                    onClose={() => setShowRequestForm(false)}
+                    onSuccess={() => {
+                        setShowRequestForm(false);
+                        setPin('');
+                        // 也可以加一個成功提示
+                    }}
+                />
+            )}
 
             {/* Footer */}
             <footer className="mt-8 text-slate-400 text-xs text-center relative z-10">
