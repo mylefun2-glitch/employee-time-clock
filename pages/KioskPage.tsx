@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { KeypadValue } from '../types';
-import { checkPin, logAttendance, getRecentAttendance, Employee } from '../services/attendance';
+import { checkPin, logAttendance, getRecentAttendance } from '../services/attendance';
+import { Employee } from '../types';
 import { getCurrentPosition, isWithinAnyLocation, formatDistance, isGeolocationSupported, CompanyLocation } from '../services/geolocation';
 import { getActiveLocations } from '../services/companyLocationService';
 import SuccessOverlay from '../components/SuccessOverlay';
@@ -182,10 +183,12 @@ const KioskPage: React.FC = () => {
 
                 {/* Header */}
                 <header className="bg-white dark:bg-[#1e293b] p-6 text-center border-b border-slate-100 dark:border-slate-700">
-                    <h2 className="text-primary dark:text-blue-400 text-lg font-bold tracking-wide flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined text-2xl">badge</span>
-                        社照會員工打卡系統
-                    </h2>
+                    <div className="flex flex-col items-center gap-2">
+                        <img src="/logo.jpg" alt="Y'ACC Logo" className="h-20 w-auto object-contain mb-1" />
+                        <h2 className="text-primary dark:text-blue-400 text-lg font-black tracking-[0.1em]">
+                            員 工 打 卡 系 統
+                        </h2>
+                    </div>
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium tracking-wide">
                         {formatDate(currentTime)}
                     </p>

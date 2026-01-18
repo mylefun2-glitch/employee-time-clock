@@ -1,12 +1,6 @@
 
 import { supabase } from '../lib/supabase';
-import { LogEntry, CheckType } from '../types';
-
-export interface Employee {
-    id: string;
-    name: string;
-    department: string;
-}
+import { LogEntry, CheckType, Employee } from '../types';
 
 export const checkPin = async (pin: string): Promise<Employee | null> => {
     try {

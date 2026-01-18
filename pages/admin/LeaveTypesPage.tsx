@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { leaveTypeService } from '../../services/leaveTypeService';
 import { LeaveType } from '../../types';
+import { Pencil, Power, Plus, X } from 'lucide-react';
 
 const LeaveTypesPage: React.FC = () => {
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
@@ -30,7 +31,6 @@ const LeaveTypesPage: React.FC = () => {
         e.preventDefault();
 
         if (editingType) {
-            // 更新現有類型
             const result = await leaveTypeService.updateLeaveType(editingType.id, formData);
             if (result.success) {
                 await loadLeaveTypes();
@@ -39,7 +39,6 @@ const LeaveTypesPage: React.FC = () => {
                 alert(`更新失敗：${result.error}`);
             }
         } else {
-            // 建立新類型
             const result = await leaveTypeService.createLeaveType(formData);
             if (result.success) {
                 await loadLeaveTypes();
@@ -62,25 +61,10 @@ const LeaveTypesPage: React.FC = () => {
         setShowForm(true);
     };
 
-    const handleDelete = async (id: string, typeName: string) => {
-        if (!confirm(`確定要刪除「${typeName}」差勤類型嗎？\n\n注意：如果此類型已被使用，刪除將會失敗。建議改用「停用」功能。`)) return;
+    const handleToggle = async (id: string, isActive: boolean, typeName: string) => {
+        const action = isActive ? '停用' : '啟用';
+        if (!confirm(`確定要${action}「${typeName}」差勤類型嗎？`)) return;
 
-        const result = await leaveTypeService.deleteLeaveType(id);
-        if (result.success) {
-            await loadLeaveTypes();
-        } else {
-            // 提供更友善的錯誤訊息
-            let errorMessage = '刪除失敗';
-            if (result.error?.includes('foreign key') || result.error?.includes('violates')) {
-                errorMessage = '無法刪除此差勤類型，因為已有員工使用此類型提交申請。\n\n建議：請改用「停用」功能來隱藏此類型。';
-            } else if (result.error) {
-                errorMessage = `刪除失敗：${result.error}`;
-            }
-            alert(errorMessage);
-        }
-    };
-
-    const handleToggle = async (id: string, isActive: boolean) => {
         const result = await leaveTypeService.toggleLeaveType(id, !isActive);
         if (result.success) {
             await loadLeaveTypes();
@@ -110,87 +94,81 @@ const LeaveTypesPage: React.FC = () => {
     }
 
     return (
-        <div>
-            <div className="mb-6 flex justify-between items-center">
+        <div className="space-y-6">
+            <div className="sm:flex sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">差勤類型管理</h1>
-                    <p className="text-slate-500 mt-1">管理員工可申請的差勤類型</p>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">差勤類型管理</h1>
+                    <p className="text-base text-slate-500 font-medium mt-1">管理與設定員工可申請的各類差勤項目。</p>
                 </div>
                 <button
                     onClick={() => setShowForm(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    className="mt-4 sm:mt-0 inline-flex items-center px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all gap-2"
                 >
-                    <span className="material-symbols-outlined text-xl">add</span>
+                    <Plus className="h-5 w-5" />
                     新增類型
                 </button>
             </div>
 
             {/* 差勤類型列表 */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-slate-200">
-                        <thead className="bg-slate-50">
+                    <table className="min-w-full divide-y divide-slate-100">
+                        <thead className="bg-slate-50/50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">類型名稱</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">代碼</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">顏色</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">排序</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">狀態</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">操作</th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">類型名稱</th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">排序</th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">狀態</th>
+                                <th className="px-6 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">操作</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-slate-200">
+                        <tbody className="bg-white divide-y divide-slate-50">
                             {leaveTypes.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                                        目前沒有差勤類型
+                                    <td colSpan={4} className="px-6 py-20 text-center text-slate-400 font-black text-base">
+                                        目前沒有已設定的差勤類型
                                     </td>
                                 </tr>
                             ) : (
                                 leaveTypes.map((type) => (
-                                    <tr key={type.id} className="hover:bg-slate-50">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center gap-2">
+                                    <tr key={type.id} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-5 whitespace-nowrap">
+                                            <div className="flex items-center gap-3">
                                                 <div
-                                                    className="w-3 h-3 rounded-full"
+                                                    className="w-4 h-4 rounded-full shadow-sm ring-2 ring-white"
                                                     style={{ backgroundColor: type.color }}
                                                 />
-                                                <span className="text-sm font-medium text-slate-900">{type.name}</span>
+                                                <span className="text-base font-black text-slate-800">{type.name}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-mono">
-                                            {type.code}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                            {type.color}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                        <td className="px-6 py-5 whitespace-nowrap text-sm font-bold text-slate-500">
                                             {type.sort_order}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <button
-                                                onClick={() => handleToggle(type.id, type.is_active)}
-                                                className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full transition-colors ${type.is_active
-                                                    ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                                                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                                                    }`}
-                                            >
-                                                {type.is_active ? '啟用' : '停用'}
-                                            </button>
+                                        <td className="px-6 py-5 whitespace-nowrap">
+                                            <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider border ${type.is_active
+                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                                : 'bg-slate-50 text-slate-400 border-slate-100'
+                                                }`}>
+                                                {type.is_active ? '啟用中' : '已停用'}
+                                            </span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                            <div className="flex gap-2">
+                                        <td className="px-6 py-5 whitespace-nowrap text-right text-sm">
+                                            <div className="flex justify-end gap-3">
                                                 <button
                                                     onClick={() => handleEdit(type)}
-                                                    className="text-blue-600 hover:text-blue-800 transition-colors"
+                                                    className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all border border-transparent hover:border-blue-100"
+                                                    title="編輯"
                                                 >
-                                                    編輯
+                                                    <Pencil className="h-5 w-5" />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(type.id, type.name)}
-                                                    className="text-red-600 hover:text-red-800 transition-colors"
+                                                    onClick={() => handleToggle(type.id, type.is_active, type.name)}
+                                                    className={`p-2.5 rounded-xl transition-all border border-transparent ${type.is_active
+                                                        ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100'
+                                                        : 'text-amber-400 hover:text-emerald-600 hover:bg-emerald-50 hover:border-emerald-100'
+                                                        }`}
+                                                    title={type.is_active ? '停用' : '啟用'}
                                                 >
-                                                    刪除
+                                                    <Power className="h-5 w-5" />
                                                 </button>
                                             </div>
                                         </td>
@@ -204,102 +182,102 @@ const LeaveTypesPage: React.FC = () => {
 
             {/* 新增/編輯表單 Modal */}
             {showForm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                    <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100">
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                            <h2 className="text-xl font-bold text-slate-800">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 scale-in-center transition-transform">
+                        <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
+                            <h2 className="text-xl font-black text-slate-900 tracking-tight">
                                 {editingType ? '編輯差勤類型' : '新增差勤類型'}
                             </h2>
-                            <button onClick={resetForm} className="text-slate-400 hover:text-slate-600 transition-colors">
-                                <span className="material-symbols-outlined">close</span>
+                            <button onClick={resetForm} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
+                                <X className="h-5 w-5" />
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                        <form onSubmit={handleSubmit} className="p-8 space-y-6">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">類型名稱</label>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">類型名稱</label>
                                 <input
                                     type="text"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                                    className="w-full p-3.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-900 font-bold focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
                                     placeholder="例如：事假"
                                     required
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">類型代碼</label>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">類型代碼 (建立後不可修改)</label>
                                 <input
                                     type="text"
                                     value={formData.code}
                                     onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-mono"
+                                    className="w-full p-3.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-900 font-mono font-bold focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all disabled:opacity-50 disabled:bg-slate-100"
                                     placeholder="例如：PERSONAL"
                                     required
                                     disabled={!!editingType}
                                 />
-                                {editingType && (
-                                    <p className="text-xs text-slate-500 mt-1">代碼建立後無法修改</p>
-                                )}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">顯示顏色</label>
-                                <div className="flex gap-3 items-center">
-                                    <input
-                                        type="color"
-                                        value={formData.color}
-                                        onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                                        className="h-10 w-20 rounded border border-slate-200 cursor-pointer"
-                                    />
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">標誌顏色</label>
+                                <div className="flex gap-4">
+                                    <div className="relative">
+                                        <input
+                                            type="color"
+                                            value={formData.color}
+                                            onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                                            className="h-14 w-14 rounded-xl border-4 border-white shadow-xl cursor-pointer overflow-hidden p-0"
+                                        />
+                                    </div>
                                     <input
                                         type="text"
                                         value={formData.color}
                                         onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                                        className="flex-1 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-mono"
+                                        className="flex-1 p-3.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-900 font-mono font-bold focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
                                         placeholder="#3B82F6"
                                     />
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">排序順序</label>
-                                <input
-                                    type="number"
-                                    value={formData.sort_order}
-                                    onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) || 0 })}
-                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                                    placeholder="0"
-                                />
+                            <div className="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">排序順序</label>
+                                    <input
+                                        type="number"
+                                        value={formData.sort_order}
+                                        onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) || 0 })}
+                                        className="w-full p-3.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-900 font-bold focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
+                                        placeholder="0"
+                                    />
+                                </div>
+                                <div className="flex flex-col justify-end">
+                                    <label className="relative inline-flex items-center cursor-pointer group">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.is_active}
+                                            onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none ring-0 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                        <span className="ml-3 text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">啟用</span>
+                                    </label>
+                                </div>
                             </div>
 
-                            <div className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    id="is_active"
-                                    checked={formData.is_active}
-                                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                                    className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor="is_active" className="ml-2 text-sm font-medium text-slate-700">
-                                    啟用此類型
-                                </label>
-                            </div>
-
-                            <div className="flex gap-3 pt-2">
+                            <div className="flex gap-4 pt-4">
                                 <button
                                     type="button"
                                     onClick={resetForm}
-                                    className="flex-1 py-3 px-4 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
+                                    className="flex-1 py-4 px-6 bg-slate-50 text-slate-500 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-100 transition-all"
                                 >
                                     取消
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all"
+                                    className="flex-[2] py-4 px-6 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-blue-100 hover:bg-blue-700 hover:-translate-y-0.5 transition-all"
                                 >
-                                    {editingType ? '更新' : '建立'}
+                                    {editingType ? '更新內容' : '建立類型'}
                                 </button>
                             </div>
                         </form>

@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-// import { Employee } from './attendance'; // We will define types here or import
+import { Employee } from '../types';
 
 export interface DashboardStats {
     totalEmployees: number;
@@ -65,15 +65,12 @@ export const getRecentActivity = async () => {
     }
 }
 
-export const createEmployee = async (name: string, pin: string, department: string, supervisor_id?: string | null) => {
+export const createEmployee = async (data: Partial<Employee>) => {
     try {
         const { error } = await supabase
             .from('employees')
             .insert([{
-                name,
-                pin,
-                department,
-                supervisor_id: supervisor_id || null,
+                ...data,
                 is_active: true
             }]);
 
@@ -84,13 +81,7 @@ export const createEmployee = async (name: string, pin: string, department: stri
     }
 };
 
-export const updateEmployee = async (id: string, updates: {
-    name?: string;
-    pin?: string;
-    department?: string;
-    is_active?: boolean;
-    supervisor_id?: string | null;
-}) => {
+export const updateEmployee = async (id: string, updates: Partial<Employee>) => {
     try {
         const { error } = await supabase
             .from('employees')

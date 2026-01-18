@@ -53,6 +53,46 @@ export interface Employee {
   id: string;
   name: string;
   pin: string;
+  email?: string;
   department: string;
+  is_active: boolean;
+  is_supervisor?: boolean;
+  supervisor_id?: string;
+
+  // --- 新增詳細資料欄位 ---
+  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  position?: string;
+  birth_date?: string;
+  mailing_address?: string;
+  contact_phone?: string;
+  gmail?: string;
+  emergency_contact_name?: string;
+  emergency_contact_relationship?: string;
+  emergency_contact_phone?: string;
+  insurance_start_date?: string;
+  insurance_end_date?: string;
+  join_date?: string;
+}
+
+export interface EmployeeMovement {
+  id: string;
+  created_at: string;
+  employee_id: string;
+  movement_type: string;
+  old_value?: string;
+  new_value?: string;
+  effective_date: string;
+  reason?: string;
+  recorded_by?: string;
+}
+
+export interface CompanyLocation {
+  id: string;
+  created_at?: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  radius_meters: number;
   is_active: boolean;
 }

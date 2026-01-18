@@ -42,7 +42,12 @@ const EmployeeLayout: React.FC = () => {
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col sm:flex-row">
             {/* Sidebar (桌面版) */}
-            <aside className="hidden sm:flex w-56 bg-white border-r border-slate-200 flex-col fixed inset-y-0">
+            <aside className="hidden sm:flex w-56 bg-white border-r border-slate-200 flex-col fixed inset-y-0 shadow-sm">
+                <div className="p-4 border-b border-slate-100 flex flex-col items-center gap-2">
+                    <img src="/logo.jpg" alt="Logo" className="h-14 w-auto object-contain" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">員工服務平台</span>
+                </div>
+
                 <div className="p-6 border-b border-slate-100">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-100">
