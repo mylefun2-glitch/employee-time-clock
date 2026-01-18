@@ -55,7 +55,7 @@ export const getRecentActivity = async () => {
                 employees (name, department)
             `)
             .order('timestamp', { ascending: false })
-            .limit(10);
+            .limit(30);
 
         if (error) throw error;
         return data;
