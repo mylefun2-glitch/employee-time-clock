@@ -304,12 +304,18 @@ const AttendancePage: React.FC = () => {
                                                             </span>
                                                         </div>
                                                         {log.latitude && (
-                                                            <div className="flex items-center gap-1 opacity-50 text-[10px] font-bold">
-                                                                <span className="material-symbols-outlined text-[12px]">location_on</span>
-                                                                <span className="truncate max-w-[120px]">
+                                                            <a
+                                                                href={`https://www.google.com/maps?q=${log.latitude},${log.longitude}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="flex items-center gap-1 opacity-50 hover:opacity-100 text-[10px] font-bold transition-all hover:text-blue-600 cursor-pointer group/location"
+                                                                title="在 Google 地圖中查看"
+                                                            >
+                                                                <span className="material-symbols-outlined text-[12px] group-hover/location:scale-110 transition-transform">location_on</span>
+                                                                <span className="truncate max-w-[120px] underline decoration-dotted underline-offset-2">
                                                                     {Number(log.latitude).toFixed(4)}, {Number(log.longitude).toFixed(4)}
                                                                 </span>
-                                                            </div>
+                                                            </a>
                                                         )}
                                                         {/* Tooltip for accuracy */}
                                                         {log.accuracy && (
