@@ -67,11 +67,18 @@ const AdminLayout: React.FC = () => {
                     ))}
                 </nav>
 
-                <div className="p-4 border-t border-slate-100">
-                    <div className="px-4 py-3 mb-2">
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">登入帳號</p>
-                        <p className="text-sm font-medium text-slate-700 truncate">{user?.email}</p>
+                <div className="p-4 border-t border-slate-100 flex flex-col gap-1">
+                    <div className="px-4 py-2">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">登入帳號</p>
+                        <p className="text-xs font-bold text-slate-600 truncate">{user?.email}</p>
                     </div>
+                    <button
+                        onClick={() => navigate('/')}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-blue-600 hover:bg-blue-50 rounded-xl font-bold transition-all"
+                    >
+                        <span className="material-symbols-outlined">keypad</span>
+                        返回打卡系統
+                    </button>
                     <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-3 text-rose-500 hover:bg-rose-50 rounded-xl font-medium transition-all"

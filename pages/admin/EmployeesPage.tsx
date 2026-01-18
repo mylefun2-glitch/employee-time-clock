@@ -101,12 +101,17 @@ const EmployeesPage: React.FC = () => {
                 const lines = text.split('\n').filter(line => line.trim());
                 let success = 0;
                 let failed = 0;
-                // 注意：這裡匯入邏輯較簡單，目前僅處理基本欄位
                 for (let i = 1; i < lines.length; i++) {
                     const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+                    // 修改匯入邏輯以支援新的標籤格式
                     if (values.length < 3) { failed++; continue; }
-                    const [name, pin, department] = values;
-                    const res = await createEmployee({ name, pin, department });
+                    const [name, username, pin, department] = values;
+                    const res = await createEmployee({
+                        name,
+                        username: username || name, // 若未提供則預設為姓名
+                        pin,
+                        department
+                    });
                     if (res.success) success++; else failed++;
                 }
                 alert(`匯入完成！成功：${success} 筆，失敗：${failed} 筆`);
@@ -122,16 +127,16 @@ const EmployeesPage: React.FC = () => {
     };
 
     const handleDownloadTemplate = () => {
-        // 更新下載範本，包含所有擴展欄位
+        // 更新下載範本，包含帳號與其他擴展欄位
         const headers = [
-            '姓名', 'PIN碼(6位)', '部門', '職務', '性別(MALE/FEMALE/OTHER)',
+            '姓名', '帳號(可與姓名相同)', 'PIN碼(6位)', '部門', '職務', '性別(MALE/FEMALE/OTHER)',
             '出生日期(YYYY-MM-DD)', '到職日期(YYYY-MM-DD)', 'Gmail', '通訊電話',
             '通訊地址', '緊急聯絡人姓名', '緊急聯絡人關係', '緊急聯絡人電話',
             '勞保加保日期(YYYY-MM-DD)', '勞保退保日期(YYYY-MM-DD)'
         ].join(',');
 
         const example = [
-            '王小明', '123456', '行政部', '行政助理', 'MALE',
+            '王小明', 'xiaoming_wang', '123456', '行政部', '行政助理', 'MALE',
             '1990-05-20', '2023-01-01', 'xiaoming@gmail.com', '0912345678',
             '台北市中正區123號', '王大明', '父子', '0987654321',
             '2023-01-01', ''

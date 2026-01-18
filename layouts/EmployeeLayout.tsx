@@ -78,7 +78,14 @@ const EmployeeLayout: React.FC = () => {
                     ))}
                 </nav>
 
-                <div className="p-4 border-t border-slate-100">
+                <div className="p-4 border-t border-slate-100 flex flex-col gap-2">
+                    <button
+                        onClick={() => navigate('/')}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-blue-600 hover:bg-blue-50 rounded-xl font-bold transition-all"
+                    >
+                        <span className="material-symbols-outlined">keypad</span>
+                        返回打卡系統
+                    </button>
                     <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-3 text-rose-500 hover:bg-rose-50 rounded-xl font-medium transition-all"

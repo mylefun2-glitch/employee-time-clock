@@ -20,7 +20,7 @@ interface EmployeeUser {
 interface EmployeeContextType {
     employee: EmployeeUser | null;
     loading: boolean;
-    login: (pin: string) => Promise<{ success: boolean; error?: string }>;
+    login: (username: string, pin: string) => Promise<{ success: boolean; error?: string }>;
     logout: () => void;
 }
 
@@ -77,18 +77,19 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     };
 
-    const login = async (pin: string): Promise<{ success: boolean; error?: string }> => {
+    const login = async (username: string, pin: string): Promise<{ success: boolean; error?: string }> => {
         try {
-            // 驗證 PIN 碼
+            // 驗證帳號與 PIN 碼
             const { data, error } = await supabase
                 .from('employees')
                 .select('*')
+                .eq('username', username)
                 .eq('pin', pin)
                 .eq('is_active', true)
                 .single();
 
             if (error || !data) {
-                return { success: false, error: 'PIN 碼錯誤或帳號已停用' };
+                return { success: false, error: '帳號或 PIN 碼錯誤' };
             }
 
             // 檢查是否為主管

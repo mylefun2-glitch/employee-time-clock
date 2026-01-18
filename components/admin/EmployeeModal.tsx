@@ -14,6 +14,7 @@ interface EmployeeModalProps {
 const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit, employee, allEmployees = [] }) => {
     // 基礎欄位
     const [name, setName] = useState('');
+    const [username, setUsername] = useState('');
     const [pin, setPin] = useState('');
     const [department, setDepartment] = useState('');
     const [supervisorId, setSupervisorId] = useState<string>('');
@@ -40,6 +41,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
     useEffect(() => {
         if (employee && isOpen) {
             setName(employee.name || '');
+            setUsername(employee.username || '');
             setPin(employee.pin || '');
             setDepartment(employee.department || '');
             setSupervisorId(employee.supervisor_id || '');
@@ -58,6 +60,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             setJoinDate(employee.join_date || '');
         } else if (!employee && isOpen) {
             setName('');
+            setUsername('');
             setPin('');
             setDepartment('');
             setSupervisorId('');
@@ -93,6 +96,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
         try {
             await onSubmit({
                 name,
+                username: username || name, // 若未填寫則預設使用姓名
                 pin,
                 department,
                 is_active: isActive,
@@ -134,8 +138,8 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                             type="button"
                             onClick={() => setActiveTab(tab)}
                             className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${activeTab === tab
-                                    ? 'border-blue-600 text-blue-600'
-                                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-slate-400 hover:text-slate-600'
                                 }`}
                         >
                             {tab === 'basic' ? '基本' : tab === 'personal' ? '個人與緊急' : tab === 'work' ? '職務保險' : '異動紀錄'}
@@ -154,7 +158,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
 
                     {activeTab === 'basic' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="sm:col-span-2">
+                            <div>
                                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">姓名</label>
                                 <input
                                     type="text"
@@ -162,6 +166,16 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">登入帳號 (預設為姓名)</label>
+                                <input
+                                    type="text"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50 font-medium"
+                                    placeholder="建議使用 Gmail 或工號"
                                 />
                             </div>
                             <div>

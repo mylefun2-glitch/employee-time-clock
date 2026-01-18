@@ -52,6 +52,7 @@ export interface LeaveRequest {
 export interface Employee {
   id: string;
   name: string;
+  username?: string; // 新增：登入帳號
   pin: string;
   email?: string;
   department: string;
