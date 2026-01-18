@@ -58,13 +58,16 @@ const AttendancePage: React.FC = () => {
     const handleExportCSV = () => {
         if (filteredLogs.length === 0) return;
 
-        const headers = ['員工姓名', '部門', 'PIN (前5碼)', '打卡類型', '打卡時間'];
+        const headers = ['員工姓名', '部門', 'PIN (前5碼)', '打卡類型', '打卡時間', '緯度', '經度', '定位精度(公尺)'];
         const rows = filteredLogs.map(log => [
             log.employees?.name || 'Unknown',
             log.employees?.department || '',
             `*****${(log.employees?.pin || '').slice(-1)}`,
             log.check_type === 'IN' ? '上班' : '下班',
-            format(new Date(log.timestamp), 'yyyy-MM-dd HH:mm:ss')
+            format(new Date(log.timestamp), 'yyyy-MM-dd HH:mm:ss'),
+            log.latitude || '',
+            log.longitude || '',
+            log.location_accuracy || ''
         ]);
 
         const csvContent = [
@@ -169,8 +172,8 @@ const AttendancePage: React.FC = () => {
                                     key={type}
                                     onClick={() => setFilterType(type)}
                                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterType === type
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                         }`}
                                 >
                                     {type === 'ALL' ? '全部' : type === 'IN' ? '上班' : '下班'}
@@ -192,8 +195,8 @@ const AttendancePage: React.FC = () => {
                                 <button
                                     onClick={() => setFilterDepartment('ALL')}
                                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterDepartment === 'ALL'
-                                            ? 'bg-purple-600 text-white'
-                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        ? 'bg-purple-600 text-white'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                         }`}
                                 >
                                     全部
@@ -205,14 +208,14 @@ const AttendancePage: React.FC = () => {
                                             key={dept}
                                             onClick={() => setFilterDepartment(dept)}
                                             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${filterDepartment === dept
-                                                    ? 'bg-purple-600 text-white'
-                                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                                ? 'bg-purple-600 text-white'
+                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                                 }`}
                                         >
                                             {dept}
                                             <span className={`text-xs px-1.5 py-0.5 rounded-full ${filterDepartment === dept
-                                                    ? 'bg-purple-500'
-                                                    : 'bg-slate-200'
+                                                ? 'bg-purple-500'
+                                                : 'bg-slate-200'
                                                 }`}>
                                                 {stat?.count || 0}
                                             </span>
@@ -245,12 +248,15 @@ const AttendancePage: React.FC = () => {
                                         <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-slate-900">
                                             時間
                                         </th>
+                                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-slate-900">
+                                            位置
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-200 bg-white">
                                     {loading ? (
                                         <tr>
-                                            <td colSpan={4} className="py-8 text-center text-slate-500 text-sm">
+                                            <td colSpan={5} className="py-8 text-center text-slate-500 text-sm">
                                                 載入中...
                                             </td>
                                         </tr>
@@ -275,11 +281,27 @@ const AttendancePage: React.FC = () => {
                                             <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">
                                                 {format(new Date(log.timestamp), 'yyyy-MM-dd HH:mm:ss')}
                                             </td>
+                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">
+                                                {log.latitude && log.longitude ? (
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-xs font-mono">
+                                                            {Number(log.latitude).toFixed(6)}, {Number(log.longitude).toFixed(6)}
+                                                        </span>
+                                                        {log.location_accuracy && (
+                                                            <span className="text-xs text-slate-400">
+                                                                精度: {Math.round(log.location_accuracy)}m
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-slate-400">無位置資訊</span>
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
                                     {!loading && filteredLogs.length === 0 && (
                                         <tr>
-                                            <td colSpan={4} className="py-8 text-center text-slate-500 text-sm">
+                                            <td colSpan={5} className="py-8 text-center text-slate-500 text-sm">
                                                 {logs.length === 0 ? '沒有打卡紀錄' : '沒有符合篩選條件的紀錄'}
                                             </td>
                                         </tr>

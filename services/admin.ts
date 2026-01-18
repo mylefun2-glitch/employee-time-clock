@@ -65,11 +65,17 @@ export const getRecentActivity = async () => {
     }
 }
 
-export const createEmployee = async (name: string, pin: string, department: string) => {
+export const createEmployee = async (name: string, pin: string, department: string, supervisor_id?: string | null) => {
     try {
         const { error } = await supabase
             .from('employees')
-            .insert([{ name, pin, department }]);
+            .insert([{
+                name,
+                pin,
+                department,
+                supervisor_id: supervisor_id || null,
+                is_active: true
+            }]);
 
         if (error) throw error;
         return { success: true };
@@ -78,7 +84,13 @@ export const createEmployee = async (name: string, pin: string, department: stri
     }
 };
 
-export const updateEmployee = async (id: string, updates: { name?: string; pin?: string; department?: string; is_active?: boolean }) => {
+export const updateEmployee = async (id: string, updates: {
+    name?: string;
+    pin?: string;
+    department?: string;
+    is_active?: boolean;
+    supervisor_id?: string | null;
+}) => {
     try {
         const { error } = await supabase
             .from('employees')

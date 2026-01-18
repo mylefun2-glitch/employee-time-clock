@@ -14,7 +14,10 @@ create table attendance_logs (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   employee_id uuid references employees(id) not null,
   check_type text not null check (check_type in ('IN', 'OUT')),
-  timestamp timestamp with time zone default timezone('utc'::text, now()) not null
+  timestamp timestamp with time zone default timezone('utc'::text, now()) not null,
+  latitude decimal(10, 8),      -- 緯度
+  longitude decimal(11, 8),     -- 經度
+  location_accuracy decimal(10, 2)  -- 定位精度（公尺）
 );
 
 -- Enable Row Level Security (RLS)

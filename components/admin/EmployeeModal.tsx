@@ -5,14 +5,16 @@ import { Employee } from '../../services/attendance';
 interface EmployeeModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (data: { name: string; pin: string; department: string; is_active: boolean }) => Promise<void>;
+    onSubmit: (data: { name: string; pin: string; department: string; is_active: boolean; supervisor_id?: string | null }) => Promise<void>;
     employee?: Employee | null;
+    allEmployees?: Employee[]; // 用於主管選擇
 }
 
-const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit, employee }) => {
+const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit, employee, allEmployees = [] }) => {
     const [name, setName] = useState('');
     const [pin, setPin] = useState('');
     const [department, setDepartment] = useState('');
+    const [supervisorId, setSupervisorId] = useState<string>('');
     const [isActive, setIsActive] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -22,11 +24,13 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             setName(employee.name);
             setPin((employee as any).pin);
             setDepartment(employee.department);
+            setSupervisorId((employee as any).supervisor_id || '');
             setIsActive((employee as any).is_active ?? true);
         } else {
             setName('');
             setPin('');
             setDepartment('');
+            setSupervisorId('');
             setIsActive(true);
         }
         setError(null);
@@ -44,7 +48,13 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
         }
 
         try {
-            await onSubmit({ name, pin, department, is_active: isActive });
+            await onSubmit({
+                name,
+                pin,
+                department,
+                is_active: isActive,
+                supervisor_id: supervisorId || null
+            });
             onClose();
         } catch (err: any) {
             setError(err.message || '發生錯誤');
@@ -100,6 +110,27 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                         onChange={(e) => setDepartment(e.target.value)}
                         className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
                     />
+                </div>
+
+                {/* 主管選擇 */}
+                <div>
+                    <label htmlFor="supervisor" className="block text-sm font-medium text-slate-700">主管（選填）</label>
+                    <select
+                        id="supervisor"
+                        value={supervisorId}
+                        onChange={(e) => setSupervisorId(e.target.value)}
+                        className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+                    >
+                        <option value="">無主管</option>
+                        {allEmployees
+                            .filter(emp => emp.id !== employee?.id) // 排除自己
+                            .map(emp => (
+                                <option key={emp.id} value={emp.id}>
+                                    {emp.name} - {emp.department || '未分配部門'}
+                                </option>
+                            ))
+                        }
+                    </select>
                 </div>
 
                 {employee && (

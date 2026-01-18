@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { KeypadValue } from '../types';
 import { checkPin, logAttendance, getRecentAttendance, Employee } from '../services/attendance';
+import { getCurrentPosition, isWithinAnyLocation, formatDistance, isGeolocationSupported, CompanyLocation } from '../services/geolocation';
+import { getActiveLocations } from '../services/companyLocationService';
 import SuccessOverlay from '../components/SuccessOverlay';
 import FailureOverlay from '../components/FailureOverlay';
-import LeaveRequestForm from '../components/LeaveRequestForm';
 
 // Helper to format date in Traditional Chinese
 const formatDate = (date: Date) => {
@@ -39,8 +40,9 @@ const KioskPage: React.FC = () => {
     } | null>(null);
     const [showFailure, setShowFailure] = useState(false);
     const [failureMessage, setFailureMessage] = useState('');
-    const [showRequestForm, setShowRequestForm] = useState(false);
-    const [lastVerifiedEmployee, setLastVerifiedEmployee] = useState<Employee | null>(null);
+    const [isGettingLocation, setIsGettingLocation] = useState(false);
+    const [locationInfo, setLocationInfo] = useState<{ distance: number; withinRange: boolean; locationName?: string } | null>(null);
+    const [companyLocations, setCompanyLocations] = useState<CompanyLocation[]>([]);
 
     // Update clock every second
     useEffect(() => {
@@ -48,6 +50,15 @@ const KioskPage: React.FC = () => {
             setCurrentTime(new Date());
         }, 1000);
         return () => clearInterval(timer);
+    }, []);
+
+    // Load company locations
+    useEffect(() => {
+        const loadLocations = async () => {
+            const locations = await getActiveLocations();
+            setCompanyLocations(locations);
+        };
+        loadLocations();
     }, []);
 
     // Handle keypad input
@@ -93,9 +104,43 @@ const KioskPage: React.FC = () => {
                 return;
             }
 
-            // 2. Log Attendance
+            // 2. 獲取地理位置（記錄模式：即使失敗也允許打卡）
+            let locationData: { latitude: number; longitude: number; accuracy: number } | undefined;
+
+            if (isGeolocationSupported()) {
+                setIsGettingLocation(true);
+                try {
+                    const position = await getCurrentPosition();
+                    locationData = position;
+
+                    // 檢查是否在任一公司地點範圍內
+                    const { withinRange, distance, nearestLocation } = isWithinAnyLocation(
+                        position.latitude,
+                        position.longitude,
+                        companyLocations
+                    );
+
+                    setLocationInfo({
+                        distance,
+                        withinRange,
+                        locationName: nearestLocation?.name || '公司'
+                    });
+
+                    // 記錄模式：顯示警告但仍允許打卡
+                    if (!withinRange) {
+                        console.warn(`打卡位置超出範圍：${distance} 公尺（最近地點：${nearestLocation?.name || '未知'}）`);
+                    }
+                } catch (error: any) {
+                    console.warn('無法取得位置：', error.message);
+                    // 記錄模式：定位失敗仍允許打卡
+                } finally {
+                    setIsGettingLocation(false);
+                }
+            }
+
+            // 3. Log Attendance
             const typeStr = type === 'in' ? 'IN' : 'OUT'; // Map to DB enum
-            const result = await logAttendance(employee.id, typeStr);
+            const result = await logAttendance(employee.id, typeStr, locationData);
 
             if (result.success) {
                 // 3. Fetch recent logs for the overlay
@@ -122,36 +167,6 @@ const KioskPage: React.FC = () => {
         }
     };
 
-    const handleRequestLeave = async () => {
-        if (pin.length !== 6 || isLoading) {
-            if (pin.length !== 6) {
-                setIsAnimating(true);
-                setTimeout(() => setIsAnimating(false), 500);
-            }
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            const employee = await checkPin(pin);
-            if (!employee) {
-                setFailureMessage('驗證失敗：找不到此 PIN 碼');
-                setShowFailure(true);
-                setPin('');
-                setIsAnimating(true);
-                setTimeout(() => setIsAnimating(false), 500);
-                return;
-            }
-            setLastVerifiedEmployee(employee);
-            setShowRequestForm(true);
-        } catch (error) {
-            console.error(error);
-            setFailureMessage('系統發生錯誤，請稍後再試');
-            setShowFailure(true);
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     return (
         <div className="bg-[#eef6ff] dark:bg-background-dark text-slate-900 dark:text-white font-display min-h-screen flex flex-col items-center justify-center p-4 selection:bg-primary/20 relative overflow-hidden">
@@ -232,6 +247,39 @@ const KioskPage: React.FC = () => {
                         </button>
                     </div>
 
+                    {/* 位置資訊顯示 */}
+                    {isGettingLocation && (
+                        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center gap-2">
+                            <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                            <span className="text-sm text-blue-700 dark:text-blue-300">正在獲取位置...</span>
+                        </div>
+                    )}
+
+                    {locationInfo && !isGettingLocation && (
+                        <div className={`mb-4 p-3 border rounded-lg flex items-center gap-2 ${locationInfo.withinRange
+                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                            : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                            }`}>
+                            <span className="material-symbols-outlined text-lg">
+                                {locationInfo.withinRange ? 'check_circle' : 'warning'}
+                            </span>
+                            <div className="flex-1">
+                                <p className={`text-sm font-medium ${locationInfo.withinRange
+                                    ? 'text-green-700 dark:text-green-300'
+                                    : 'text-amber-700 dark:text-amber-300'
+                                    }`}>
+                                    {locationInfo.withinRange ? '位置正常' : '位置異常'}
+                                </p>
+                                <p className={`text-xs ${locationInfo.withinRange
+                                    ? 'text-green-600 dark:text-green-400'
+                                    : 'text-amber-600 dark:text-amber-400'
+                                    }`}>
+                                    距離{locationInfo.locationName || '公司'} {formatDistance(locationInfo.distance)}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Action Buttons */}
                     <div className="grid grid-cols-2 gap-4">
                         <ActionButton
@@ -247,20 +295,6 @@ const KioskPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Additional Actions */}
-                <div className="px-6 pb-6 mt-[-12px]">
-                    <button
-                        onClick={handleRequestLeave}
-                        disabled={pin.length !== 6 || isLoading}
-                        className={`w-full py-3 flex items-center justify-center gap-2 rounded-xl border transition-all font-medium ${pin.length === 6 && !isLoading
-                                ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 dark:shadow-blue-900/30'
-                                : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 opacity-60'
-                            }`}
-                    >
-                        <span className="material-symbols-outlined text-xl">event_note</span>
-                        我要申請出差勤
-                    </button>
-                </div>
             </main>
 
             {/* Success Overlay */}
@@ -282,18 +316,6 @@ const KioskPage: React.FC = () => {
                 />
             )}
 
-            {/* Leave Request Form */}
-            {showRequestForm && lastVerifiedEmployee && (
-                <LeaveRequestForm
-                    employeeId={lastVerifiedEmployee.id}
-                    onClose={() => setShowRequestForm(false)}
-                    onSuccess={() => {
-                        setShowRequestForm(false);
-                        setPin('');
-                        // 也可以加一個成功提示
-                    }}
-                />
-            )}
 
             {/* Footer */}
             <footer className="mt-8 text-slate-400 text-xs text-center relative z-10">
@@ -302,8 +324,16 @@ const KioskPage: React.FC = () => {
                     <span className="material-symbols-outlined text-[14px] text-emerald-500">lock</span>
                     <span>Secure Connection</span>
                 </div>
-                <div className="mt-2">
-                    <a href="/admin/login" className="text-slate-300 hover:text-slate-500">Admin Login</a>
+                <div className="mt-4 flex items-center justify-center gap-6">
+                    <a href="/employee/login" className="flex items-center gap-1.5 text-slate-400 hover:text-blue-500 transition-colors font-bold group">
+                        <span className="material-symbols-outlined text-[18px] group-hover:rotate-12 transition-transform">person</span>
+                        員工平台登入
+                    </a>
+                    <div className="w-[1px] h-3 bg-slate-200 dark:bg-slate-700"></div>
+                    <a href="/admin/login" className="flex items-center gap-1.5 text-slate-400 hover:text-slate-600 transition-colors font-medium">
+                        <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                        後台管理
+                    </a>
                 </div>
             </footer>
         </div>

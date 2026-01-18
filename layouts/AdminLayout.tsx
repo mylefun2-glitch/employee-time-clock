@@ -35,7 +35,8 @@ const AdminLayout: React.FC = () => {
         { path: '/admin/employees', icon: 'groups', label: '員工管理' },
         { path: '/admin/attendance', icon: 'event_note', label: '考勤記錄' },
         { path: '/admin/requests', icon: 'description', label: '請假申請' },
-        { path: '/admin/leave-types', icon: 'category', label: '差勤類型' }
+        { path: '/admin/leave-types', icon: 'category', label: '差勤類型' },
+        { path: '/admin/company', icon: 'business', label: '公司管理' }
     ];
 
     return (

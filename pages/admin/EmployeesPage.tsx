@@ -65,12 +65,18 @@ const EmployeesPage: React.FC = () => {
         }
     };
 
-    const handleSubmit = async (data: { name: string; pin: string; department: string; is_active: boolean }) => {
+    const handleSubmit = async (data: {
+        name: string;
+        pin: string;
+        department: string;
+        is_active: boolean;
+        supervisor_id?: string | null;
+    }) => {
         let result;
         if (editingEmployee) {
             result = await updateEmployee(editingEmployee.id, data);
         } else {
-            result = await createEmployee(data.name, data.pin, data.department);
+            result = await createEmployee(data.name, data.pin, data.department, data.supervisor_id);
         }
 
         if (!result.success) {
@@ -380,6 +386,7 @@ const EmployeesPage: React.FC = () => {
                 onClose={() => setIsModalOpen(false)}
                 onSubmit={handleSubmit}
                 employee={editingEmployee}
+                allEmployees={employees}
             />
         </div>
     );

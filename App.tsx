@@ -8,32 +8,54 @@ import EmployeesPage from './pages/admin/EmployeesPage';
 import AttendancePage from './pages/admin/AttendancePage';
 import RequestsPage from './pages/admin/RequestsPage';
 import LeaveTypesPage from './pages/admin/LeaveTypesPage';
+import CompanyManagementPage from './pages/admin/CompanyManagementPage';
 import { AuthProvider } from './contexts/AuthContext';
+import { EmployeeProvider } from './contexts/EmployeeContext';
+import EmployeeLayout from './layouts/EmployeeLayout';
+import EmployeeLoginPage from './pages/employee/EmployeeLoginPage';
+import EmployeeDashboardPage from './pages/employee/EmployeeDashboardPage';
+import EmployeeProfilePage from './pages/employee/EmployeeProfilePage';
+import EmployeeRequestsPage from './pages/employee/EmployeeRequestsPage';
+import EmployeeAttendancePage from './pages/employee/EmployeeAttendancePage';
+import EmployeeApprovalsPage from './pages/employee/EmployeeApprovalsPage';
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public Kiosk Route */}
-          <Route path="/" element={<KioskPage />} />
+      <EmployeeProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Kiosk Route */}
+            <Route path="/" element={<KioskPage />} />
 
-          {/* Admin Routes */}
-          <Route path="/admin/login" element={<LoginPage />} />
+            {/* Admin Routes */}
+            <Route path="/admin/login" element={<LoginPage />} />
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="employees" element={<EmployeesPage />} />
+              <Route path="attendance" element={<AttendancePage />} />
+              <Route path="requests" element={<RequestsPage />} />
+              <Route path="leave-types" element={<LeaveTypesPage />} />
+              <Route path="company" element={<CompanyManagementPage />} />
+            </Route>
 
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="employees" element={<EmployeesPage />} />
-            <Route path="attendance" element={<AttendancePage />} />
-            <Route path="requests" element={<RequestsPage />} />
-            <Route path="leave-types" element={<LeaveTypesPage />} />
-          </Route>
+            {/* Employee Routes */}
+            <Route path="/employee/login" element={<EmployeeLoginPage />} />
+            <Route path="/employee" element={<EmployeeLayout />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<EmployeeDashboardPage />} />
+              <Route path="profile" element={<EmployeeProfilePage />} />
+              <Route path="requests" element={<EmployeeRequestsPage />} />
+              <Route path="attendance" element={<EmployeeAttendancePage />} />
+              <Route path="approvals" element={<EmployeeApprovalsPage />} />
+            </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </EmployeeProvider>
     </AuthProvider>
   );
 };

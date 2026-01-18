@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Users, UserCheck, Clock } from 'lucide-react';
+import { Users, UserCheck, Clock, AlertCircle } from 'lucide-react';
 import { getDashboardStats, getRecentActivity, DashboardStats } from '../../services/admin';
+import { getPendingApprovalsForSupervisor } from '../../services/supervisorService';
+import { useAuth } from '../../contexts/AuthContext';
 
 const DashboardPage: React.FC = () => {
+    const { user } = useAuth();
     const [stats, setStats] = useState<DashboardStats>({ totalEmployees: 0, activeEmployees: 0, todayAttendance: 0 });
     const [recentActivity, setRecentActivity] = useState<any[]>([]);
+    const [pendingCount, setPendingCount] = useState(0);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -15,15 +19,30 @@ const DashboardPage: React.FC = () => {
             ]);
             setStats(statsData);
             setRecentActivity(activityData);
+
+            // 獲取待審核數量（假設使用 user email 查詢員工）
+            // 注意：這需要員工資料表有 email 欄位
+            if (user?.email) {
+                try {
+                    // 簡化版本：直接使用固定的員工ID進行測試
+                    // 實際使用時需要根據登入使用者查詢對應的員工ID
+                    const { count } = await getPendingApprovalsForSupervisor('test-supervisor-id');
+                    setPendingCount(count);
+                } catch (error) {
+                    console.error('Error fetching pending approvals:', error);
+                }
+            }
+
             setLoading(false);
         };
         fetchData();
-    }, []);
+    }, [user]);
 
     const statCards = [
         { name: '總員工數', value: stats.totalEmployees, icon: Users, color: 'bg-blue-500' },
-        { name: '在此員工', value: stats.activeEmployees, icon: UserCheck, color: 'bg-emerald-500' },
+        { name: '在職員工', value: stats.activeEmployees, icon: UserCheck, color: 'bg-emerald-500' },
         { name: '今日打卡數', value: stats.todayAttendance, icon: Clock, color: 'bg-orange-500' },
+        { name: '待審核申請', value: pendingCount, icon: AlertCircle, color: 'bg-red-500', highlight: pendingCount > 0 },
     ];
 
     if (loading) {
@@ -35,9 +54,15 @@ const DashboardPage: React.FC = () => {
             <h1 className="text-2xl font-bold text-slate-900">儀表板</h1>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 {statCards.map((item) => (
-                    <div key={item.name} className="bg-white overflow-hidden shadow rounded-lg border border-slate-100">
+                    <div
+                        key={item.name}
+                        className={`bg-white overflow-hidden shadow rounded-lg border ${(item as any).highlight
+                                ? 'border-red-300 ring-2 ring-red-200'
+                                : 'border-slate-100'
+                            }`}
+                    >
                         <div className="p-5">
                             <div className="flex items-center">
                                 <div className="flex-shrink-0">
@@ -49,7 +74,12 @@ const DashboardPage: React.FC = () => {
                                     <dl>
                                         <dt className="text-sm font-medium text-slate-500 truncate">{item.name}</dt>
                                         <dd>
-                                            <div className="text-lg font-medium text-slate-900">{item.value}</div>
+                                            <div className="text-lg font-medium text-slate-900">
+                                                {item.value}
+                                                {(item as any).highlight && (
+                                                    <span className="ml-2 text-xs text-red-600 font-semibold">需處理</span>
+                                                )}
+                                            </div>
                                         </dd>
                                     </dl>
                                 </div>

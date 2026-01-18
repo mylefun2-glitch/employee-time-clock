@@ -31,17 +31,28 @@ export const checkPin = async (pin: string): Promise<Employee | null> => {
     }
 };
 
-export const logAttendance = async (employeeId: string, type: 'IN' | 'OUT'): Promise<{ success: boolean; error?: string }> => {
+export const logAttendance = async (
+    employeeId: string,
+    type: 'IN' | 'OUT',
+    location?: { latitude: number; longitude: number; accuracy: number }
+): Promise<{ success: boolean; error?: string }> => {
     try {
+        const logData: any = {
+            employee_id: employeeId,
+            check_type: type,
+            timestamp: new Date().toISOString()
+        };
+
+        // 如果有位置資訊，加入到記錄中
+        if (location) {
+            logData.latitude = location.latitude;
+            logData.longitude = location.longitude;
+            logData.location_accuracy = location.accuracy;
+        }
+
         const { error } = await supabase
             .from('attendance_logs')
-            .insert([
-                {
-                    employee_id: employeeId,
-                    check_type: type,
-                    timestamp: new Date().toISOString()
-                }
-            ]);
+            .insert([logData]);
 
         if (error) {
             console.error('Error logging attendance:', error);
