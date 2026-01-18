@@ -363,7 +363,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                             onClick={onClose}
                             className="flex-1 px-6 py-4 rounded-xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50 transition-all"
                         >
-                            標消
+                            取消
                         </button>
                         <button
                             type="submit"

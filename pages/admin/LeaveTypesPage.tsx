@@ -61,17 +61,35 @@ const LeaveTypesPage: React.FC = () => {
         setShowForm(true);
     };
 
-    const handleToggle = async (id: string, isActive: boolean, typeName: string) => {
-        const action = isActive ? '停用' : '啟用';
-        if (!confirm(`確定要${action}「${typeName}」差勤類型嗎？`)) return;
 
+    const handleToggle = async (id: string, isActive: boolean, typeName: string) => {
+        console.log('handleToggle called:', { id, isActive, typeName });
+
+        const action = isActive ? '停用' : '啟用';
+        const confirmMessage = `確定要${action}「${typeName}」差勤類型嗎？`;
+
+        console.log('Showing confirm dialog:', confirmMessage);
+        const userConfirmed = window.confirm(confirmMessage);
+
+        if (!userConfirmed) {
+            console.log('User cancelled the action');
+            return;
+        }
+
+        console.log('User confirmed, updating leave type...');
         const result = await leaveTypeService.toggleLeaveType(id, !isActive);
+
+        console.log('Toggle result:', result);
+
         if (result.success) {
+            console.log('Successfully toggled, reloading leave types...');
             await loadLeaveTypes();
         } else {
+            console.error('Toggle failed:', result.error);
             alert(`更新失敗：${result.error}`);
         }
     };
+
 
     const resetForm = () => {
         setFormData({
