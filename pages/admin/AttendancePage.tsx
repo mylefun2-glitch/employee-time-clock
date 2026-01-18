@@ -85,21 +85,61 @@ const AttendancePage: React.FC = () => {
 
     const departmentStats = getDepartmentStats();
 
+    // 將打卡紀錄按日期與員工整併
+    const groupedLogsValue = React.useMemo(() => {
+        const groups: { [key: string]: any } = {};
+
+        filteredLogs.forEach(log => {
+            const dateObj = new Date(log.timestamp);
+            const dateKey = format(dateObj, 'yyyy-MM-dd');
+            const empId = log.employee_id;
+            const key = `${dateKey}-${empId}`;
+
+            if (!groups[key]) {
+                groups[key] = {
+                    key,
+                    dateKey,
+                    timestamp: dateObj.getTime(), // 用於排序
+                    employee: log.employees,
+                    logs: []
+                };
+            }
+
+            groups[key].logs.push({
+                id: log.id,
+                type: log.check_type,
+                timestamp: log.timestamp,
+                time: format(dateObj, 'HH:mm:ss'),
+                latitude: log.latitude,
+                longitude: log.longitude,
+                accuracy: log.location_accuracy
+            });
+        });
+
+        // 轉換為陣列並排序（日期由新到舊，組內時間由早到晚）
+        return Object.values(groups)
+            .sort((a: any, b: any) => b.timestamp - a.timestamp)
+            .map((group: any) => ({
+                ...group,
+                logs: group.logs.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+            }));
+    }, [filteredLogs]);
+
     return (
         <div className="space-y-6">
             <div className="sm:flex sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">出勤紀錄</h1>
-                    <p className="mt-2 text-sm text-slate-700">
-                        查看並匯出員工打卡紀錄。
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">出勤紀錄管理</h1>
+                    <p className="mt-1 text-slate-500 font-medium">
+                        查看、篩選並匯出所有員工作業時間點。
                     </p>
                 </div>
-                <div className="mt-4 sm:mt-0">
+                <div className="mt-4 sm:mt-0 flex gap-3">
                     <button
                         type="button"
                         onClick={handleExportCSV}
                         disabled={filteredLogs.length === 0}
-                        className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center px-6 py-2.5 rounded-xl bg-blue-600 text-sm font-bold text-white shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all disabled:opacity-50"
                     >
                         <Download className="h-4 w-4 mr-2" />
                         匯出 CSV ({filteredLogs.length} 筆)
@@ -109,207 +149,186 @@ const AttendancePage: React.FC = () => {
 
             {/* 統計卡片 */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-lg shadow-sm border border-slate-100 p-4">
-                    <div className="text-sm text-slate-500">總打卡數</div>
-                    <div className="text-2xl font-bold text-slate-800 mt-1">{logs.length}</div>
+                <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                    <div className="text-xs font-black text-slate-400 uppercase tracking-widest">總打卡次數</div>
+                    <div className="text-2xl font-black text-slate-900 mt-1">{logs.length}</div>
                 </div>
-                <div className="bg-emerald-50 rounded-lg shadow-sm border border-emerald-100 p-4">
-                    <div className="text-sm text-emerald-700">上班打卡</div>
-                    <div className="text-2xl font-bold text-emerald-800 mt-1">
+                <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-5 shadow-sm">
+                    <div className="text-xs font-black text-emerald-600 uppercase tracking-widest">上班打卡</div>
+                    <div className="text-2xl font-black text-emerald-800 mt-1">
                         {logs.filter(l => l.check_type === 'IN').length}
                     </div>
                 </div>
-                <div className="bg-orange-50 rounded-lg shadow-sm border border-orange-100 p-4">
-                    <div className="text-sm text-orange-700">下班打卡</div>
-                    <div className="text-2xl font-bold text-orange-800 mt-1">
+                <div className="bg-orange-50 rounded-2xl border border-orange-100 p-5 shadow-sm">
+                    <div className="text-xs font-black text-orange-600 uppercase tracking-widest">下班打卡</div>
+                    <div className="text-2xl font-black text-orange-800 mt-1">
                         {logs.filter(l => l.check_type === 'OUT').length}
                     </div>
                 </div>
-                <div className="bg-purple-50 rounded-lg shadow-sm border border-purple-100 p-4">
-                    <div className="text-sm text-purple-700">部門數量</div>
-                    <div className="text-2xl font-bold text-purple-800 mt-1">{departments.length}</div>
+                <div className="bg-purple-50 rounded-2xl border border-purple-100 p-5 shadow-sm">
+                    <div className="text-xs font-black text-purple-600 uppercase tracking-widest">活動部門數</div>
+                    <div className="text-2xl font-black text-purple-800 mt-1">{departments.length}</div>
                 </div>
             </div>
 
-            {/* 日期篩選 */}
-            <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-                <div className="flex gap-4 items-end flex-wrap">
-                    <div>
-                        <label htmlFor="start-date" className="block text-sm font-medium text-slate-700 mb-1">開始日期</label>
-                        <input
-                            type="date"
-                            id="start-date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            className="block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
-                        />
+            {/* 篩選與搜尋工具列 */}
+            <div className="flex flex-col gap-4 bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+                <div className="flex gap-4 items-center flex-wrap">
+                    <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-slate-400">calendar_today</span>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="px-3 py-2 border-slate-200 bg-slate-50/50 rounded-xl text-sm font-bold focus:ring-blue-500 border transition-all"
+                            />
+                            <span className="text-slate-300">至</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="px-3 py-2 border-slate-200 bg-slate-50/50 rounded-xl text-sm font-bold focus:ring-blue-500 border transition-all"
+                            />
+                        </div>
                     </div>
-                    <div>
-                        <label htmlFor="end-date" className="block text-sm font-medium text-slate-700 mb-1">結束日期</label>
-                        <input
-                            type="date"
-                            id="end-date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            className="block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
-                        />
-                    </div>
-                    <div className="pb-1 text-sm text-slate-500">
-                        顯示 {filteredLogs.length} / {logs.length} 筆資料
-                    </div>
-                </div>
-            </div>
 
-            {/* 篩選器 */}
-            <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-                <div className="flex gap-6 items-center flex-wrap">
-                    {/* 打卡類型篩選 */}
-                    <div className="flex items-center gap-2">
-                        <label className="text-sm font-medium text-slate-700 whitespace-nowrap">類型：</label>
+                    <div className="h-6 w-px bg-slate-100"></div>
+
+                    <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-slate-400">filter_alt</span>
                         <div className="flex gap-2">
                             {['ALL', 'IN', 'OUT'].map((type) => (
                                 <button
                                     key={type}
                                     onClick={() => setFilterType(type)}
-                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterType === type
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${filterType === type
+                                        ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
+                                        : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
                                         }`}
                                 >
-                                    {type === 'ALL' ? '全部' : type === 'IN' ? '上班' : '下班'}
+                                    {type === 'ALL' ? '全部類型' : type === 'IN' ? '上班' : '下班'}
                                 </button>
                             ))}
                         </div>
                     </div>
-
-                    {/* 分隔線 */}
-                    {departments.length > 0 && (
-                        <div className="h-8 w-px bg-slate-200"></div>
-                    )}
-
-                    {/* 部門篩選 */}
-                    {departments.length > 0 && (
-                        <div className="flex items-center gap-2 flex-1">
-                            <label className="text-sm font-medium text-slate-700 whitespace-nowrap">部門：</label>
-                            <div className="flex gap-2 flex-wrap">
-                                <button
-                                    onClick={() => setFilterDepartment('ALL')}
-                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterDepartment === 'ALL'
-                                        ? 'bg-purple-600 text-white'
-                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                        }`}
-                                >
-                                    全部
-                                </button>
-                                {departments.map((dept) => {
-                                    const stat = departmentStats.find(s => s.department === dept);
-                                    return (
-                                        <button
-                                            key={dept}
-                                            onClick={() => setFilterDepartment(dept)}
-                                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${filterDepartment === dept
-                                                ? 'bg-purple-600 text-white'
-                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                                }`}
-                                        >
-                                            {dept}
-                                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${filterDepartment === dept
-                                                ? 'bg-purple-500'
-                                                : 'bg-slate-200'
-                                                }`}>
-                                                {stat?.count || 0}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
                 </div>
+
+                {departments.length > 0 && (
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <span className="material-symbols-outlined text-slate-400">domain</span>
+                        <div className="flex gap-2 flex-wrap">
+                            <button
+                                onClick={() => setFilterDepartment('ALL')}
+                                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${filterDepartment === 'ALL'
+                                    ? 'bg-purple-600 text-white shadow-md shadow-purple-100'
+                                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                                    }`}
+                            >
+                                全部部門
+                            </button>
+                            {departments.map((dept) => {
+                                const stat = departmentStats.find(s => s.department === dept);
+                                return (
+                                    <button
+                                        key={dept}
+                                        onClick={() => setFilterDepartment(dept)}
+                                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${filterDepartment === dept
+                                            ? 'bg-purple-600 text-white shadow-md shadow-purple-100'
+                                            : 'bg-slate-50 text-slate-500 hover:bg-slate-100 border border-transparent'
+                                            }`}
+                                    >
+                                        {dept}
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${filterDepartment === dept ? 'bg-white/20' : 'bg-slate-200 text-slate-600'}`}>
+                                            {stat?.count || 0}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Table */}
-            <div className="flex flex-col">
-                <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                    <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-                        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-                            <table className="min-w-full divide-y divide-slate-300">
-                                <thead className="bg-slate-50">
-                                    <tr>
-                                        <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-slate-900 sm:pl-6">
-                                            姓名
-                                        </th>
-                                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-slate-900">
-                                            部門
-                                        </th>
-                                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-slate-900">
-                                            打卡類型
-                                        </th>
-                                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-slate-900">
-                                            時間
-                                        </th>
-                                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-slate-900">
-                                            位置
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-200 bg-white">
-                                    {loading ? (
-                                        <tr>
-                                            <td colSpan={5} className="py-8 text-center text-slate-500 text-sm">
-                                                載入中...
-                                            </td>
-                                        </tr>
-                                    ) : filteredLogs.map((log) => (
-                                        <tr key={log.id} className="hover:bg-slate-50">
-                                            <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-slate-900 sm:pl-6">
-                                                {log.employees?.name || 'Unknown'}
-                                            </td>
-                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-600">
-                                                <span className="px-2 py-1 bg-slate-100 rounded text-xs">
-                                                    {log.employees?.department || '未分配'}
-                                                </span>
-                                            </td>
-                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">
-                                                <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${log.check_type === 'IN'
-                                                    ? 'bg-emerald-100 text-emerald-800'
-                                                    : 'bg-orange-100 text-orange-800'
-                                                    }`}>
-                                                    {log.check_type === 'IN' ? '上班' : '下班'}
-                                                </span>
-                                            </td>
-                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">
-                                                {format(new Date(log.timestamp), 'yyyy-MM-dd HH:mm:ss')}
-                                            </td>
-                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">
-                                                {log.latitude && log.longitude ? (
-                                                    <div className="flex flex-col gap-0.5">
-                                                        <span className="text-xs font-mono">
-                                                            {Number(log.latitude).toFixed(6)}, {Number(log.longitude).toFixed(6)}
-                                                        </span>
-                                                        {log.location_accuracy && (
-                                                            <span className="text-xs text-slate-400">
-                                                                精度: {Math.round(log.location_accuracy)}m
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-100">
+                        <thead className="bg-slate-50/50">
+                            <tr>
+                                <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">日期</th>
+                                <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">員工姓名</th>
+                                <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">部門</th>
+                                <th className="px-8 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">打卡歷程時間軸 (Location)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={4} className="px-8 py-20 text-center text-slate-400 font-bold">載入中...</td>
+                                </tr>
+                            ) : groupedLogsValue.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="px-8 py-20 text-center text-slate-400 font-bold">沒有符合條件的紀錄</td>
+                                </tr>
+                            ) : groupedLogsValue.map((group) => (
+                                <tr key={group.key} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-8 py-5 whitespace-nowrap">
+                                        <div className="text-sm font-black text-slate-400 font-mono tracking-tighter">
+                                            {group.dateKey}
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-5 whitespace-nowrap">
+                                        <div className="text-base font-black text-slate-900">{group.employee?.name}</div>
+                                    </td>
+                                    <td className="px-8 py-5 whitespace-nowrap">
+                                        <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-black">
+                                            {group.employee?.department || '未分配'}
+                                        </span>
+                                    </td>
+                                    <td className="px-8 py-5">
+                                        <div className="flex flex-wrap gap-4 items-center">
+                                            {group.logs.map((log: any, idx: number) => (
+                                                <div key={log.id} className="flex items-center gap-3">
+                                                    <div className={`relative group inline-flex flex-col p-3 rounded-2xl border transition-all hover:shadow-md ${log.type === 'IN'
+                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100'
+                                                        : 'bg-orange-50 text-orange-700 border-orange-100 hover:bg-orange-100'
+                                                        }`}>
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="material-symbols-outlined text-[18px]">
+                                                                {log.type === 'IN' ? 'login' : 'logout'}
                                                             </span>
+                                                            <span className="text-sm font-black font-mono tracking-tight">{log.time}</span>
+                                                            <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">
+                                                                {log.type === 'IN' ? '上班' : '下班'}
+                                                            </span>
+                                                        </div>
+                                                        {log.latitude && (
+                                                            <div className="flex items-center gap-1 opacity-50 text-[10px] font-bold">
+                                                                <span className="material-symbols-outlined text-[12px]">location_on</span>
+                                                                <span className="truncate max-w-[120px]">
+                                                                    {Number(log.latitude).toFixed(4)}, {Number(log.longitude).toFixed(4)}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {/* Tooltip for accuracy */}
+                                                        {log.accuracy && (
+                                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                                                精度: {Math.round(log.accuracy)}m
+                                                            </div>
                                                         )}
                                                     </div>
-                                                ) : (
-                                                    <span className="text-xs text-slate-400">無位置資訊</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {!loading && filteredLogs.length === 0 && (
-                                        <tr>
-                                            <td colSpan={5} className="py-8 text-center text-slate-500 text-sm">
-                                                {logs.length === 0 ? '沒有打卡紀錄' : '沒有符合篩選條件的紀錄'}
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                                                    {idx < group.logs.length - 1 && (
+                                                        <span className="material-symbols-outlined text-slate-300 text-xl">double_arrow</span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -317,3 +336,4 @@ const AttendancePage: React.FC = () => {
 };
 
 export default AttendancePage;
+
