@@ -76,7 +76,7 @@ const AdminLayout: React.FC = () => {
                         onClick={() => navigate('/')}
                         className="w-full flex items-center gap-3 px-4 py-3 text-blue-600 hover:bg-blue-50 rounded-xl font-bold transition-all"
                     >
-                        <span className="material-symbols-outlined">keypad</span>
+                        <span className="material-symbols-outlined">grid_view</span>
                         返回打卡系統
                     </button>
                     <button
