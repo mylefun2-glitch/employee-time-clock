@@ -109,7 +109,7 @@ const AttendancePage: React.FC = () => {
                 id: log.id,
                 type: log.check_type,
                 timestamp: log.timestamp,
-                time: format(dateObj, 'HH:mm:ss'),
+                time: format(dateObj, 'HH:mm'),
                 latitude: log.latitude,
                 longitude: log.longitude,
                 accuracy: log.location_accuracy

@@ -17,13 +17,12 @@ const formatDate = (date: Date) => {
     }).format(date);
 };
 
-// Helper to format time as HH:mm:ss
+// Helper to format time as HH:mm
 const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-GB', {
         hour12: false,
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit',
     });
 };
 

@@ -67,7 +67,7 @@ const DashboardPage: React.FC = () => {
 
             groups[key].logs.push({
                 type: log.check_type,
-                time: dateObj.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                time: dateObj.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
                 fullTime: dateObj.getTime()
             });
         });
