@@ -16,6 +16,14 @@ const LeaveTypesPage: React.FC = () => {
         sort_order: 0
     });
 
+    // 確認對話框狀態
+    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    const [pendingToggle, setPendingToggle] = useState<{
+        id: string;
+        isActive: boolean;
+        typeName: string;
+    } | null>(null);
+
     useEffect(() => {
         loadLeaveTypes();
     }, []);
@@ -62,33 +70,33 @@ const LeaveTypesPage: React.FC = () => {
     };
 
 
-    const handleToggle = async (id: string, isActive: boolean, typeName: string) => {
-        console.log('handleToggle called:', { id, isActive, typeName });
 
-        const action = isActive ? '停用' : '啟用';
-        const confirmMessage = `確定要${action}「${typeName}」差勤類型嗎？`;
+    const handleToggle = (id: string, isActive: boolean, typeName: string) => {
+        setPendingToggle({ id, isActive, typeName });
+        setShowConfirmDialog(true);
+    };
 
-        console.log('Showing confirm dialog:', confirmMessage);
-        const userConfirmed = window.confirm(confirmMessage);
+    const confirmToggle = async () => {
+        if (!pendingToggle) return;
 
-        if (!userConfirmed) {
-            console.log('User cancelled the action');
-            return;
-        }
-
-        console.log('User confirmed, updating leave type...');
+        const { id, isActive } = pendingToggle;
         const result = await leaveTypeService.toggleLeaveType(id, !isActive);
 
-        console.log('Toggle result:', result);
-
         if (result.success) {
-            console.log('Successfully toggled, reloading leave types...');
             await loadLeaveTypes();
         } else {
-            console.error('Toggle failed:', result.error);
             alert(`更新失敗：${result.error}`);
         }
+
+        setShowConfirmDialog(false);
+        setPendingToggle(null);
     };
+
+    const cancelToggle = () => {
+        setShowConfirmDialog(false);
+        setPendingToggle(null);
+    };
+
 
 
     const resetForm = () => {
@@ -299,6 +307,45 @@ const LeaveTypesPage: React.FC = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* 確認對話框 Modal */}
+            {showConfirmDialog && pendingToggle && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+                        <div className="p-8">
+                            <div className="flex items-center justify-center w-16 h-16 mx-auto mb-6 rounded-full bg-amber-50">
+                                <Power className="h-8 w-8 text-amber-600" />
+                            </div>
+
+                            <h3 className="text-xl font-black text-slate-900 text-center mb-3">
+                                {pendingToggle.isActive ? '停用差勤類型' : '啟用差勤類型'}
+                            </h3>
+
+                            <p className="text-base text-slate-600 text-center mb-8 font-medium">
+                                確定要{pendingToggle.isActive ? '停用' : '啟用'}「<span className="font-black text-slate-900">{pendingToggle.typeName}</span>」差勤類型嗎？
+                            </p>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={cancelToggle}
+                                    className="flex-1 py-4 px-6 bg-slate-50 text-slate-500 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-100 transition-all"
+                                >
+                                    取消
+                                </button>
+                                <button
+                                    onClick={confirmToggle}
+                                    className={`flex-[2] py-4 px-6 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl transition-all hover:-translate-y-0.5 ${pendingToggle.isActive
+                                            ? 'bg-rose-600 text-white shadow-rose-100 hover:bg-rose-700'
+                                            : 'bg-emerald-600 text-white shadow-emerald-100 hover:bg-emerald-700'
+                                        }`}
+                                >
+                                    {pendingToggle.isActive ? '確定停用' : '確定啟用'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
