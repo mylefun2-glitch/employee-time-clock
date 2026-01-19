@@ -142,7 +142,7 @@ const DashboardPage: React.FC = () => {
                         系統即時更新
                     </span>
                 </div>
-                <div className="overflow-hidden">
+                <div className="overflow-x-auto custom-scrollbar">
                     <table className="min-w-full divide-y divide-slate-100">
                         <thead className="bg-slate-50/50">
                             <tr>

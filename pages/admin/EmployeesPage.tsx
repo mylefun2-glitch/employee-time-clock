@@ -297,17 +297,17 @@ const EmployeesPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="sm:flex sm:items-center sm:justify-between">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                 <div>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">員工管理</h1>
-                    <p className="mt-2 text-base text-slate-500 font-medium">
+                    <p className="mt-1 text-sm text-slate-500 font-medium">
                         管理成員詳細人事資料、年資與在職狀態。
                     </p>
                 </div>
-                <div className="mt-4 sm:mt-0 flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-2 md:gap-3">
                     <button
                         onClick={handleDownloadTemplate}
-                        className="inline-flex items-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+                        className="flex-1 md:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
                     >
                         <Download className="h-4 w-4 mr-2" />
                         下載範本
@@ -315,14 +315,14 @@ const EmployeesPage: React.FC = () => {
                     <button
                         onClick={handleImportClick}
                         disabled={importing}
-                        className="inline-flex items-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
+                        className="flex-1 md:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
                     >
                         <Upload className="h-4 w-4 mr-2" />
                         {importing ? '匯入中...' : '匯入 CSV'}
                     </button>
                     <button
                         onClick={handleCreate}
-                        className="inline-flex items-center px-6 py-2.5 rounded-xl bg-blue-600 text-sm font-bold text-white shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all"
+                        className="w-full md:w-auto inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-blue-600 text-sm font-bold text-white shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all"
                     >
                         <Plus className="h-5 w-5 mr-2" />
                         新增員工
@@ -330,30 +330,29 @@ const EmployeesPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* 篩選與搜尋工具列 - 統一在同一列 */}
-            <div className="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm items-stretch md:items-center">
+            <div className="flex flex-col md:flex-row gap-3 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm items-stretch md:items-center">
                 <div className="relative flex-1">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <Search className="h-5 w-5 text-slate-400" />
+                        <Search className="h-4 w-4 text-slate-400" />
                     </div>
                     <input
                         type="text"
-                        className="block w-full pl-11 pr-4 py-3 border-slate-200 bg-slate-50/50 rounded-xl text-base font-medium focus:ring-blue-500 focus:border-blue-500 border transition-all"
+                        className="block w-full pl-10 pr-4 py-2.5 border-slate-200 bg-slate-50/50 rounded-xl text-sm font-medium focus:ring-blue-500 focus:border-blue-500 border transition-all"
                         placeholder="搜尋姓名、部門或 PIN..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0 flex items-center gap-2 text-sm font-bold text-slate-400">
-                        <Filter className="h-4 w-4" />
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <div className="flex items-center gap-2 px-1 text-xs font-black text-slate-400 uppercase tracking-widest">
+                        <Filter className="h-3 w-3" />
                         篩選
                     </div>
                     <select
                         value={selectedDept}
                         onChange={(e) => setSelectedDept(e.target.value)}
-                        className="block w-full md:w-48 pl-4 pr-10 py-3 border-slate-200 bg-slate-50/50 rounded-xl text-base font-bold text-slate-700 focus:ring-blue-500 focus:border-blue-500 border transition-all"
+                        className="block w-full sm:w-40 pl-3 pr-10 py-2.5 border-slate-200 bg-slate-50/50 rounded-xl text-sm font-bold text-slate-700 focus:ring-blue-500 focus:border-blue-500 border transition-all"
                     >
                         {departments.map(dept => (
                             <option key={dept} value={dept}>{dept === 'ALL' ? '全部' : dept}</option>
@@ -362,8 +361,8 @@ const EmployeesPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="overflow-x-auto">
+            <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto custom-scrollbar">
                     <table className="min-w-full divide-y divide-slate-100">
                         <thead className="bg-slate-50/50">
                             <tr>

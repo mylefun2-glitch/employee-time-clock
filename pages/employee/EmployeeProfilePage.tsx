@@ -45,53 +45,75 @@ const EmployeeProfilePage: React.FC = () => {
     ];
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">個人檔案</h1>
-                <img src="/logo.jpg" alt="Logo" className="h-10 w-auto opacity-50 grayscale hover:grayscale-0 transition-all" />
+                <div>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">個人檔案</h1>
+                    <p className="text-slate-500 text-sm font-medium mt-1">檢視並管理您的個人詳細資訊與職務資料。</p>
+                </div>
             </div>
 
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
                 {/* Header Banner */}
-                <div className="px-8 py-10 bg-gradient-to-br from-blue-600 to-blue-800 relative overflow-hidden">
-                    <div className="absolute -right-10 -bottom-10 opacity-10">
-                        <span className="material-symbols-outlined text-white text-[200px] rotate-12">person</span>
+                <div className="px-10 py-12 bg-gradient-to-br from-blue-600 to-indigo-700 relative overflow-hidden">
+                    <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+                    <div className="absolute left-1/2 bottom-0 w-96 h-32 bg-blue-400/20 rounded-full -translate-x-1/2 blur-3xl"></div>
+
+                    <div className="absolute -right-6 -bottom-6 opacity-10">
+                        <span className="material-symbols-outlined text-white text-[180px] rotate-12 select-none">account_circle</span>
                     </div>
-                    <div className="flex items-center gap-6 relative z-10">
-                        <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-3xl flex items-center justify-center border border-white/30 shadow-2xl">
-                            <span className="text-4xl font-black text-white hover:scale-110 transition-transform cursor-default">
+
+                    <div className="flex flex-col md:flex-row items-center md:items-end gap-8 relative z-10 text-center md:text-left">
+                        <div className="w-28 h-28 bg-white/20 backdrop-blur-2xl rounded-[2rem] flex items-center justify-center border border-white/30 shadow-2xl transform hover:rotate-3 transition-transform duration-500">
+                            <span className="text-5xl font-black text-white cursor-default select-none">
                                 {employee.name.charAt(0)}
                             </span>
                         </div>
-                        <div className="text-white">
-                            <div className="flex items-center gap-3">
-                                <h2 className="text-3xl font-black tracking-tight">{employee.name}</h2>
-                                <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">
+                        <div className="text-white pb-2">
+                            <div className="flex flex-col md:flex-row items-center gap-3">
+                                <h2 className="text-4xl font-black tracking-tight">{employee.name}</h2>
+                                <div className="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-xl text-[11px] font-black uppercase tracking-[0.2em] border border-white/20 shadow-sm">
                                     {employee.position || '成員'}
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap justify-center md:justify-start items-center gap-4 mt-3 text-blue-100/90 font-bold">
+                                <span className="flex items-center gap-2 text-sm">
+                                    <span className="material-symbols-outlined text-lg">business</span>
+                                    {employee.department || '未分配部門'}
+                                </span>
+                                <div className="w-1 h-1 rounded-full bg-blue-300 hidden md:block"></div>
+                                <span className="flex items-center gap-2 text-sm">
+                                    <span className="material-symbols-outlined text-lg">verified</span>
+                                    {employee.is_active ? '在職中' : '已離職'}
                                 </span>
                             </div>
-                            <p className="text-blue-100/80 mt-1 font-bold flex items-center gap-2">
-                                <span className="material-symbols-outlined text-sm">business</span>
-                                {employee.department}
-                            </p>
                         </div>
                     </div>
                 </div>
 
                 {/* Info Grid */}
-                <div className="p-8 space-y-10">
+                <div className="p-10 space-y-12 bg-slate-50/30">
                     {infoSections.map((section) => (
-                        <div key={section.title} className="space-y-4">
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">{section.title}</h3>
+                        <div key={section.title} className="space-y-6">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1 h-4 bg-blue-600 rounded-full"></div>
+                                <h3 className="text-xs font-black text-slate-800 uppercase tracking-[0.2em]">{section.title}</h3>
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {section.items.map((item) => (
-                                    <div key={item.label} className="group flex items-center gap-4 transition-all">
-                                        <div className="flex-shrink-0 w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100 group-hover:bg-blue-50 group-hover:border-blue-100 transition-colors">
-                                            <span className="material-symbols-outlined text-slate-400 group-hover:text-blue-600 text-xl transition-colors">{item.icon}</span>
+                                    <div key={item.label} className="group flex flex-col p-5 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all duration-300">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 border border-blue-100/50">
+                                                <span className="material-symbols-outlined text-xl">{item.icon}</span>
+                                            </div>
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.label}</span>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">{item.label}</p>
-                                            <p className="text-sm font-bold text-slate-800 truncate">{item.value}</p>
+                                        <div className="pl-1">
+                                            <p className="text-base font-bold text-slate-900 break-words line-clamp-2" title={item.value}>
+                                                {item.value || (
+                                                    <span className="text-slate-300 font-medium">未設定</span>
+                                                )}
+                                            </p>
                                         </div>
                                     </div>
                                 ))}
@@ -101,8 +123,12 @@ const EmployeeProfilePage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Movement History Section */}
-            <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+            {/* Movement History Section - Optional styling */}
+            <div className="bg-white p-10 rounded-[2rem] border border-slate-100 shadow-sm">
+                <div className="flex items-center gap-3 mb-8">
+                    <div className="w-1 h-4 bg-blue-600 rounded-full"></div>
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-[0.2em]">職務異動歷史</h3>
+                </div>
                 <MovementHistory employeeId={employee.id} isAdmin={false} />
             </div>
         </div>

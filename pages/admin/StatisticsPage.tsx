@@ -103,18 +103,18 @@ const StatisticsPage: React.FC = () => {
                 <p className="text-slate-500 text-base font-medium">即時分析全會人力結構與分佈數據</p>
             </div>
 
-            {/* 篩選工具列 - 統一於同一列 */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-stretch md:items-center">
-                <div className="flex-shrink-0 flex items-center gap-2 text-sm font-black text-slate-400 uppercase tracking-widest mr-2">
-                    <Filter className="h-5 w-5" />
+            {/* 篩選工具列 */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-4">
+                <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest px-1">
+                    <Filter className="h-4 w-4" />
                     複合篩選
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <select
                         value={filters.department}
                         onChange={(e) => setFilters(prev => ({ ...prev, department: e.target.value }))}
-                        className="block w-full pl-4 pr-10 py-3 border-slate-200 bg-slate-50/50 rounded-xl text-base font-bold text-slate-700 focus:ring-blue-500 focus:border-blue-500 border transition-all"
+                        className="block w-full pl-3 pr-10 py-2.5 border-slate-200 bg-slate-50/50 rounded-xl text-sm font-bold text-slate-700 focus:ring-blue-500 focus:border-blue-500 border transition-all"
                     >
                         <option value="ALL">全部部門</option>
                         {departments.filter(d => d !== 'ALL').map(dept => (
@@ -125,7 +125,7 @@ const StatisticsPage: React.FC = () => {
                     <select
                         value={filters.position}
                         onChange={(e) => setFilters(prev => ({ ...prev, position: e.target.value }))}
-                        className="block w-full pl-4 pr-10 py-3 border-slate-200 bg-slate-50/50 rounded-xl text-base font-bold text-slate-700 focus:ring-blue-500 focus:border-blue-500 border transition-all"
+                        className="block w-full pl-3 pr-10 py-2.5 border-slate-200 bg-slate-50/50 rounded-xl text-sm font-bold text-slate-700 focus:ring-blue-500 focus:border-blue-500 border transition-all"
                     >
                         <option value="ALL">全部職務</option>
                         {positions.filter(p => p !== 'ALL').map(pos => (
@@ -136,7 +136,7 @@ const StatisticsPage: React.FC = () => {
                     <select
                         value={filters.gender}
                         onChange={(e) => setFilters(prev => ({ ...prev, gender: e.target.value }))}
-                        className="block w-full pl-4 pr-10 py-3 border-slate-200 bg-slate-50/50 rounded-xl text-base font-bold text-slate-700 focus:ring-blue-500 focus:border-blue-500 border transition-all"
+                        className="block w-full pl-3 pr-10 py-2.5 border-slate-200 bg-slate-50/50 rounded-xl text-sm font-bold text-slate-700 focus:ring-blue-500 focus:border-blue-500 border transition-all"
                     >
                         {genders.map(g => (
                             <option key={g.value} value={g.value}>{g.label}</option>
@@ -243,14 +243,14 @@ const StatisticsPage: React.FC = () => {
                 </div>
 
                 {/* 職務結構細分 */}
-                <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-                    <h3 className="text-base font-black text-slate-900 uppercase tracking-widest mb-8 border-l-4 border-blue-600 pl-4">職務結構細分 (依當前篩選)</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
+                <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-8 border-l-4 border-blue-600 pl-4">職務結構細分</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
                         {Object.entries(currentStats.positions).sort((a, b) => b[1] - a[1]).map(([pos, count]) => (
-                            <div key={pos} className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 text-center hover:bg-white hover:shadow-xl hover:scale-105 transition-all duration-300">
-                                <div className="text-xs font-black text-slate-400 mb-2 uppercase tracking-tight">{pos}</div>
-                                <div className="text-3xl font-black text-slate-900 tabular-nums">{count}</div>
-                                <div className="mt-2 inline-flex px-2 py-0.5 bg-blue-50 text-[11px] font-black text-blue-600 rounded uppercase tracking-widest border border-blue-100">
+                            <div key={pos} className="p-4 md:p-6 bg-slate-50/50 rounded-2xl border border-slate-100 text-center hover:bg-white hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
+                                <div className="text-[10px] font-black text-slate-400 mb-1 uppercase tracking-tight truncate">{pos}</div>
+                                <div className="text-2xl md:text-3xl font-black text-slate-900 tabular-nums">{count}</div>
+                                <div className="mt-2 inline-flex px-1.5 py-0.5 bg-blue-50 text-[9px] font-black text-blue-600 rounded uppercase tracking-widest border border-blue-100">
                                     佔 {Math.round(count / currentStats.total * 100)}%
                                 </div>
                             </div>

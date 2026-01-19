@@ -162,16 +162,18 @@ const CompanyManagementPage: React.FC = () => {
     return (
         <div className="space-y-6 max-w-5xl mx-auto">
             {/* 頁面標題 */}
-            <div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">公司管理</h1>
-                <p className="mt-1 text-slate-500 font-medium">
-                    管理公司基本資訊和辦公地點設定
-                </p>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                <div>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">公司管理</h1>
+                    <p className="mt-1 text-sm text-slate-500 font-medium">
+                        管理公司基本資訊和辦公地點設定
+                    </p>
+                </div>
             </div>
 
             {/* 公司基本資訊 */}
             <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
+                <div className="px-6 md:px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
                     <div className="flex items-center gap-2">
                         <Building2 className="h-5 w-5 text-blue-600" />
                         <h2 className="text-lg font-black text-slate-900">公司基本資訊</h2>
@@ -179,17 +181,17 @@ const CompanyManagementPage: React.FC = () => {
                     {!isEditingInfo && (
                         <button
                             onClick={() => setIsEditingInfo(true)}
-                            className="inline-flex items-center px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-bold shadow-sm transition-all"
+                            className="inline-flex items-center px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-xs font-bold shadow-sm transition-all whitespace-nowrap"
                         >
-                            <Pencil className="h-4 w-4 mr-2" />
+                            <Pencil className="h-3.5 w-3.5 mr-1.5" />
                             編輯資訊
                         </button>
                     )}
                 </div>
 
                 {!isEditingInfo ? (
-                    <div className="p-8 animate-in fade-in duration-300">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+                    <div className="p-6 md:p-8 animate-in fade-in duration-300">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 md:gap-y-8">
                             <InfoItem label="公司抬頭" value={formData.company_name} isBold />
                             <InfoItem label="統一編號" value={formData.tax_id || '未設定'} />
                             <InfoItem label="電話" value={formData.phone || '未設定'} />
@@ -315,14 +317,14 @@ const CompanyManagementPage: React.FC = () => {
 
             {/* 辦公地點管理 */}
             <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
+                <div className="px-6 md:px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
                     <div className="flex items-center gap-2">
                         <MapPin className="h-5 w-5 text-blue-600" />
                         <h2 className="text-lg font-black text-slate-900">辦公地點</h2>
                     </div>
                     <button
                         onClick={handleCreateLocation}
-                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all"
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all whitespace-nowrap"
                     >
                         <Plus className="h-4 w-4 mr-1" />
                         新增地點
@@ -338,7 +340,7 @@ const CompanyManagementPage: React.FC = () => {
                 </div>
 
                 {/* 地點列表 */}
-                <div className="p-8">
+                <div className="p-6 md:p-8">
                     {locations.length === 0 ? (
                         <div className="text-center py-12 text-slate-400 font-bold">
                             尚無地點資料，請新增辦公地點
@@ -372,7 +374,7 @@ const CompanyManagementPage: React.FC = () => {
                                             )}
                                         </div>
                                     </div>
-                                    <div className="flex gap-2 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex gap-2 ml-4 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button
                                             onClick={() => handleEditLocation(location)}
                                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all"

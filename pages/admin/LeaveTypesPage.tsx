@@ -121,14 +121,14 @@ const LeaveTypesPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="sm:flex sm:items-center sm:justify-between">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                 <div>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">差勤類型管理</h1>
-                    <p className="text-base text-slate-500 font-medium mt-1">管理與設定員工可申請的各類差勤項目。</p>
+                    <p className="text-sm text-slate-500 font-medium mt-1">管理與設定員工可申請的各類差勤項目。</p>
                 </div>
                 <button
                     onClick={() => setShowForm(true)}
-                    className="mt-4 sm:mt-0 inline-flex items-center px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all gap-2"
+                    className="w-full lg:w-auto inline-flex items-center justify-center px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all gap-2 text-sm"
                 >
                     <Plus className="h-5 w-5" />
                     新增類型
@@ -136,8 +136,8 @@ const LeaveTypesPage: React.FC = () => {
             </div>
 
             {/* 差勤類型列表 */}
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="overflow-x-auto">
+            <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                <div className="overflow-x-auto custom-scrollbar">
                     <table className="min-w-full divide-y divide-slate-100">
                         <thead className="bg-slate-50/50">
                             <tr>
@@ -338,8 +338,8 @@ const LeaveTypesPage: React.FC = () => {
                                 <button
                                     onClick={confirmToggle}
                                     className={`flex-[2] py-4 px-6 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl transition-all hover:-translate-y-0.5 ${pendingToggle.isActive
-                                            ? 'bg-rose-600 text-white shadow-rose-100 hover:bg-rose-700'
-                                            : 'bg-emerald-600 text-white shadow-emerald-100 hover:bg-emerald-700'
+                                        ? 'bg-rose-600 text-white shadow-rose-100 hover:bg-rose-700'
+                                        : 'bg-emerald-600 text-white shadow-emerald-100 hover:bg-emerald-700'
                                         }`}
                                 >
                                     {pendingToggle.isActive ? '確定停用' : '確定啟用'}

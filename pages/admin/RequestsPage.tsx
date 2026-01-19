@@ -112,32 +112,34 @@ const RequestsPage: React.FC = () => {
 
     return (
         <div>
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-slate-800">請假/出差申請</h1>
-                <p className="text-slate-500 mt-1">管理員工的請假與出差申請</p>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-8">
+                <div>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">請假/出差申請</h1>
+                    <p className="mt-1 text-sm text-slate-500 font-medium">管理員工的請假與出差申請工作流</p>
+                </div>
             </div>
 
             {/* 統計卡片 */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white rounded-lg shadow-sm border border-slate-100 p-4">
-                    <div className="text-sm text-slate-500">總申請數</div>
-                    <div className="text-2xl font-bold text-slate-800 mt-1">{requests.length}</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+                    <div className="text-xs font-black text-slate-400 uppercase tracking-widest">總申請數</div>
+                    <div className="text-2xl font-black text-slate-900 mt-1">{requests.length}</div>
                 </div>
-                <div className="bg-yellow-50 rounded-lg shadow-sm border border-yellow-100 p-4">
-                    <div className="text-sm text-yellow-700">待審核</div>
-                    <div className="text-2xl font-bold text-yellow-800 mt-1">
+                <div className="bg-yellow-50 rounded-2xl shadow-sm border border-yellow-100 p-5">
+                    <div className="text-xs font-black text-yellow-600 uppercase tracking-widest">待審核</div>
+                    <div className="text-2xl font-black text-yellow-800 mt-1">
                         {requests.filter(r => r.status === RequestStatus.PENDING).length}
                     </div>
                 </div>
-                <div className="bg-green-50 rounded-lg shadow-sm border border-green-100 p-4">
-                    <div className="text-sm text-green-700">已核准</div>
-                    <div className="text-2xl font-bold text-green-800 mt-1">
+                <div className="bg-emerald-50 rounded-2xl shadow-sm border border-emerald-100 p-5">
+                    <div className="text-xs font-black text-emerald-600 uppercase tracking-widest">已核准</div>
+                    <div className="text-2xl font-black text-emerald-800 mt-1">
                         {requests.filter(r => r.status === RequestStatus.APPROVED).length}
                     </div>
                 </div>
-                <div className="bg-red-50 rounded-lg shadow-sm border border-red-100 p-4">
-                    <div className="text-sm text-red-700">已拒絕</div>
-                    <div className="text-2xl font-bold text-red-800 mt-1">
+                <div className="bg-orange-50 rounded-2xl shadow-sm border border-orange-100 p-5">
+                    <div className="text-xs font-black text-orange-600 uppercase tracking-widest">已拒絕</div>
+                    <div className="text-2xl font-black text-orange-800 mt-1">
                         {requests.filter(r => r.status === RequestStatus.REJECTED).length}
                     </div>
                 </div>
@@ -211,23 +213,22 @@ const RequestsPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* 申請列表 */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-slate-200">
-                        <thead className="bg-slate-50">
+            <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                <div className="overflow-x-auto custom-scrollbar">
+                    <table className="min-w-full divide-y divide-slate-100">
+                        <thead className="bg-slate-50/50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">員工</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">部門</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">類型</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">開始時間</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">結束時間</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">事由</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">狀態</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">操作</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">員工</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">部門</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">類型</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">開始時間</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">結束時間</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">事由</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">狀態</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">操作</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-slate-200">
+                        <tbody className="bg-white divide-y divide-slate-50">
                             {filteredRequests.length === 0 ? (
                                 <tr>
                                     <td colSpan={8} className="px-6 py-12 text-center text-slate-500">

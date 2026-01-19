@@ -127,28 +127,28 @@ const AttendancePage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="sm:flex sm:items-center sm:justify-between">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                 <div>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">出勤紀錄管理</h1>
-                    <p className="mt-1 text-slate-500 font-medium">
+                    <p className="mt-1 text-sm text-slate-500 font-medium">
                         查看、篩選並匯出所有員工作業時間點。
                     </p>
                 </div>
-                <div className="mt-4 sm:mt-0 flex gap-3">
+                <div className="flex gap-3">
                     <button
                         type="button"
                         onClick={handleExportCSV}
                         disabled={filteredLogs.length === 0}
-                        className="inline-flex items-center px-6 py-2.5 rounded-xl bg-blue-600 text-sm font-bold text-white shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all disabled:opacity-50"
+                        className="flex-1 lg:flex-none inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-blue-600 text-sm font-bold text-white shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all disabled:opacity-50"
                     >
                         <Download className="h-4 w-4 mr-2" />
-                        匯出 CSV ({filteredLogs.length} 筆)
+                        匯出 CSV ({filteredLogs.length})
                     </button>
                 </div>
             </div>
 
             {/* 統計卡片 */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
                     <div className="text-xs font-black text-slate-400 uppercase tracking-widest">總打卡次數</div>
                     <div className="text-2xl font-black text-slate-900 mt-1">{logs.length}</div>
@@ -250,9 +250,8 @@ const AttendancePage: React.FC = () => {
                 )}
             </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="overflow-x-auto">
+            <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                <div className="overflow-x-auto custom-scrollbar">
                     <table className="min-w-full divide-y divide-slate-100">
                         <thead className="bg-slate-50/50">
                             <tr>

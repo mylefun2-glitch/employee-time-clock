@@ -91,23 +91,21 @@ const CompanyLocationsPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="sm:flex sm:items-center sm:justify-between">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">公司地點管理</h1>
-                    <p className="mt-2 text-sm text-slate-700">
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">公司地點管理</h1>
+                    <p className="mt-1 text-sm text-slate-500 font-medium">
                         管理多個辦公室/分店的位置設定。
                     </p>
                 </div>
-                <div className="mt-4 sm:mt-0">
-                    <button
-                        type="button"
-                        onClick={handleCreate}
-                        className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        新增地點
-                    </button>
-                </div>
+                <button
+                    type="button"
+                    onClick={handleCreate}
+                    className="w-full lg:w-auto inline-flex items-center justify-center rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all gap-2"
+                >
+                    <Plus className="h-5 w-5" />
+                    新增地點
+                </button>
             </div>
 
             {/* 使用說明 */}
@@ -121,158 +119,163 @@ const CompanyLocationsPage: React.FC = () => {
             </div>
 
             {/* 地點列表 */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <table className="min-w-full divide-y divide-slate-200">
-                    <thead className="bg-slate-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">地點名稱</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">座標</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">範圍</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">狀態</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                        {loading ? (
+            <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                <div className="overflow-x-auto custom-scrollbar">
+                    <table className="min-w-full divide-y divide-slate-100">
+                        <thead className="bg-slate-50/50">
                             <tr>
-                                <td colSpan={5} className="px-6 py-8 text-center text-slate-500">載入中...</td>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">地點名稱</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">座標</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">範圍</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">狀態</th>
+                                <th className="px-6 py-4 text-right text-xs font-black text-slate-400 uppercase tracking-widest">操作</th>
                             </tr>
-                        ) : locations.length === 0 ? (
-                            <tr>
-                                <td colSpan={5} className="px-6 py-8 text-center text-slate-500">尚無地點資料</td>
-                            </tr>
-                        ) : (
-                            locations.map((location) => (
-                                <tr key={location.id}>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            <MapPin className="h-4 w-4 text-blue-600" />
-                                            <div>
-                                                <div className="font-medium text-slate-900">{location.name}</div>
-                                                {location.description && (
-                                                    <div className="text-xs text-slate-500">{location.description}</div>
-                                                )}
+                        </thead>
+                        <tbody className="bg-white divide-y divide-slate-50">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">載入中...</td>
+                                </tr>
+                            ) : locations.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">尚無地點資料</td>
+                                </tr>
+                            ) : (
+                                locations.map((location) => (
+                                    <tr key={location.id}>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <MapPin className="h-4 w-4 text-blue-600" />
+                                                <div>
+                                                    <div className="font-medium text-slate-900">{location.name}</div>
+                                                    {location.description && (
+                                                        <div className="text-xs text-slate-500">{location.description}</div>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-slate-500 font-mono">
-                                        {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-slate-500">
-                                        {location.radius_meters} 公尺
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${location.is_active
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-slate-500 font-mono">
+                                            {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-slate-500">
+                                            {location.radius_meters} 公尺
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${location.is_active
                                                 ? 'bg-green-100 text-green-800'
                                                 : 'bg-gray-100 text-gray-800'
-                                            }`}>
-                                            {location.is_active ? '啟用' : '停用'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleEdit(location)}
-                                                className="text-blue-600 hover:text-blue-900"
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(location)}
-                                                className="text-red-600 hover:text-red-900"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* 編輯/新增 Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-lg p-6 max-w-md w-full">
-                        <h2 className="text-xl font-bold mb-4">
-                            {editingLocation ? '編輯地點' : '新增地點'}
-                        </h2>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">地點名稱</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-md"
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">緯度</label>
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        required
-                                        value={formData.latitude}
-                                        onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-md"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">經度</label>
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        required
-                                        value={formData.longitude}
-                                        onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-md"
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">允許範圍（公尺）</label>
-                                <input
-                                    type="number"
-                                    required
-                                    value={formData.radius_meters}
-                                    onChange={(e) => setFormData({ ...formData, radius_meters: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-md"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">說明（選填）</label>
-                                <textarea
-                                    value={formData.description}
-                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-md"
-                                    rows={2}
-                                />
-                            </div>
-                            <div className="flex gap-2 justify-end">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50"
-                                >
-                                    取消
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                                >
-                                    {editingLocation ? '更新' : '建立'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                                                }`}>
+                                                {location.is_active ? '啟用' : '停用'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    onClick={() => handleEdit(location)}
+                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                    title="編輯"
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(location)}
+                                                    className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                                    title="刪除"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
                 </div>
-            )}
+
+                {/* 編輯/新增 Modal */}
+                {isModalOpen && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                        <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                            <h2 className="text-xl font-bold mb-4">
+                                {editingLocation ? '編輯地點' : '新增地點'}
+                            </h2>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">地點名稱</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">緯度</label>
+                                        <input
+                                            type="number"
+                                            step="any"
+                                            required
+                                            value={formData.latitude}
+                                            onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">經度</label>
+                                        <input
+                                            type="number"
+                                            step="any"
+                                            required
+                                            value={formData.longitude}
+                                            onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">允許範圍（公尺）</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        value={formData.radius_meters}
+                                        onChange={(e) => setFormData({ ...formData, radius_meters: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">說明（選填）</label>
+                                    <textarea
+                                        value={formData.description}
+                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                                        rows={2}
+                                    />
+                                </div>
+                                <div className="flex gap-2 justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsModalOpen(false)}
+                                        className="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50"
+                                    >
+                                        取消
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                    >
+                                        {editingLocation ? '更新' : '建立'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
+        </div >
     );
 };
 
