@@ -23,6 +23,7 @@ const formatTime = (date: Date) => {
         hour12: false,
         hour: '2-digit',
         minute: '2-digit',
+        second: '2-digit',
     });
 };
 
@@ -76,6 +77,32 @@ const KioskPage: React.FC = () => {
             return prev + value;
         });
     }, []);
+
+    // Handle keyboard input
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            // Check if any overlay is open
+            if (showSuccess || showFailure) return;
+
+            const { key } = event;
+
+            // Handle numbers
+            if (/^[0-9]$/.test(key)) {
+                handleKeypadPress(key as KeypadValue);
+            }
+            // Handle backspace
+            else if (key === 'Backspace') {
+                handleKeypadPress('BACKSPACE');
+            }
+            // Handle escape (Clear)
+            else if (key === 'Escape') {
+                handleKeypadPress('CLEAR');
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [handleKeypadPress, showSuccess, showFailure]);
 
     // Handle submission
     const handleSubmit = async (type: 'in' | 'out') => {

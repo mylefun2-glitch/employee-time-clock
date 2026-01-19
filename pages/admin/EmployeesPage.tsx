@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Plus, Pencil, Trash2, Search, Upload, Download, Filter } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Upload, Download, Filter, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Employee } from '../../types';
 import { createEmployee, updateEmployee, deleteEmployee } from '../../services/admin';
@@ -9,8 +9,58 @@ import { calculateSeniority, getSeniorityRange } from '../../lib/hrUtils';
 interface ImportResult {
     success: number;
     failed: number;
-    errors: string[];
+    errors: { line: number; name: string; error: string }[];
 }
+
+// 健壯的 CSV 解析器，支援雙引號中的逗號與換行
+const parseCSV = (text: string) => {
+    const rows: string[][] = [];
+    let currentRow: string[] = [];
+    let currentField = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const nextChar = text[i + 1];
+
+        if (inQuotes) {
+            if (char === '"') {
+                if (nextChar === '"') {
+                    currentField += '"';
+                    i++;
+                } else {
+                    inQuotes = false;
+                }
+            } else {
+                currentField += char;
+            }
+        } else {
+            if (char === '"') {
+                inQuotes = true;
+            } else if (char === ',') {
+                currentRow.push(currentField.trim());
+                currentField = '';
+            } else if (char === '\r' || char === '\n') {
+                currentRow.push(currentField.trim());
+                if (currentRow.length > 0 && currentRow.some(f => f !== '')) {
+                    rows.push(currentRow);
+                }
+                currentRow = [];
+                currentField = '';
+                if (char === '\r' && nextChar === '\n') i++;
+            } else {
+                currentField += char;
+            }
+        }
+    }
+
+    if (currentField || currentRow.length > 0) {
+        currentRow.push(currentField.trim());
+        rows.push(currentRow);
+    }
+
+    return rows;
+};
 
 const EmployeesPage: React.FC = () => {
     const [employees, setEmployees] = useState<Employee[]>([]);
@@ -18,6 +68,7 @@ const EmployeesPage: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDept, setSelectedDept] = useState('ALL');
     const [importing, setImporting] = useState(false);
+    const [sortConfig, setSortConfig] = useState<{ key: keyof Employee | 'seniority'; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Modal State
@@ -82,6 +133,13 @@ const EmployeesPage: React.FC = () => {
         fetchEmployees();
     };
 
+    const handleSort = (key: keyof Employee | 'seniority') => {
+        setSortConfig(prev => ({
+            key,
+            direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+        }));
+    };
+
     const handleImportClick = () => {
         fileInputRef.current?.click();
     };
@@ -98,26 +156,73 @@ const EmployeesPage: React.FC = () => {
         reader.onload = async (e) => {
             try {
                 const text = e.target?.result as string;
-                const lines = text.split('\n').filter(line => line.trim());
+                const rows = parseCSV(text);
+
+                if (rows.length <= 1) {
+                    alert('檔案中沒有資料');
+                    return;
+                }
+
                 let success = 0;
                 let failed = 0;
-                for (let i = 1; i < lines.length; i++) {
-                    const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-                    // 修改匯入邏輯以支援新的標籤格式
-                    if (values.length < 3) { failed++; continue; }
-                    const [name, username, pin, department] = values;
-                    const res = await createEmployee({
+                const errors: { line: number; name: string; error: string }[] = [];
+
+                // 從第二行開始（跳過標題）
+                for (let i = 1; i < rows.length; i++) {
+                    const values = rows[i];
+                    if (values.length < 3) {
+                        failed++;
+                        errors.push({ line: i + 1, name: values[0] || '未知', error: '欄位數量不足' });
+                        continue;
+                    }
+
+                    // 映射 16 個欄位
+                    // [姓名, 帳號, PIN, 部門, 職務, 性別, 生出日期, 到職日期, Gmail, 電話, 地址, 緊急聯絡人, 關係, 緊急電話, 加保, 退保]
+                    const [
+                        name, username, pin, department, position, gender,
+                        birth_date, join_date, gmail, contact_phone, mailing_address,
+                        emergency_contact_name, emergency_contact_relationship, emergency_contact_phone,
+                        insurance_start_date, insurance_end_date
+                    ] = values;
+
+                    const employeeData: Partial<Employee> = {
                         name,
-                        username: username || name, // 若未提供則預設為姓名
+                        username: username || name,
                         pin,
-                        department
-                    });
-                    if (res.success) success++; else failed++;
+                        department,
+                        position,
+                        gender: (gender === 'MALE' || gender === 'FEMALE' || gender === 'OTHER') ? gender : undefined,
+                        birth_date: birth_date || undefined,
+                        join_date: join_date || undefined,
+                        gmail: gmail || undefined,
+                        contact_phone: contact_phone || undefined,
+                        mailing_address: mailing_address || undefined,
+                        emergency_contact_name: emergency_contact_name || undefined,
+                        emergency_contact_relationship: emergency_contact_relationship || undefined,
+                        emergency_contact_phone: emergency_contact_phone || undefined,
+                        insurance_start_date: insurance_start_date || undefined,
+                        insurance_end_date: insurance_end_date || undefined,
+                        is_active: true
+                    };
+
+                    const res = await createEmployee(employeeData);
+                    if (res.success) {
+                        success++;
+                    } else {
+                        failed++;
+                        errors.push({ line: i + 1, name: name || '未知', error: res.error || '不明錯誤' });
+                    }
                 }
-                alert(`匯入完成！成功：${success} 筆，失敗：${failed} 筆`);
+
+                let resultMsg = `匯入完成！\n成功：${success} 筆\n失敗：${failed} 筆`;
+                if (errors.length > 0) {
+                    resultMsg += `\n\n失敗詳情：\n` + errors.map(e => `第 ${e.line} 行 (${e.name}): ${e.error}`).join('\n');
+                }
+
+                alert(resultMsg);
                 fetchEmployees();
             } catch (error: any) {
-                alert(`匯入失敗：${error.message}`);
+                alert(`匯入執行錯誤：${error.message}`);
             } finally {
                 setImporting(false);
                 if (fileInputRef.current) fileInputRef.current.value = '';
@@ -156,15 +261,39 @@ const EmployeesPage: React.FC = () => {
 
     const departments = ['ALL', ...Array.from(new Set(employees.map(emp => emp.department || '未分配')))];
 
-    const filteredEmployees = employees.filter(emp => {
-        const matchesSearch = (
-            emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            emp.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            emp.pin.includes(searchTerm)
-        );
-        const matchesDept = selectedDept === 'ALL' || (emp.department || '未分配') === selectedDept;
-        return matchesSearch && matchesDept;
-    });
+    const filteredEmployees = employees
+        .filter(emp => {
+            const matchesSearch = (
+                emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                emp.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                emp.pin.includes(searchTerm)
+            );
+            const matchesDept = selectedDept === 'ALL' || (emp.department || '未分配') === selectedDept;
+            return matchesSearch && matchesDept;
+        })
+        .sort((a, b) => {
+            const direction = sortConfig.direction === 'asc' ? 1 : -1;
+
+            if (sortConfig.key === 'seniority') {
+                const dateA = a.join_date ? new Date(a.join_date).getTime() : 0;
+                const dateB = b.join_date ? new Date(b.join_date).getTime() : 0;
+                // Seniority is inversely proportional to join_date
+                return (dateB - dateA) * direction;
+            }
+
+            const valA = a[sortConfig.key as keyof Employee];
+            const valB = b[sortConfig.key as keyof Employee];
+
+            if (valA === valB) return 0;
+            if (valA === null || valA === undefined) return 1;
+            if (valB === null || valB === undefined) return -1;
+
+            if (typeof valA === 'string' && typeof valB === 'string') {
+                return valA.localeCompare(valB) * direction;
+            }
+
+            return ((valA as any) > (valB as any) ? 1 : -1) * direction;
+        });
 
     return (
         <div className="space-y-6">
@@ -227,7 +356,7 @@ const EmployeesPage: React.FC = () => {
                         className="block w-full md:w-48 pl-4 pr-10 py-3 border-slate-200 bg-slate-50/50 rounded-xl text-base font-bold text-slate-700 focus:ring-blue-500 focus:border-blue-500 border transition-all"
                     >
                         {departments.map(dept => (
-                            <option key={dept} value={dept}>{dept === 'ALL' ? '全部分門' : dept}</option>
+                            <option key={dept} value={dept}>{dept === 'ALL' ? '全部' : dept}</option>
                         ))}
                     </select>
                 </div>
@@ -238,11 +367,60 @@ const EmployeesPage: React.FC = () => {
                     <table className="min-w-full divide-y divide-slate-100">
                         <thead className="bg-slate-50/50">
                             <tr>
-                                <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">姓名 / 職務</th>
-                                <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">部門</th>
-                                <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">年資</th>
+                                <th
+                                    className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-blue-600 transition-colors group"
+                                    onClick={() => handleSort('name')}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        姓名 / 職務
+                                        {sortConfig.key === 'name' ? (
+                                            sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                                        ) : (
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+                                        )}
+                                    </div>
+                                </th>
+                                <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">性別</th>
+                                <th
+                                    className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-blue-600 transition-colors group"
+                                    onClick={() => handleSort('department')}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        部門
+                                        {sortConfig.key === 'department' ? (
+                                            sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                                        ) : (
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+                                        )}
+                                    </div>
+                                </th>
+                                <th
+                                    className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-blue-600 transition-colors group"
+                                    onClick={() => handleSort('seniority')}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        年資
+                                        {sortConfig.key === 'seniority' ? (
+                                            sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                                        ) : (
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+                                        )}
+                                    </div>
+                                </th>
                                 <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">PIN 碼</th>
-                                <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">狀態</th>
+                                <th
+                                    className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-blue-600 transition-colors group"
+                                    onClick={() => handleSort('is_active')}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        狀態
+                                        {sortConfig.key === 'is_active' ? (
+                                            sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                                        ) : (
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+                                        )}
+                                    </div>
+                                </th>
                                 <th className="px-6 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">操作</th>
                             </tr>
                         </thead>
@@ -263,6 +441,9 @@ const EmployeesPage: React.FC = () => {
                                         <td className="px-6 py-5 whitespace-nowrap">
                                             <div className="text-base font-black text-slate-900">{person.name}</div>
                                             <div className="text-xs font-black text-blue-500 uppercase tracking-tight mt-0.5">{person.position || '未設定職務'}</div>
+                                        </td>
+                                        <td className="px-6 py-5 whitespace-nowrap text-base font-bold text-slate-600">
+                                            {person.gender === 'MALE' ? '男' : person.gender === 'FEMALE' ? '女' : person.gender === 'OTHER' ? '其他' : '-'}
                                         </td>
                                         <td className="px-6 py-5 whitespace-nowrap text-base font-bold text-slate-600">
                                             {person.department || '未分配'}
