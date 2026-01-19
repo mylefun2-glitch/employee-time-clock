@@ -142,3 +142,143 @@ export const getAttendanceLogs = async (startDate?: string, endDate?: string) =>
         return [];
     }
 };
+
+export const deleteAttendanceLog = async (id: string) => {
+    try {
+        const { error } = await supabase
+            .from('attendance_logs')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error deleting attendance log:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+// 補登申請管理（直屬主管審核）
+export const getMakeupRequests = async (status?: string, managerId?: string) => {
+    try {
+        console.log('[getMakeupRequests] Called with:', { status, managerId });
+
+        let query = supabase
+            .from('makeup_attendance_requests')
+            .select(`
+                *,
+                employee:employees(name, department, pin, manager_id)
+            `)
+            .order('created_at', { ascending: false });
+
+        if (status && status !== 'ALL') {
+            query = query.eq('status', status);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+            console.error('[getMakeupRequests] Supabase error:', error);
+            throw error;
+        }
+
+        console.log('[getMakeupRequests] Raw data from Supabase:', {
+            count: data?.length || 0,
+            data: data
+        });
+
+        // 如果指定了主管 ID，只返回該主管的直屬下屬的申請
+        if (managerId) {
+            const filtered = (data || []).filter((req: any) => {
+                const match = req.employee?.manager_id === managerId;
+                console.log('[getMakeupRequests] Filtering:', {
+                    requestId: req.id,
+                    employeeName: req.employee?.name,
+                    employeeManagerId: req.employee?.manager_id,
+                    targetManagerId: managerId,
+                    match: match
+                });
+                return match;
+            });
+
+            console.log('[getMakeupRequests] Filtered results:', {
+                count: filtered.length,
+                data: filtered
+            });
+
+            return filtered;
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Error fetching makeup requests:', error);
+        return [];
+    }
+};
+
+export const approveMakeupRequest = async (id: string, reviewerId: string, comment?: string) => {
+    try {
+        // 獲取申請資料
+        const { data: request, error: fetchError } = await supabase
+            .from('makeup_attendance_requests')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        // 建立打卡記錄
+        const timestamp = new Date(request.request_date);
+        const [hours, minutes] = request.request_time.split(':');
+        timestamp.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+        const { error: insertError } = await supabase
+            .from('attendance_logs')
+            .insert([{
+                employee_id: request.employee_id,
+                check_type: request.check_type,
+                timestamp: timestamp.toISOString(),
+                is_makeup: true
+            }]);
+
+        if (insertError) throw insertError;
+
+        // 更新申請狀態
+        const { error: updateError } = await supabase
+            .from('makeup_attendance_requests')
+            .update({
+                status: 'APPROVED',
+                reviewer_id: reviewerId,
+                reviewed_at: new Date().toISOString(),
+                review_comment: comment
+            })
+            .eq('id', id);
+
+        if (updateError) throw updateError;
+
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error approving makeup request:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+export const rejectMakeupRequest = async (id: string, reviewerId: string, comment?: string) => {
+    try {
+        const { error } = await supabase
+            .from('makeup_attendance_requests')
+            .update({
+                status: 'REJECTED',
+                reviewer_id: reviewerId,
+                reviewed_at: new Date().toISOString(),
+                review_comment: comment
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error rejecting makeup request:', error);
+        return { success: false, error: error.message };
+    }
+};

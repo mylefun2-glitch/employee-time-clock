@@ -17,7 +17,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
     const [username, setUsername] = useState('');
     const [pin, setPin] = useState('');
     const [department, setDepartment] = useState('');
-    const [supervisorId, setSupervisorId] = useState<string>('');
+    const [managerId, setManagerId] = useState<string>('');
     const [isActive, setIsActive] = useState(true);
 
     // 詳細資料欄位
@@ -44,7 +44,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             setUsername(employee.username || '');
             setPin(employee.pin || '');
             setDepartment(employee.department || '');
-            setSupervisorId(employee.supervisor_id || '');
+            setManagerId(employee.manager_id || '');
             setIsActive(employee.is_active ?? true);
             setGender(employee.gender || '');
             setPosition(employee.position || '');
@@ -63,7 +63,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             setUsername('');
             setPin('');
             setDepartment('');
-            setSupervisorId('');
+            setManagerId('');
             setIsActive(true);
             setGender('');
             setPosition('');
@@ -100,7 +100,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                 pin,
                 department,
                 is_active: isActive,
-                supervisor_id: supervisorId || null,
+                manager_id: managerId || null,
                 gender: gender as any || null,
                 position: position || null,
                 birth_date: birthDate || null,
@@ -210,8 +210,8 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                             <div>
                                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">直屬主管</label>
                                 <select
-                                    value={supervisorId}
-                                    onChange={(e) => setSupervisorId(e.target.value)}
+                                    value={managerId}
+                                    onChange={(e) => setManagerId(e.target.value)}
                                     className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
                                 >
                                     <option value="">無</option>

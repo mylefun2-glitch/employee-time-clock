@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Download } from 'lucide-react';
-import { getAttendanceLogs } from '../../services/admin';
+import { Download, Trash2 } from 'lucide-react';
+import { getAttendanceLogs, deleteAttendanceLog } from '../../services/admin';
 import { format } from 'date-fns';
 
 interface DepartmentStats {
@@ -36,6 +36,19 @@ const AttendancePage: React.FC = () => {
         setDepartments(Array.from(deptSet).sort());
 
         setLoading(false);
+    };
+
+    const handleDeleteLog = async (id: string) => {
+        if (!window.confirm('確定要刪除此筆打卡紀錄嗎？此動作無法復原。')) {
+            return;
+        }
+
+        const result = await deleteAttendanceLog(id);
+        if (result.success) {
+            await fetchLogs();
+        } else {
+            alert(`刪除失敗：${result.error}`);
+        }
     };
 
     // 篩選邏輯
@@ -301,6 +314,16 @@ const AttendancePage: React.FC = () => {
                                                             <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">
                                                                 {log.type === 'IN' ? '上班' : '下班'}
                                                             </span>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteLog(log.id);
+                                                                }}
+                                                                className="ml-auto p-1 opacity-0 group-hover:opacity-100 hover:bg-white/50 rounded-lg transition-all text-slate-400 hover:text-rose-600"
+                                                                title="刪除紀錄"
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </button>
                                                         </div>
                                                         {log.latitude && (
                                                             <a

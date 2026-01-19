@@ -58,7 +58,7 @@ export interface Employee {
   department: string;
   is_active: boolean;
   is_supervisor?: boolean;
-  supervisor_id?: string;
+  manager_id?: string; // 直屬主管 ID
 
   // --- 新增詳細資料欄位 ---
   gender?: 'MALE' | 'FEMALE' | 'OTHER';

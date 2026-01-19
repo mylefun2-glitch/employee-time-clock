@@ -119,64 +119,48 @@ const EmployeeRequestsPage: React.FC = () => {
                         <p className="text-slate-400 mt-4 font-bold">尚無相關申請記錄</p>
                     </div>
                 ) : (
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-slate-50">
                         {filteredRequests.map((request) => {
                             const badge = getStatusBadge(request.status);
                             return (
-                                <div key={request.id} className="group p-5 sm:p-6 hover:bg-slate-50/80 transition-all duration-200">
-                                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                                        {/* Icon & Primary Info */}
-                                        <div className="flex items-center flex-1 gap-4">
-                                            <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center shrink-0 border border-slate-200 shadow-sm group-hover:bg-white group-hover:scale-110 transition-transform">
-                                                <span className="material-symbols-outlined text-slate-500 text-2xl font-light">edit_calendar</span>
+                                <div key={request.id} className="group px-4 py-3 hover:bg-slate-50/50 transition-all">
+                                    <div className="flex items-center justify-between gap-3">
+                                        {/* Left: Type & Date */}
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                            <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center shrink-0">
+                                                <span className="material-symbols-outlined text-slate-500 text-lg">edit_calendar</span>
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
-                                                    <h3 className="text-base font-bold text-slate-900 border-b-2 border-transparent group-hover:border-blue-200 transition-colors">
+                                                    <h3 className="text-sm font-black text-slate-900 truncate">
                                                         {request.leave_type?.name || '請假申請'}
                                                     </h3>
-                                                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md border uppercase tracking-wider ${badge.class}`}>
+                                                    <span className={`px-2 py-0.5 text-[9px] font-black rounded border ${badge.class}`}>
                                                         {badge.text}
                                                     </span>
                                                 </div>
-                                                <div className="flex items-center gap-3 mt-1.5 text-slate-400">
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="material-symbols-outlined text-[14px]">event</span>
-                                                        <span className="text-xs font-bold font-mono tracking-tight">
-                                                            {new Date(request.start_date).toLocaleDateString('zh-TW')}
-                                                        </span>
-                                                    </div>
-                                                    <span className="text-slate-300">→</span>
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="text-xs font-bold font-mono tracking-tight">
-                                                            {new Date(request.end_date).toLocaleDateString('zh-TW')}
-                                                        </span>
-                                                    </div>
+                                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400 font-medium">
+                                                    <span className="font-mono">{new Date(request.start_date).toLocaleDateString('zh-TW')}</span>
+                                                    <span>→</span>
+                                                    <span className="font-mono">{new Date(request.end_date).toLocaleDateString('zh-TW')}</span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Meta Stats & Date */}
-                                        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-50">
-                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded sm:bg-transparent sm:px-0">
-                                                ID: {request.id.slice(0, 8)}
-                                            </div>
-                                            <p className="text-[10px] sm:mt-1 font-bold text-slate-400 flex items-center gap-1 italic">
-                                                <span className="material-symbols-outlined text-[12px]">schedule</span>
+                                        {/* Right: ID & Created Date */}
+                                        <div className="text-right shrink-0">
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase">ID: {request.id.slice(0, 6)}</p>
+                                            <p className="text-[10px] text-slate-400 mt-0.5">
                                                 {new Date(request.created_at).toLocaleDateString('zh-TW')} 申請
                                             </p>
                                         </div>
                                     </div>
 
                                     {request.reason && (
-                                        <div className="mt-4 flex gap-4">
-                                            <div className="hidden sm:block w-12 shrink-0"></div> {/* Alignment spacer */}
-                                            <div className="flex-1 bg-slate-50/80 rounded-2xl p-4 border border-slate-100 group-hover:bg-white transition-colors border-l-4 border-l-blue-200">
-                                                <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                                                    <span className="font-black text-blue-400/60 mr-2 text-[9px] uppercase tracking-widest block mb-1">Reason / 事由</span>
-                                                    {request.reason}
-                                                </p>
-                                            </div>
+                                        <div className="mt-2 ml-11 bg-slate-50 rounded-lg px-3 py-2 border-l-2 border-blue-200">
+                                            <p className="text-[11px] text-slate-600 line-clamp-2">
+                                                {request.reason}
+                                            </p>
                                         </div>
                                     )}
                                 </div>

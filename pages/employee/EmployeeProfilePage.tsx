@@ -54,36 +54,29 @@ const EmployeeProfilePage: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-                {/* Header Banner */}
-                <div className="px-10 py-12 bg-gradient-to-br from-blue-600 to-indigo-700 relative overflow-hidden">
-                    <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
-                    <div className="absolute left-1/2 bottom-0 w-96 h-32 bg-blue-400/20 rounded-full -translate-x-1/2 blur-3xl"></div>
-
-                    <div className="absolute -right-6 -bottom-6 opacity-10">
-                        <span className="material-symbols-outlined text-white text-[180px] rotate-12 select-none">account_circle</span>
-                    </div>
-
-                    <div className="flex flex-col md:flex-row items-center md:items-end gap-8 relative z-10 text-center md:text-left">
-                        <div className="w-28 h-28 bg-white/20 backdrop-blur-2xl rounded-[2rem] flex items-center justify-center border border-white/30 shadow-2xl transform hover:rotate-3 transition-transform duration-500">
-                            <span className="text-5xl font-black text-white cursor-default select-none">
+                {/* Simple Header */}
+                <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/30">
+                    <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg">
+                            <span className="text-2xl font-black text-white">
                                 {employee.name.charAt(0)}
                             </span>
                         </div>
-                        <div className="text-white pb-2">
-                            <div className="flex flex-col md:flex-row items-center gap-3">
-                                <h2 className="text-4xl font-black tracking-tight">{employee.name}</h2>
-                                <div className="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-xl text-[11px] font-black uppercase tracking-[0.2em] border border-white/20 shadow-sm">
-                                    {employee.position || '成員'}
-                                </div>
-                            </div>
-                            <div className="flex flex-wrap justify-center md:justify-start items-center gap-4 mt-3 text-blue-100/90 font-bold">
-                                <span className="flex items-center gap-2 text-sm">
-                                    <span className="material-symbols-outlined text-lg">business</span>
+                        <div className="flex-1">
+                            <h2 className="text-2xl font-black text-slate-900">{employee.name}</h2>
+                            <div className="flex items-center gap-3 mt-1.5 text-sm text-slate-600 font-bold">
+                                <span className="flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-base">business</span>
                                     {employee.department || '未分配部門'}
                                 </span>
-                                <div className="w-1 h-1 rounded-full bg-blue-300 hidden md:block"></div>
-                                <span className="flex items-center gap-2 text-sm">
-                                    <span className="material-symbols-outlined text-lg">verified</span>
+                                <div className="w-1 h-1 rounded-full bg-slate-300"></div>
+                                <span className="flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-base">badge</span>
+                                    {employee.position || '成員'}
+                                </span>
+                                <div className="w-1 h-1 rounded-full bg-slate-300"></div>
+                                <span className={`flex items-center gap-1.5 ${employee.is_active ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                    <span className="material-symbols-outlined text-base">verified</span>
                                     {employee.is_active ? '在職中' : '已離職'}
                                 </span>
                             </div>

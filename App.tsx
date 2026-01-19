@@ -6,6 +6,7 @@ import AdminLayout from './layouts/AdminLayout';
 import DashboardPage from './pages/admin/DashboardPage';
 import EmployeesPage from './pages/admin/EmployeesPage';
 import AttendancePage from './pages/admin/AttendancePage';
+import MakeupRequestsPage from './pages/admin/MakeupRequestsPage';
 import RequestsPage from './pages/admin/RequestsPage';
 import LeaveTypesPage from './pages/admin/LeaveTypesPage';
 import CompanyManagementPage from './pages/admin/CompanyManagementPage';
@@ -37,6 +38,7 @@ const App: React.FC = () => {
               <Route path="employees" element={<EmployeesPage />} />
               <Route path="stats" element={<StatisticsPage />} />
               <Route path="attendance" element={<AttendancePage />} />
+              <Route path="makeup-requests" element={<MakeupRequestsPage />} />
               <Route path="requests" element={<RequestsPage />} />
               <Route path="leave-types" element={<LeaveTypesPage />} />
               <Route path="company" element={<CompanyManagementPage />} />
@@ -51,6 +53,7 @@ const App: React.FC = () => {
               <Route path="requests" element={<EmployeeRequestsPage />} />
               <Route path="attendance" element={<EmployeeAttendancePage />} />
               <Route path="approvals" element={<EmployeeApprovalsPage />} />
+              <Route path="makeup-approvals" element={<MakeupRequestsPage />} />
             </Route>
 
             {/* Fallback */}
