@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { getMakeupRequests, approveMakeupRequest, rejectMakeupRequest } from '../../services/admin';
 import { useEmployee } from '../../contexts/EmployeeContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 const MakeupRequestsPage: React.FC = () => {
     const { employee } = useEmployee();
+    const { user } = useAuth(); // 新增：用於管理端管理員身分
     const [requests, setRequests] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
@@ -23,15 +25,34 @@ const MakeupRequestsPage: React.FC = () => {
         message: string;
     }>({ show: false, success: false, message: '' });
 
+    // 判斷當前是管理員模式還是主管模式
+    const isAdminMode = !employee && !!user;
+
     useEffect(() => {
         fetchRequests();
-    }, [filter, employee]);
+    }, [filter, employee, user]);
 
     const fetchRequests = async () => {
-        if (!employee) return;
+        // 如果兩者都沒有登入，則無法讀取
+        if (!employee && !user) {
+            console.log('[MakeupRequestsPage] No active session (Admin or Employee)');
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         try {
-            const data = await getMakeupRequests(filter, employee.id);
+            // 如果是主管模式，傳入 employee.id 作為 managerId
+            // 如果是管理員模式，不傳入 managerId，讀取全公司資料
+            const managerId = isAdminMode ? undefined : employee?.id;
+
+            console.log('[MakeupRequestsPage] Fetching requests:', {
+                mode: isAdminMode ? 'ADMIN' : 'MANAGER',
+                managerId: managerId,
+                filter: filter
+            });
+
+            const data = await getMakeupRequests(filter, managerId);
             setRequests(data || []);
         } catch (error) {
             console.error('[MakeupRequestsPage] Error fetching requests:', error);
@@ -50,7 +71,8 @@ const MakeupRequestsPage: React.FC = () => {
     };
 
     const handleReviewConfirm = async () => {
-        if (!employee || !reviewDialog.requestId) return;
+        const activeReviewerId = employee?.id || user?.id;
+        if (!activeReviewerId || !reviewDialog.requestId) return;
 
         const { type, requestId, comment } = reviewDialog;
 
@@ -67,8 +89,8 @@ const MakeupRequestsPage: React.FC = () => {
         setReviewDialog({ show: false, type: null, requestId: null, comment: '' });
 
         const result = type === 'approve'
-            ? await approveMakeupRequest(requestId, employee.id, comment || undefined)
-            : await rejectMakeupRequest(requestId, employee.id, comment);
+            ? await approveMakeupRequest(requestId, activeReviewerId, comment || undefined)
+            : await rejectMakeupRequest(requestId, activeReviewerId, comment);
 
         setProcessingId(null);
 
@@ -117,8 +139,12 @@ const MakeupRequestsPage: React.FC = () => {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">補登審核</h1>
-                <p className="text-slate-500 text-sm font-medium mt-1">審核直屬下屬的漏卡補登申請</p>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+                    {isAdminMode ? '全公司補登審核' : '下屬補登審核'}
+                </h1>
+                <p className="text-slate-500 text-sm font-medium mt-1">
+                    {isAdminMode ? '管理全公司的漏卡補登申請' : '審核直屬下屬的漏卡補登申請'}
+                </p>
             </div>
 
             {/* Stats Grid */}

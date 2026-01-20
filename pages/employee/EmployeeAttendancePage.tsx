@@ -187,8 +187,8 @@ const EmployeeAttendancePage: React.FC = () => {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`flex items-center gap-2 px-6 py-4 font-bold text-sm transition-all border-b-2 whitespace-nowrap relative ${activeTab === tab.id
-                                    ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                                ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                                 }`}
                         >
                             <span className="material-symbols-outlined text-xl">{tab.icon}</span>
@@ -259,110 +259,89 @@ const EmployeeAttendancePage: React.FC = () => {
                                 <div className="space-y-4">
                                     {Object.entries(groupedLogs).map(([date, data]) => {
                                         const { attendance, leaves } = data;
-                                        const inLog = attendance.find((l: any) => l.check_type === 'IN');
-                                        const outLog = attendance.find((l: any) => l.check_type === 'OUT');
+                                        // 按時間順序排序當天打卡紀錄
+                                        const sortedLogs = [...attendance].sort((a, b) =>
+                                            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+                                        );
                                         const leaveInfo = leaves.length > 0 ? leaves[0] : null;
 
                                         return (
                                             <div key={date} className="bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-md transition-all">
                                                 {/* Date Header */}
-                                                <div className="bg-slate-50 px-6 py-3 border-b border-slate-100">
+                                                <div className="bg-slate-50 px-6 py-3 border-b border-slate-100 flex justify-between items-center">
                                                     <h4 className="text-sm font-black text-slate-700">{date}</h4>
+                                                    {sortedLogs.length > 0 && (
+                                                        <span className="text-[10px] font-black bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                                                            共 {sortedLogs.length} 筆紀錄
+                                                        </span>
+                                                    )}
                                                 </div>
 
                                                 {/* Records */}
                                                 <div className="p-4">
-                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                        {/* 上班打卡 */}
-                                                        <div className={`p-4 rounded-xl border-2 transition-all ${inLog
-                                                            ? 'bg-emerald-50 border-emerald-200'
-                                                            : 'bg-slate-50 border-slate-200 border-dashed'
-                                                            }`}>
-                                                            {inLog ? (
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                                        {/* 所有打卡紀錄 */}
+                                                        {sortedLogs.map((log: any, idx: number) => (
+                                                            <div key={log.id} className={`p-4 rounded-xl border-2 transition-all ${log.check_type === 'IN'
+                                                                ? 'bg-emerald-50 border-emerald-200 shadow-sm shadow-emerald-100/50'
+                                                                : 'bg-orange-50 border-orange-200 shadow-sm shadow-orange-100/50'
+                                                                }`}>
                                                                 <div className="text-center">
-                                                                    <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-md">
-                                                                        <span className="material-symbols-outlined text-white text-2xl">login</span>
+                                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-md ${log.check_type === 'IN' ? 'bg-emerald-500' : 'bg-orange-500'
+                                                                        }`}>
+                                                                        <span className="material-symbols-outlined text-white text-xl">
+                                                                            {log.check_type === 'IN' ? 'login' : 'logout'}
+                                                                        </span>
                                                                     </div>
-                                                                    <p className="text-xs font-black text-emerald-700 mb-1">上班打卡</p>
-                                                                    <p className="text-2xl font-black text-emerald-900 font-mono">
-                                                                        {new Date(inLog.timestamp).toLocaleTimeString('zh-TW', {
+                                                                    <p className={`text-[10px] font-black mb-1 uppercase tracking-wider ${log.check_type === 'IN' ? 'text-emerald-700' : 'text-orange-700'
+                                                                        }`}>
+                                                                        {log.check_type === 'IN' ? '上班打卡' : '下班打卡'}
+                                                                    </p>
+                                                                    <p className={`text-2xl font-black font-mono ${log.check_type === 'IN' ? 'text-emerald-900' : 'text-orange-900'
+                                                                        }`}>
+                                                                        {new Date(log.timestamp).toLocaleTimeString('zh-TW', {
                                                                             hour: '2-digit',
                                                                             minute: '2-digit',
                                                                             hour12: false
                                                                         })}
                                                                     </p>
-                                                                    {inLog.location_accuracy && (
-                                                                        <p className="text-xs text-emerald-600 mt-1">±{Math.round(inLog.location_accuracy)}M</p>
+                                                                    {log.location_accuracy && (
+                                                                        <p className={`text-[10px] font-bold mt-1 ${log.check_type === 'IN' ? 'text-emerald-600' : 'text-orange-600'
+                                                                            }`}>±{Math.round(log.location_accuracy)}M</p>
                                                                     )}
                                                                 </div>
-                                                            ) : (
-                                                                <div className="text-center py-4">
-                                                                    <span className="material-symbols-outlined text-slate-300 text-3xl">login</span>
-                                                                    <p className="text-xs font-bold text-slate-400 mt-2">未打卡</p>
-                                                                </div>
-                                                            )}
-                                                        </div>
-
-                                                        {/* 下班打卡 */}
-                                                        <div className={`p-4 rounded-xl border-2 transition-all ${outLog
-                                                            ? 'bg-orange-50 border-orange-200'
-                                                            : 'bg-slate-50 border-slate-200 border-dashed'
-                                                            }`}>
-                                                            {outLog ? (
-                                                                <div className="text-center">
-                                                                    <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-md">
-                                                                        <span className="material-symbols-outlined text-white text-2xl">logout</span>
-                                                                    </div>
-                                                                    <p className="text-xs font-black text-orange-700 mb-1">下班打卡</p>
-                                                                    <p className="text-2xl font-black text-orange-900 font-mono">
-                                                                        {new Date(outLog.timestamp).toLocaleTimeString('zh-TW', {
-                                                                            hour: '2-digit',
-                                                                            minute: '2-digit',
-                                                                            hour12: false
-                                                                        })}
-                                                                    </p>
-                                                                    {outLog.location_accuracy && (
-                                                                        <p className="text-xs text-orange-600 mt-1">±{Math.round(outLog.location_accuracy)}M</p>
-                                                                    )}
-                                                                </div>
-                                                            ) : (
-                                                                <div className="text-center py-4">
-                                                                    <span className="material-symbols-outlined text-slate-300 text-3xl">logout</span>
-                                                                    <p className="text-xs font-bold text-slate-400 mt-2">未打卡</p>
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                            </div>
+                                                        ))}
 
                                                         {/* 請假資訊 */}
-                                                        <div className={`p-4 rounded-xl border-2 transition-all ${leaveInfo
-                                                            ? 'border-purple-200'
-                                                            : 'bg-slate-50 border-slate-200 border-dashed'
-                                                            }`} style={leaveInfo ? {
-                                                                backgroundColor: `${leaveInfo.leave_type?.color}15`
-                                                            } : {}}>
-                                                            {leaveInfo ? (
+                                                        {leaveInfo && (
+                                                            <div className="p-4 rounded-xl border-2 transition-all border-purple-200 shadow-sm shadow-purple-100/50"
+                                                                style={{ backgroundColor: `${leaveInfo.leave_type?.color}15` }}>
                                                                 <div className="text-center">
-                                                                    <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-md" style={{
+                                                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-md" style={{
                                                                         backgroundColor: leaveInfo.leave_type?.color || '#9333EA'
                                                                     }}>
-                                                                        <span className="material-symbols-outlined text-white text-2xl">event_available</span>
+                                                                        <span className="material-symbols-outlined text-white text-xl">event_available</span>
                                                                     </div>
-                                                                    <p className="text-xs font-black mb-1" style={{
+                                                                    <p className="text-[10px] font-black mb-1 uppercase tracking-wider" style={{
                                                                         color: leaveInfo.leave_type?.color || '#9333EA'
                                                                     }}>
                                                                         {leaveInfo.leave_type?.name || '請假'}
                                                                     </p>
-                                                                    <p className="text-sm text-slate-600 line-clamp-2">
+                                                                    <p className="text-sm font-bold text-slate-700 line-clamp-2 px-2">
                                                                         {leaveInfo.reason || '無事由'}
                                                                     </p>
                                                                 </div>
-                                                            ) : (
-                                                                <div className="text-center py-4">
-                                                                    <span className="material-symbols-outlined text-slate-300 text-3xl">event_available</span>
-                                                                    <p className="text-xs font-bold text-slate-400 mt-2">正常上班</p>
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* 若當天完全沒紀錄也沒請假 */}
+                                                        {sortedLogs.length === 0 && !leaveInfo && (
+                                                            <div className="col-span-full py-8 text-center bg-slate-50 rounded-xl border-2 border-slate-200 border-dashed">
+                                                                <span className="material-symbols-outlined text-slate-300 text-3xl">event_busy</span>
+                                                                <p className="text-xs font-bold text-slate-400 mt-2">該日無出勤紀錄</p>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
