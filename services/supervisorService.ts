@@ -48,7 +48,7 @@ export const getPendingApprovalsForSupervisor = async (supervisorEmployeeId: str
                     id,
                     name,
                     department,
-                    supervisor_id
+                    manager_id
                 ),
                 leave_type:leave_types(*)
             `)
@@ -61,7 +61,7 @@ export const getPendingApprovalsForSupervisor = async (supervisorEmployeeId: str
 
         // 篩選出下屬的請假申請
         const subordinateRequests = (data || []).filter(
-            (request: any) => request.employee?.supervisor_id === supervisorEmployeeId
+            (request: any) => request.employee?.manager_id === supervisorEmployeeId
         );
 
         return {

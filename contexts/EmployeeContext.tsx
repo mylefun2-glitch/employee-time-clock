@@ -12,7 +12,7 @@ interface EmployeeUser {
     department: string;
     position?: string;
     email?: string;
-    supervisor_id?: string;
+    manager_id?: string;
     hire_date?: string;
     is_supervisor: boolean; // 是否為主管
 }
@@ -61,7 +61,7 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 const { count } = await supabase
                     .from('employees')
                     .select('id', { count: 'exact', head: true })
-                    .eq('supervisor_id', employeeId);
+                    .eq('manager_id', employeeId);
                 is_supervisor = (count || 0) > 0;
             }
 
@@ -98,7 +98,7 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 const { count } = await supabase
                     .from('employees')
                     .select('id', { count: 'exact', head: true })
-                    .eq('supervisor_id', data.id);
+                    .eq('manager_id', data.id);
                 is_supervisor = (count || 0) > 0;
             }
 
