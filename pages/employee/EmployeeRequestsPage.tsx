@@ -38,13 +38,13 @@ const EmployeeRequestsPage: React.FC = () => {
         }
     };
 
-    const getStatusBadge = (status: string) => {
-        const badges = {
-            PENDING: { text: '待審核', class: 'bg-amber-50 text-amber-600 border-amber-100' },
-            APPROVED: { text: '已核准', class: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
-            REJECTED: { text: '已拒絕', class: 'bg-rose-50 text-rose-600 border-rose-100' }
+    const getStatusInfo = (status: string) => {
+        const statuses = {
+            PENDING: { text: '待審核', class: 'bg-amber-50 text-amber-700 border-amber-200', icon: 'pending' },
+            APPROVED: { text: '已核准', class: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'check_circle' },
+            REJECTED: { text: '已拒絕', class: 'bg-rose-50 text-rose-700 border-rose-200', icon: 'cancel' }
         };
-        return badges[status as keyof typeof badges] || badges.PENDING;
+        return statuses[status as keyof typeof statuses] || statuses.PENDING;
     };
 
     const filteredRequests = requests.filter(req =>
@@ -52,7 +52,7 @@ const EmployeeRequestsPage: React.FC = () => {
     );
 
     const stats = [
-        { label: '總申請數', value: requests.length, icon: 'list_alt', color: 'bg-blue-500' },
+        { label: '總申請數', value: requests.length, icon: 'list_alt', color: 'bg-blue-600' },
         { label: '待審核', value: requests.filter(r => r.status === 'PENDING').length, icon: 'pending', color: 'bg-amber-500' },
         { label: '已核准', value: requests.filter(r => r.status === 'APPROVED').length, icon: 'check_circle', color: 'bg-emerald-500' },
         { label: '已拒絕', value: requests.filter(r => r.status === 'REJECTED').length, icon: 'cancel', color: 'bg-rose-500' }
@@ -63,15 +63,16 @@ const EmployeeRequestsPage: React.FC = () => {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">申請記錄</h1>
-                    <p className="text-slate-500 mt-1">追蹤您的所有請假申請狀態</p>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">申請記錄</h1>
+                    <p className="text-slate-500 text-sm font-medium mt-1">追蹤您的所有請假申請與審核狀態</p>
                 </div>
                 <button
                     onClick={() => setShowForm(true)}
-                    className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all hover:-translate-y-0.5"
+                    className="flex items-center justify-center gap-2 px-8 py-3.5 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all hover:-translate-y-1 active:scale-95"
                 >
                     <span className="material-symbols-outlined">add_circle</span>
                     發起新申請
@@ -81,94 +82,111 @@ const EmployeeRequestsPage: React.FC = () => {
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {stats.map((item) => (
-                    <div key={item.label} className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
-                        <div className="flex items-center gap-4">
-                            <div className={`${item.color} w-10 h-10 rounded-xl flex items-center justify-center shadow-md shadow-slate-100`}>
-                                <span className="material-symbols-outlined text-white text-xl">{item.icon}</span>
+                    <div key={item.label} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                        <div className="flex flex-col items-center text-center gap-3">
+                            <div className={`${item.color} w-12 h-12 rounded-xl flex items-center justify-center shadow-lg`}>
+                                <span className="material-symbols-outlined text-white text-2xl">{item.icon}</span>
                             </div>
                             <div>
-                                <p className="text-2xl font-bold text-slate-900 leading-none">{item.value}</p>
-                                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">{item.label}</p>
+                                <p className="text-3xl font-black text-slate-900 leading-none mb-1">{item.value}</p>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{item.label}</p>
                             </div>
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* Filters */}
-            <div className="flex gap-2 p-1.5 bg-white border border-slate-100 rounded-2xl w-fit shadow-sm">
-                {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
-                    <button
-                        key={status}
-                        onClick={() => setFilter(status)}
-                        className={`px-5 py-2 rounded-xl text-sm font-bold transition-all ${filter === status
-                            ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
-                            : 'text-slate-500 hover:bg-slate-50'
-                            }`}
-                    >
-                        {status === 'ALL' ? '全部' : getStatusBadge(status).text}
-                    </button>
-                ))}
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => {
+                    const info = status === 'ALL' ? null : getStatusInfo(status);
+                    return (
+                        <button
+                            key={status}
+                            onClick={() => setFilter(status)}
+                            className={`px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${filter === status
+                                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
+                                    : 'bg-white text-slate-500 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
+                                }`}
+                        >
+                            {status === 'ALL' ? '全部申請' : info?.text}
+                        </button>
+                    );
+                })}
             </div>
 
-            {/* List */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            {/* Requests List */}
+            <div className="space-y-4">
                 {filteredRequests.length === 0 ? (
-                    <div className="px-6 py-20 text-center">
-                        <span className="material-symbols-outlined text-slate-200 text-6xl">folder_off</span>
-                        <p className="text-slate-400 mt-4 font-bold">尚無相關申請記錄</p>
+                    <div className="bg-white rounded-3xl border border-slate-100 py-20 text-center shadow-sm">
+                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span className="material-symbols-outlined text-slate-200 text-5xl">folder_off</span>
+                        </div>
+                        <p className="text-slate-400 font-black tracking-wider">尚無相關申請記錄</p>
                     </div>
                 ) : (
-                    <div className="divide-y divide-slate-50">
-                        {filteredRequests.map((request) => {
-                            const badge = getStatusBadge(request.status);
-                            return (
-                                <div key={request.id} className="group px-4 py-3 hover:bg-slate-50/50 transition-all">
-                                    <div className="flex items-center justify-between gap-3">
-                                        {/* Left: Type & Date */}
-                                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                                            <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center shrink-0">
-                                                <span className="material-symbols-outlined text-slate-500 text-lg">edit_calendar</span>
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <h3 className="text-sm font-black text-slate-900 truncate">
-                                                        {request.leave_type?.name || '請假申請'}
-                                                    </h3>
-                                                    <span className={`px-2 py-0.5 text-[9px] font-black rounded border ${badge.class}`}>
-                                                        {badge.text}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400 font-medium">
-                                                    <span className="font-mono">{new Date(request.start_date).toLocaleDateString('zh-TW')}</span>
-                                                    <span>→</span>
-                                                    <span className="font-mono">{new Date(request.end_date).toLocaleDateString('zh-TW')}</span>
-                                                </div>
-                                            </div>
+                    filteredRequests.map((request) => {
+                        const info = getStatusInfo(request.status);
+                        return (
+                            <div key={request.id} className="group bg-white rounded-3xl border border-slate-100 p-6 hover:shadow-xl hover:border-blue-100 transition-all duration-300">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                    {/* Left: Type & Status */}
+                                    <div className="flex items-center gap-5">
+                                        <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 border border-blue-100 shrink-0">
+                                            <span className="material-symbols-outlined text-3xl">edit_calendar</span>
                                         </div>
-
-                                        {/* Right: ID & Created Date */}
-                                        <div className="text-right shrink-0">
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase">ID: {request.id.slice(0, 6)}</p>
-                                            <p className="text-[10px] text-slate-400 mt-0.5">
-                                                {new Date(request.created_at).toLocaleDateString('zh-TW')} 申請
-                                            </p>
+                                        <div>
+                                            <div className="flex items-center gap-3 mb-1">
+                                                <h3 className="text-xl font-black text-slate-900">
+                                                    {request.leave_type?.name || '請假申請'}
+                                                </h3>
+                                                <span className={`px-3 py-1 text-[10px] font-black rounded-lg border uppercase tracking-wider ${info.class}`}>
+                                                    {info.text}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-3 text-sm font-bold text-slate-400">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="material-symbols-outlined text-base">calendar_today</span>
+                                                    <span className="font-mono">{new Date(request.start_date).toLocaleDateString('zh-TW')}</span>
+                                                </div>
+                                                <span className="text-slate-200">/</span>
+                                                <div className="flex items-center gap-1.5 font-mono">
+                                                    至 {new Date(request.end_date).toLocaleDateString('zh-TW')}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {request.reason && (
-                                        <div className="mt-2 ml-11 bg-slate-50 rounded-lg px-3 py-2 border-l-2 border-blue-200">
-                                            <p className="text-[11px] text-slate-600 line-clamp-2">
-                                                {request.reason}
-                                            </p>
+                                    {/* Right: Meta Info */}
+                                    <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-2 pt-4 md:pt-0 border-t md:border-t-0 border-slate-50">
+                                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">ID: {request.id.slice(0, 8)}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-slate-400">申請於</span>
+                                            <span className="text-xs font-black text-slate-600">
+                                                {new Date(request.created_at).toLocaleDateString('zh-TW')}
+                                            </span>
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
-                            );
-                        })}
-                    </div>
+
+                                {/* Reason Section */}
+                                {request.reason && (
+                                    <div className="mt-6 bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="material-symbols-outlined text-slate-400 text-sm">notes</span>
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">申請原因</span>
+                                        </div>
+                                        <p className="text-base font-bold text-slate-700 leading-relaxed">
+                                            {request.reason}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })
                 )}
             </div>
+
             {/* Leave Request Form Modal */}
             {showForm && employee && (
                 <LeaveRequestForm
