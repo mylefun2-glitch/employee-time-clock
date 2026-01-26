@@ -16,6 +16,8 @@ const AttendancePage: React.FC = () => {
     const [filterDepartment, setFilterDepartment] = useState<string>('ALL');
     const [filterType, setFilterType] = useState<string>('ALL');
     const [departments, setDepartments] = useState<string[]>([]);
+    const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
+    const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchLogs();
@@ -39,16 +41,22 @@ const AttendancePage: React.FC = () => {
     };
 
     const handleDeleteLog = async (id: string) => {
-        if (!window.confirm('確定要刪除此筆打卡紀錄嗎？此動作無法復原。')) {
-            return;
-        }
+        setDeletingLogId(id);
+        setDeleteConfirmModal(true);
+    };
 
-        const result = await deleteAttendanceLog(id);
+    const confirmDelete = async () => {
+        if (!deletingLogId) return;
+
+        const result = await deleteAttendanceLog(deletingLogId);
         if (result.success) {
             await fetchLogs();
         } else {
             alert(`刪除失敗：${result.error}`);
         }
+
+        setDeleteConfirmModal(false);
+        setDeletingLogId(null);
     };
 
     // 篩選邏輯
@@ -359,6 +367,45 @@ const AttendancePage: React.FC = () => {
                     </table>
                 </div>
             </div>
+
+            {/* 刪除確認彈出框 */}
+            {deleteConfirmModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-300">
+                        <div className="flex items-center justify-center w-16 h-16 bg-rose-50 rounded-2xl mx-auto mb-6">
+                            <span className="material-symbols-outlined text-4xl text-rose-600">warning</span>
+                        </div>
+
+                        <h2 className="text-2xl font-black text-slate-900 mb-3 text-center">
+                            確定要刪除此筆打卡紀錄嗎？
+                        </h2>
+
+                        <p className="text-slate-500 text-center mb-8 font-medium">
+                            此動作無法復原，打卡紀錄將永久刪除。
+                        </p>
+
+                        <div className="flex gap-4">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setDeleteConfirmModal(false);
+                                    setDeletingLogId(null);
+                                }}
+                                className="flex-1 px-6 py-4 bg-white text-slate-500 border border-slate-100 rounded-2xl font-black hover:bg-slate-50 transition-all"
+                            >
+                                取消
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmDelete}
+                                className="flex-1 px-6 py-4 bg-rose-600 text-white rounded-2xl font-black shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all active:scale-95"
+                            >
+                                確定刪除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
