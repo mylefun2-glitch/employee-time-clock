@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 import { LeaveRequest, RequestStatus } from '../types';
 
 export const requestService = {
-    async createRequest(request: Omit<LeaveRequest, 'id' | 'created_at' | 'status'>): Promise<{ success: boolean; data?: any; error?: string }> {
+    async createRequest(request: Omit<LeaveRequest, 'id' | 'created_at' | 'status'> & { car_id?: string }): Promise<{ success: boolean; data?: any; error?: string }> {
         try {
             const { data, error } = await supabase
                 .from('leave_requests')
@@ -33,7 +33,8 @@ export const requestService = {
                 .from('leave_requests')
                 .select(`
                     *,
-                    leave_type:leave_types(*)
+                    leave_type:leave_types(*),
+                    car:cars(*)
                 `)
                 .eq('employee_id', employeeId)
                 .order('created_at', { ascending: false });
@@ -60,7 +61,8 @@ export const requestService = {
                 .select(`
                     *,
                     leave_type:leave_types(*),
-                    employee:employees(name, department)
+                    employee:employees(name, department),
+                    car:cars(*)
                 `)
                 .order('created_at', { ascending: false });
 
@@ -89,6 +91,15 @@ export const requestService = {
         approverId?: string
     ): Promise<{ success: boolean; error?: string }> {
         try {
+            // 先獲取申請資訊，確認是否包含 car_id
+            const { data: requestData, error: fetchError } = await supabase
+                .from('leave_requests')
+                .select('car_id')
+                .eq('id', requestId)
+                .single();
+
+            if (fetchError) throw fetchError;
+
             const updates: any = {
                 status,
                 approved_at: new Date().toISOString()
@@ -106,6 +117,14 @@ export const requestService = {
             if (error) {
                 console.error('Error updating request status:', error);
                 return { success: false, error: error.message };
+            }
+
+            // 如果核准且有借車，更新車輛狀態
+            if (status === RequestStatus.APPROVED && requestData?.car_id) {
+                await supabase
+                    .from('cars')
+                    .update({ status: 'IN_USE' })
+                    .eq('id', requestData.car_id);
             }
 
             return { success: true };

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useEmployee } from '../../contexts/EmployeeContext';
-import { supabase } from '../../lib/supabase';
+import { requestService } from '../../services/requestService';
 import LeaveRequestForm from '../../components/LeaveRequestForm';
 
 const EmployeeRequestsPage: React.FC = () => {
@@ -12,24 +12,15 @@ const EmployeeRequestsPage: React.FC = () => {
 
     useEffect(() => {
         if (employee) {
-            fetchRequests();
+            fetchData();
         }
     }, [employee]);
 
-    const fetchRequests = async () => {
+    const fetchData = async () => {
         if (!employee) return;
-
+        setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('leave_requests')
-                .select(`
-                    *,
-                    leave_type:leave_types(*)
-                `)
-                .eq('employee_id', employee.id)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
+            const data = await requestService.getEmployeeRequests(employee.id);
             setRequests(data || []);
         } catch (error) {
             console.error('Error fetching requests:', error);
@@ -47,9 +38,7 @@ const EmployeeRequestsPage: React.FC = () => {
         return statuses[status as keyof typeof statuses] || statuses.PENDING;
     };
 
-    const filteredRequests = requests.filter(req =>
-        filter === 'ALL' || req.status === filter
-    );
+    const filteredRequests = requests.filter(req => filter === 'ALL' || req.status === filter);
 
     const stats = [
         { label: '總申請數', value: requests.length, icon: 'list_alt', color: 'bg-blue-600' },
@@ -58,17 +47,13 @@ const EmployeeRequestsPage: React.FC = () => {
         { label: '已拒絕', value: requests.filter(r => r.status === 'REJECTED').length, icon: 'cancel', color: 'bg-rose-500' }
     ];
 
-    if (loading) {
-        return <div className="p-4">載入中...</div>;
-    }
-
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">申請記錄</h1>
-                    <p className="text-slate-500 text-sm font-medium mt-1">追蹤您的所有請假申請與審核狀態</p>
+                    <p className="text-slate-500 text-sm font-medium mt-1">追蹤您的所有申請（含公務車借用）與審核狀態</p>
                 </div>
                 <button
                     onClick={() => setShowForm(true)}
@@ -82,7 +67,7 @@ const EmployeeRequestsPage: React.FC = () => {
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {stats.map((item) => (
-                    <div key={item.label} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                    <div key={item.label} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
                         <div className="flex flex-col items-center text-center gap-3">
                             <div className={`${item.color} w-12 h-12 rounded-xl flex items-center justify-center shadow-lg`}>
                                 <span className="material-symbols-outlined text-white text-2xl">{item.icon}</span>
@@ -98,39 +83,35 @@ const EmployeeRequestsPage: React.FC = () => {
 
             {/* Filter Tabs */}
             <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => {
-                    const info = status === 'ALL' ? null : getStatusInfo(status);
-                    return (
-                        <button
-                            key={status}
-                            onClick={() => setFilter(status)}
-                            className={`px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${filter === status
-                                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
-                                    : 'bg-white text-slate-500 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
-                                }`}
-                        >
-                            {status === 'ALL' ? '全部申請' : info?.text}
-                        </button>
-                    );
-                })}
+                {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
+                    <button
+                        key={status}
+                        onClick={() => setFilter(status)}
+                        className={`px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${filter === status
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
+                            : 'bg-white text-slate-500 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
+                            }`}
+                    >
+                        {status === 'ALL' ? '全部申請' : getStatusInfo(status).text}
+                    </button>
+                ))}
             </div>
 
             {/* Requests List */}
             <div className="space-y-4">
-                {filteredRequests.length === 0 ? (
+                {loading ? (
+                    <div className="p-8 text-center text-slate-400">載入中...</div>
+                ) : filteredRequests.length === 0 ? (
                     <div className="bg-white rounded-3xl border border-slate-100 py-20 text-center shadow-sm">
-                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <span className="material-symbols-outlined text-slate-200 text-5xl">folder_off</span>
-                        </div>
-                        <p className="text-slate-400 font-black tracking-wider">尚無相關申請記錄</p>
+                        <span className="material-symbols-outlined text-slate-200 text-5xl mb-4">folder_off</span>
+                        <p className="text-slate-400 font-black tracking-wider">尚無相關紀錄</p>
                     </div>
                 ) : (
                     filteredRequests.map((request) => {
-                        const info = getStatusInfo(request.status);
+                        const status = getStatusInfo(request.status);
                         return (
-                            <div key={request.id} className="group bg-white rounded-3xl border border-slate-100 p-6 hover:shadow-xl hover:border-blue-100 transition-all duration-300">
+                            <div key={request.id} className="group bg-white rounded-3xl border border-slate-100 p-6 hover:shadow-xl transition-all duration-300">
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                    {/* Left: Type & Status */}
                                     <div className="flex items-center gap-5">
                                         <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 border border-blue-100 shrink-0">
                                             <span className="material-symbols-outlined text-3xl">edit_calendar</span>
@@ -138,47 +119,36 @@ const EmployeeRequestsPage: React.FC = () => {
                                         <div>
                                             <div className="flex items-center gap-3 mb-1">
                                                 <h3 className="text-xl font-black text-slate-900">
-                                                    {request.leave_type?.name || '請假申請'}
+                                                    {request.leave_type?.name || '差勤申請'}
                                                 </h3>
-                                                <span className={`px-3 py-1 text-[10px] font-black rounded-lg border uppercase tracking-wider ${info.class}`}>
-                                                    {info.text}
+                                                <span className={`px-3 py-1 text-[10px] font-black rounded-lg border uppercase tracking-wider ${status.class}`}>
+                                                    {status.text}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-3 text-sm font-bold text-slate-400">
-                                                <div className="flex items-center gap-1.5">
+                                            <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-sm font-bold text-slate-400">
+                                                <span className="flex items-center gap-1.5 font-mono">
                                                     <span className="material-symbols-outlined text-base">calendar_today</span>
-                                                    <span className="font-mono">{new Date(request.start_date).toLocaleDateString('zh-TW')}</span>
-                                                </div>
-                                                <span className="text-slate-200">/</span>
-                                                <div className="flex items-center gap-1.5 font-mono">
-                                                    至 {new Date(request.end_date).toLocaleDateString('zh-TW')}
-                                                </div>
+                                                    {new Date(request.start_date).toLocaleString('zh-TW', { dateStyle: 'short', timeStyle: 'short' })}
+                                                    <span className="mx-1 font-sans">至</span>
+                                                    {new Date(request.end_date).toLocaleString('zh-TW', { dateStyle: 'short', timeStyle: 'short' })}
+                                                </span>
+                                                {request.car && (
+                                                    <span className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md text-xs">
+                                                        <span className="material-symbols-outlined text-base">directions_car</span>
+                                                        借用: {request.car.plate_number} ({request.car.model})
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
-
-                                    {/* Right: Meta Info */}
                                     <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-2 pt-4 md:pt-0 border-t md:border-t-0 border-slate-50">
-                                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">ID: {request.id.slice(0, 8)}</span>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs font-bold text-slate-400">申請於</span>
-                                            <span className="text-xs font-black text-slate-600">
-                                                {new Date(request.created_at).toLocaleDateString('zh-TW')}
-                                            </span>
-                                        </div>
+                                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">ID: {request.id.slice(0, 8)}</span>
+                                        <span className="text-xs font-bold text-slate-400">申請於 {new Date(request.created_at).toLocaleDateString()}</span>
                                     </div>
                                 </div>
-
-                                {/* Reason Section */}
                                 {request.reason && (
-                                    <div className="mt-6 bg-slate-50 rounded-2xl p-5 border border-slate-100">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className="material-symbols-outlined text-slate-400 text-sm">notes</span>
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">申請原因</span>
-                                        </div>
-                                        <p className="text-base font-bold text-slate-700 leading-relaxed">
-                                            {request.reason}
-                                        </p>
+                                    <div className="mt-6 bg-slate-50 rounded-2xl p-4 border border-slate-100 text-sm font-bold text-slate-700">
+                                        {request.reason}
                                     </div>
                                 )}
                             </div>
@@ -187,14 +157,14 @@ const EmployeeRequestsPage: React.FC = () => {
                 )}
             </div>
 
-            {/* Leave Request Form Modal */}
+            {/* Integrated Form Modal */}
             {showForm && employee && (
                 <LeaveRequestForm
                     employeeId={employee.id}
                     onClose={() => setShowForm(false)}
                     onSuccess={() => {
                         setShowForm(false);
-                        fetchRequests();
+                        fetchData();
                     }}
                 />
             )}

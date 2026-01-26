@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useEmployee } from '../../contexts/EmployeeContext';
 import { supabase } from '../../lib/supabase';
 import MakeupRequestForm from '../../components/MakeupRequestForm';
 import { getEmployeeMakeupRequests } from '../../services/employee';
+import { usePullToRefresh } from '../../hooks/usePullToRefresh';
+import { getSubordinates } from '../../services/supervisorService';
 
 type TabType = 'overview' | 'records' | 'makeup';
 
@@ -21,26 +23,41 @@ const EmployeeAttendancePage: React.FC = () => {
     const [showMakeupForm, setShowMakeupForm] = useState(false);
     const [makeupRequests, setMakeupRequests] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<TabType>('overview');
+    const [subordinates, setSubordinates] = useState<any[]>([]);
+    const [viewingEmployeeId, setViewingEmployeeId] = useState<string | null>(employee?.id || null);
 
     useEffect(() => {
-        if (employee) {
-            fetchAttendance();
+        if (employee?.id && !viewingEmployeeId) {
+            setViewingEmployeeId(employee.id);
         }
-    }, [employee, selectedMonth]);
+    }, [employee?.id, viewingEmployeeId]);
 
-    const fetchAttendance = async () => {
+    const fetchSubordinates = useCallback(async () => {
+        if (!employee?.is_supervisor) return;
+        const data = await getSubordinates(employee.id);
+        setSubordinates(data);
+    }, [employee]);
+
+    useEffect(() => {
+        fetchSubordinates();
+    }, [fetchSubordinates]);
+
+    const fetchAttendance = useCallback(async (isSilent = false) => {
         if (!employee) return;
 
+        if (!isSilent) setLoading(true);
         try {
             const startOfMonth = new Date(selectedMonth + '-01');
             const endOfMonth = new Date(startOfMonth);
             endOfMonth.setMonth(endOfMonth.getMonth() + 1);
 
+            const targetId = viewingEmployeeId || employee.id;
+
             // 獲取打卡記錄
             const { data: attendanceData, error: attendanceError } = await supabase
                 .from('attendance_logs')
                 .select('*')
-                .eq('employee_id', employee.id)
+                .eq('employee_id', targetId)
                 .gte('timestamp', startOfMonth.toISOString())
                 .lt('timestamp', endOfMonth.toISOString())
                 .order('timestamp', { ascending: false });
@@ -54,7 +71,7 @@ const EmployeeAttendancePage: React.FC = () => {
                     *,
                     leave_type:leave_types(*)
                 `)
-                .eq('employee_id', employee.id)
+                .eq('employee_id', targetId)
                 .eq('status', 'APPROVED')
                 .gte('start_date', startOfMonth.toISOString())
                 .lt('start_date', endOfMonth.toISOString())
@@ -92,14 +109,24 @@ const EmployeeAttendancePage: React.FC = () => {
             });
 
             // 獲取補登申請記錄
-            const makeupData = await getEmployeeMakeupRequests(employee.id);
+            const makeupData = await getEmployeeMakeupRequests(targetId);
             setMakeupRequests(makeupData);
         } catch (error) {
             console.error('Error fetching attendance:', error);
         } finally {
-            setLoading(false);
+            if (!isSilent) setLoading(false);
         }
-    };
+    }, [employee, selectedMonth, viewingEmployeeId]);
+
+    useEffect(() => {
+        if (employee) {
+            fetchAttendance();
+        }
+    }, [fetchAttendance, employee]);
+
+    const { pullDistance, isRefreshing } = usePullToRefresh({
+        onRefresh: () => fetchAttendance(true),
+    });
 
     const groupByDate = (logs: any[], leaves: any[]) => {
         const grouped: { [key: string]: { attendance: any[], leaves: any[] } } = {};
@@ -151,7 +178,23 @@ const EmployeeAttendancePage: React.FC = () => {
     ];
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
+            {/* Pull to Refresh Indicator */}
+            <div
+                className="absolute left-0 right-0 flex justify-center pointer-events-none z-50 transition-transform duration-200"
+                style={{
+                    transform: `translateY(${pullDistance}px)`,
+                    top: '-40px',
+                    opacity: pullDistance > 20 ? 1 : 0
+                }}
+            >
+                <div className="bg-white rounded-full p-2 shadow-lg border border-slate-100 flex items-center justify-center">
+                    <span className={`material-symbols-outlined text-blue-600 ${isRefreshing ? 'animate-spin' : ''}`}>
+                        {isRefreshing ? 'sync' : 'arrow_downward'}
+                    </span>
+                </div>
+            </div>
+
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -173,10 +216,44 @@ const EmployeeAttendancePage: React.FC = () => {
                         className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-xl font-bold shadow-md hover:bg-purple-700 transition-all"
                     >
                         <span className="material-symbols-outlined text-lg">edit_calendar</span>
-                        <span className="hidden sm:inline">申請補登</span>
+                        <span className="hidden sm:inline">申請補卡</span>
                     </button>
                 </div>
             </div>
+
+            {/* Employee Selector (Only for Supervisors) */}
+            {employee?.is_supervisor && subordinates.length > 0 && (
+                <div className="bg-white rounded-2xl border border-blue-100 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                            <span className="material-symbols-outlined">group</span>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">正在查看</p>
+                            <h4 className="text-sm font-black text-slate-900">
+                                {viewingEmployeeId === employee.id ? '我自己的記錄' : `${subordinates.find(s => s.id === viewingEmployeeId)?.name || '未知名'} 的記錄`}
+                            </h4>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-slate-500 whitespace-nowrap">切換人員：</label>
+                        <select
+                            value={viewingEmployeeId || employee.id}
+                            onChange={(e) => setViewingEmployeeId(e.target.value)}
+                            className="bg-slate-50 border-none rounded-xl px-4 py-2 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 cursor-pointer min-w-[140px]"
+                        >
+                            <option value={employee.id}> Myself ({employee.name}) </option>
+                            <optgroup label="屬員列表">
+                                {subordinates.map(sub => (
+                                    <option key={sub.id} value={sub.id}>
+                                        {sub.name} ({sub.department})
+                                    </option>
+                                ))}
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+            )}
 
             {/* Tabs */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -224,25 +301,6 @@ const EmployeeAttendancePage: React.FC = () => {
                                 ))}
                             </div>
 
-                            {/* 快速摘要 */}
-                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
-                                <div className="flex items-start gap-4">
-                                    <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shrink-0">
-                                        <span className="material-symbols-outlined text-white text-2xl">info</span>
-                                    </div>
-                                    <div className="flex-1">
-                                        <h4 className="font-black text-blue-900 mb-2">本月出勤摘要</h4>
-                                        <div className="space-y-1 text-sm text-blue-700">
-                                            <p>• 共出勤 <span className="font-bold">{stats.totalDays}</span> 天</p>
-                                            <p>• 上班打卡 <span className="font-bold">{stats.checkIns}</span> 次，下班打卡 <span className="font-bold">{stats.checkOuts}</span> 次</p>
-                                            <p>• 平均上班時間為 <span className="font-bold font-mono">{stats.avgCheckInTime}</span></p>
-                                            {leaveRequests.length > 0 && (
-                                                <p>• 本月請假 <span className="font-bold">{leaveRequests.length}</span> 次</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     )}
 

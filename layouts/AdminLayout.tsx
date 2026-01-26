@@ -41,9 +41,10 @@ const AdminLayout: React.FC = () => {
         { path: '/admin/employees', icon: 'groups', label: '員工管理' },
         { path: '/admin/stats', icon: 'bar_chart', label: '人事統計' },
         { path: '/admin/attendance', icon: 'event_note', label: '考勤記錄' },
-        { path: '/admin/makeup-requests', icon: 'edit_calendar', label: '補登審核' },
-        { path: '/admin/requests', icon: 'description', label: '請假申請' },
-        { path: '/admin/leave-types', icon: 'category', label: '差勤類型' },
+        { path: '/admin/makeup-requests', label: '補登審核', icon: 'edit_calendar' },
+        { path: '/admin/requests', label: '差勤/公務車', icon: 'fact_check' },
+        { path: '/admin/cars', label: '公務車管理', icon: 'directions_car' },
+        { path: '/admin/leave-types', label: '假別設定', icon: 'settings_applications' },
         { path: '/admin/company', icon: 'business', label: '公司管理' }
     ];
 

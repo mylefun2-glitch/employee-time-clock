@@ -55,9 +55,9 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 return;
             }
 
-            // 檢查是否為主管：優先使用 is_supervisor 欄位，若無則檢查是否有下屬
-            let is_supervisor = (data as any).is_supervisor;
-            if (is_supervisor === undefined || is_supervisor === null) {
+            // 檢查是否為主管：若 is_supervisor 欄位為 false 或未設定，則檢查是否有下屬
+            let is_supervisor = !!(data as any).is_supervisor;
+            if (!is_supervisor) {
                 const { count } = await supabase
                     .from('employees')
                     .select('id', { count: 'exact', head: true })
@@ -92,9 +92,9 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 return { success: false, error: '帳號或 PIN 碼錯誤' };
             }
 
-            // 檢查是否為主管
-            let is_supervisor = (data as any).is_supervisor;
-            if (is_supervisor === undefined || is_supervisor === null) {
+            // 檢查是否為主管：若 is_supervisor 欄位為 false 或未設定，則檢查是否有下屬
+            let is_supervisor = !!(data as any).is_supervisor;
+            if (!is_supervisor) {
                 const { count } = await supabase
                     .from('employees')
                     .select('id', { count: 'exact', head: true })

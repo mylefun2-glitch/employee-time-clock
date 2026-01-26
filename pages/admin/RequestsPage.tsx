@@ -223,6 +223,7 @@ const RequestsPage: React.FC = () => {
                                 <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">類型</th>
                                 <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">開始時間</th>
                                 <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">結束時間</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">公務車</th>
                                 <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">事由</th>
                                 <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">狀態</th>
                                 <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">操作</th>
@@ -266,6 +267,16 @@ const RequestsPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                                                 {formatDateTime(request.end_date)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                                                {request.car ? (
+                                                    <span className="flex flex-col">
+                                                        <span className="font-black text-blue-600">{request.car.plate_number}</span>
+                                                        <span className="text-[10px] text-slate-400 font-bold">{request.car.model}</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-slate-300">-</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 text-sm text-slate-500 max-w-xs truncate">
                                                 {request.reason}

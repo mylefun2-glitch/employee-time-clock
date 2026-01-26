@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { LeaveType } from '../types';
 import { requestService } from '../services/requestService';
 import { leaveTypeService } from '../services/leaveTypeService';
+import { getCars } from '../services/carService';
 
 interface LeaveRequestFormProps {
     employeeId: string;
@@ -18,10 +19,26 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [needCar, setNeedCar] = useState(false);
+    const [availableCars, setAvailableCars] = useState<any[]>([]);
+    const [selectedCarId, setSelectedCarId] = useState<string>('');
 
     useEffect(() => {
         loadLeaveTypes();
+        loadCars();
     }, []);
+
+    const loadCars = async () => {
+        try {
+            const cars = await getCars(true);
+            setAvailableCars(cars || []);
+            if (cars && cars.length > 0) {
+                setSelectedCarId(cars[0].id);
+            }
+        } catch (err) {
+            console.error('Error loading cars:', err);
+        }
+    };
 
     const loadLeaveTypes = async () => {
         setIsLoading(true);
@@ -108,6 +125,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                 start_date: new Date(startDate).toISOString(),
                 end_date: new Date(endDate).toISOString(),
                 reason,
+                car_id: needCar ? selectedCarId : undefined
             });
             onSuccess();
         } catch (err: any) {
@@ -223,6 +241,46 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                 placeholder="請敘明出差或請假具體事由..."
                                 required
                             />
+                        </div>
+
+                        {/* 公務車借用區塊 */}
+                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-blue-600">directions_car</span>
+                                    <span className="text-sm font-black text-slate-700 dark:text-slate-200">借用公務車</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setNeedCar(!needCar)}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${needCar ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${needCar ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+
+                            {needCar && (
+                                <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    {availableCars.length === 0 ? (
+                                        <p className="text-xs text-rose-500 font-bold px-1">目前無可用車輛</p>
+                                    ) : (
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">選擇車輛</label>
+                                            <select
+                                                value={selectedCarId}
+                                                onChange={(e) => setSelectedCarId(e.target.value)}
+                                                className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-bold"
+                                            >
+                                                {availableCars.map(car => (
+                                                    <option key={car.id} value={car.id}>
+                                                        {car.plate_number} - {car.model}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex gap-3 pt-2">

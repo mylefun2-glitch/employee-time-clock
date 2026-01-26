@@ -140,10 +140,10 @@ const MakeupRequestsPage: React.FC = () => {
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                    {isAdminMode ? '全公司補登審核' : '下屬補登審核'}
+                    {isAdminMode ? '全公司補登審核' : '補登審核'}
                 </h1>
                 <p className="text-slate-500 text-sm font-medium mt-1">
-                    {isAdminMode ? '管理全公司的漏卡補登申請' : '審核直屬下屬的漏卡補登申請'}
+                    {isAdminMode ? '管理全公司的漏卡補登申請' : '審核漏卡補登申請'}
                 </p>
             </div>
 
@@ -171,8 +171,8 @@ const MakeupRequestsPage: React.FC = () => {
                         key={status}
                         onClick={() => setFilter(status)}
                         className={`px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${filter === status
-                                ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
-                                : 'bg-white text-slate-500 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
+                            : 'bg-white text-slate-500 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
                             }`}
                     >
                         {status === 'ALL' ? '全部處理' : getStatusInfo(status).text}
@@ -333,8 +333,8 @@ const MakeupRequestsPage: React.FC = () => {
                                 <button
                                     onClick={handleReviewConfirm}
                                     className={`flex-1 px-6 py-4 rounded-2xl font-black text-white shadow-xl transition-all active:scale-95 ${reviewDialog.type === 'approve'
-                                            ? 'bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700'
-                                            : 'bg-rose-600 shadow-rose-100 hover:bg-rose-700'
+                                        ? 'bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700'
+                                        : 'bg-rose-600 shadow-rose-100 hover:bg-rose-700'
                                         }`}
                                 >
                                     確定{reviewDialog.type === 'approve' ? '核准' : '拒絕'}
@@ -361,8 +361,8 @@ const MakeupRequestsPage: React.FC = () => {
                         <button
                             onClick={() => setResultDialog({ show: false, success: false, message: '' })}
                             className={`w-full py-4 rounded-2xl font-black text-white shadow-xl transition-all active:scale-95 ${resultDialog.success
-                                    ? 'bg-slate-900 shadow-slate-200'
-                                    : 'bg-rose-600 shadow-rose-100 hover:bg-rose-700'
+                                ? 'bg-slate-900 shadow-slate-200'
+                                : 'bg-rose-600 shadow-rose-100 hover:bg-rose-700'
                                 }`}
                         >
                             我了解了

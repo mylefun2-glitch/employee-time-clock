@@ -94,3 +94,23 @@ export const getPendingApprovalsByDepartment = async (supervisorEmployeeId: stri
         return {};
     }
 };
+
+/**
+ * 獲取主管的直屬下屬
+ */
+export const getSubordinates = async (supervisorEmployeeId: string) => {
+    try {
+        const { data, error } = await supabase
+            .from('employees')
+            .select('id, name, department, pin')
+            .eq('manager_id', supervisorEmployeeId)
+            .eq('is_active', true)
+            .order('name');
+
+        if (error) throw error;
+        return data || [];
+    } catch (err) {
+        console.error('Error fetching subordinates:', err);
+        return [];
+    }
+};
