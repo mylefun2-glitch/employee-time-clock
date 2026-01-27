@@ -51,13 +51,19 @@ const EmployeeAttendancePage: React.FC = () => {
             const endOfMonth = new Date(startOfMonth);
             endOfMonth.setMonth(endOfMonth.getMonth() + 1);
 
-            const targetId = viewingEmployeeId || employee.id;
+            const isAllMode = viewingEmployeeId === 'all';
+            const targetIds = isAllMode
+                ? [employee.id, ...subordinates.map(s => s.id)]
+                : [viewingEmployeeId || employee.id];
 
             // 獲取打卡記錄
             const { data: attendanceData, error: attendanceError } = await supabase
                 .from('attendance_logs')
-                .select('*')
-                .eq('employee_id', targetId)
+                .select(`
+                    *,
+                    employee:employees(name, department)
+                `)
+                .in('employee_id', targetIds)
                 .gte('timestamp', startOfMonth.toISOString())
                 .lt('timestamp', endOfMonth.toISOString())
                 .order('timestamp', { ascending: false });
@@ -69,9 +75,10 @@ const EmployeeAttendancePage: React.FC = () => {
                 .from('leave_requests')
                 .select(`
                     *,
+                    employee:employees(name, department),
                     leave_type:leave_types(*)
                 `)
-                .eq('employee_id', targetId)
+                .in('employee_id', targetIds)
                 .eq('status', 'APPROVED')
                 .gte('start_date', startOfMonth.toISOString())
                 .lt('start_date', endOfMonth.toISOString())
@@ -109,14 +116,28 @@ const EmployeeAttendancePage: React.FC = () => {
             });
 
             // 獲取補登申請記錄
-            const makeupData = await getEmployeeMakeupRequests(targetId);
+            let makeupData = [];
+            if (isAllMode) {
+                const { data, error } = await supabase
+                    .from('makeup_attendance_requests')
+                    .select(`
+                        *,
+                        employee:employees(name, department)
+                    `)
+                    .in('employee_id', targetIds)
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+                makeupData = data || [];
+            } else {
+                makeupData = await getEmployeeMakeupRequests(targetIds[0]);
+            }
             setMakeupRequests(makeupData);
         } catch (error) {
             console.error('Error fetching attendance:', error);
         } finally {
             if (!isSilent) setLoading(false);
         }
-    }, [employee, selectedMonth, viewingEmployeeId]);
+    }, [employee, selectedMonth, viewingEmployeeId, subordinates]);
 
     useEffect(() => {
         if (employee) {
@@ -128,37 +149,67 @@ const EmployeeAttendancePage: React.FC = () => {
         onRefresh: () => fetchAttendance(true),
     });
 
-    const groupByDate = (logs: any[], leaves: any[]) => {
-        const grouped: { [key: string]: { attendance: any[], leaves: any[] } } = {};
+    const groupByDateAndEmployee = (logs: any[], leaves: any[]) => {
+        const grouped: {
+            [key: string]: {
+                [key: string]: {
+                    employeeName: string,
+                    department: string,
+                    punches: any[],
+                    leaves: any[]
+                }
+            }
+        } = {};
 
         // 分組打卡記錄
         logs.forEach(log => {
-            const date = new Date(log.timestamp).toLocaleDateString('zh-TW');
-            if (!grouped[date]) {
-                grouped[date] = { attendance: [], leaves: [] };
+            const date = new Date(log.timestamp).toLocaleDateString('en-CA');
+            const empId = log.employee_id;
+
+            if (!grouped[date]) grouped[date] = {};
+            if (!grouped[date][empId]) {
+                grouped[date][empId] = {
+                    employeeName: log.employee?.name || '未知',
+                    department: log.employee?.department || '未知',
+                    punches: [],
+                    leaves: []
+                };
             }
-            grouped[date].attendance.push(log);
+            grouped[date][empId].punches.push(log);
         });
 
         // 分組請假記錄
         leaves.forEach(leave => {
             const startDate = new Date(leave.start_date);
             const endDate = new Date(leave.end_date);
+            const empId = leave.employee_id;
 
-            // 為請假期間的每一天添加記錄
             for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-                const dateStr = d.toLocaleDateString('zh-TW');
-                if (!grouped[dateStr]) {
-                    grouped[dateStr] = { attendance: [], leaves: [] };
+                const dateStr = d.toLocaleDateString('en-CA');
+                if (!grouped[dateStr]) grouped[dateStr] = {};
+                if (!grouped[dateStr][empId]) {
+                    grouped[dateStr][empId] = {
+                        employeeName: leave.employee?.name || '未知',
+                        department: leave.employee?.department || '未知',
+                        punches: [],
+                        leaves: []
+                    };
                 }
-                grouped[dateStr].leaves.push(leave);
+                grouped[dateStr][empId].leaves.push(leave);
             }
+        });
+
+        // 對每個人的打卡按時間排序
+        Object.values(grouped).forEach(dateGroup => {
+            Object.values(dateGroup).forEach(empGroup => {
+                empGroup.punches.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            });
         });
 
         return grouped;
     };
 
-    const groupedLogs = groupByDate(attendanceLogs, leaveRequests);
+    const groupedData = groupByDateAndEmployee(attendanceLogs, leaveRequests);
 
     if (loading) {
         return <div className="p-4">載入中...</div>;
@@ -231,7 +282,9 @@ const EmployeeAttendancePage: React.FC = () => {
                         <div>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">正在查看</p>
                             <h4 className="text-sm font-black text-slate-900">
-                                {viewingEmployeeId === employee.id ? '我自己的記錄' : `${subordinates.find(s => s.id === viewingEmployeeId)?.name || '未知名'} 的記錄`}
+                                {viewingEmployeeId === 'all'
+                                    ? '全部屬員的合併記錄'
+                                    : (viewingEmployeeId === employee.id ? '我自己的記錄' : `${subordinates.find(s => s.id === viewingEmployeeId)?.name || '未知名'} 的記錄`)}
                             </h4>
                         </div>
                     </div>
@@ -243,6 +296,7 @@ const EmployeeAttendancePage: React.FC = () => {
                             className="bg-slate-50 border-none rounded-xl px-4 py-2 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 cursor-pointer min-w-[140px]"
                         >
                             <option value={employee.id}> Myself ({employee.name}) </option>
+                            <option value="all" className="text-blue-600 font-black"> 全部屬員 (Consolidated) </option>
                             <optgroup label="屬員列表">
                                 {subordinates.map(sub => (
                                     <option key={sub.id} value={sub.id}>
@@ -304,109 +358,132 @@ const EmployeeAttendancePage: React.FC = () => {
                         </div>
                     )}
 
-                    {/* 詳細記錄 */}
+                    {/* 詳細記錄 (表格視圖) */}
                     {activeTab === 'records' && (
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-                            <h3 className="text-lg font-black text-slate-900 mb-6">每日打卡記錄</h3>
-                            {Object.keys(groupedLogs).length === 0 ? (
-                                <div className="py-20 text-center">
-                                    <span className="material-symbols-outlined text-slate-200 text-6xl">event_busy</span>
-                                    <p className="text-slate-400 mt-4 font-bold">本月尚無打卡記錄</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {Object.entries(groupedLogs).map(([date, data]) => {
-                                        const { attendance, leaves } = data;
-                                        // 按時間順序排序當天打卡紀錄
-                                        const sortedLogs = [...attendance].sort((a, b) =>
-                                            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-                                        );
-                                        const leaveInfo = leaves.length > 0 ? leaves[0] : null;
+                            <div className="overflow-x-auto -mx-6">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-slate-100">
+                                            <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">日期</th>
+                                            <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">員工姓名</th>
+                                            <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">部門</th>
+                                            <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">打卡歷程時間軸 (Location)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {Object.keys(groupedData).length === 0 ? (
+                                            <tr>
+                                                <td colSpan={4} className="py-20 text-center">
+                                                    <span className="material-symbols-outlined text-slate-200 text-6xl">event_busy</span>
+                                                    <p className="text-slate-400 mt-4 font-bold">本月尚無打卡記錄</p>
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            Object.entries(groupedData)
+                                                .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
+                                                .map(([date, empData]) => (
+                                                    Object.entries(empData).map(([empId, data]) => {
+                                                        // 配對打卡紀錄 (IN/OUT)
+                                                        const pairs: any[][] = [];
+                                                        let currentPair: any[] = [];
 
-                                        return (
-                                            <div key={date} className="bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-md transition-all">
-                                                {/* Date Header */}
-                                                <div className="bg-slate-50 px-6 py-3 border-b border-slate-100 flex justify-between items-center">
-                                                    <h4 className="text-sm font-black text-slate-700">{date}</h4>
-                                                    {sortedLogs.length > 0 && (
-                                                        <span className="text-[10px] font-black bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full uppercase tracking-widest">
-                                                            共 {sortedLogs.length} 筆紀錄
-                                                        </span>
-                                                    )}
-                                                </div>
+                                                        data.punches.forEach(p => {
+                                                            if (p.check_type === 'IN') {
+                                                                if (currentPair.length > 0) pairs.push(currentPair);
+                                                                currentPair = [p];
+                                                            } else {
+                                                                currentPair.push(p);
+                                                                pairs.push(currentPair);
+                                                                currentPair = [];
+                                                            }
+                                                        });
+                                                        if (currentPair.length > 0) pairs.push(currentPair);
 
-                                                {/* Records */}
-                                                <div className="p-4">
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                                        {/* 所有打卡紀錄 */}
-                                                        {sortedLogs.map((log: any, idx: number) => (
-                                                            <div key={log.id} className={`p-4 rounded-xl border-2 transition-all ${log.check_type === 'IN'
-                                                                ? 'bg-emerald-50 border-emerald-200 shadow-sm shadow-emerald-100/50'
-                                                                : 'bg-orange-50 border-orange-200 shadow-sm shadow-orange-100/50'
-                                                                }`}>
-                                                                <div className="text-center">
-                                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-md ${log.check_type === 'IN' ? 'bg-emerald-500' : 'bg-orange-500'
-                                                                        }`}>
-                                                                        <span className="material-symbols-outlined text-white text-xl">
-                                                                            {log.check_type === 'IN' ? 'login' : 'logout'}
-                                                                        </span>
+                                                        return (
+                                                            <tr key={`${date}-${empId}`} className="hover:bg-slate-50/50 transition-colors">
+                                                                <td className="px-6 py-5 align-top">
+                                                                    <span className="text-sm font-bold text-slate-400 font-mono tracking-tighter">{date}</span>
+                                                                </td>
+                                                                <td className="px-6 py-5 align-top">
+                                                                    <span className="text-base font-black text-slate-900">{data.employeeName}</span>
+                                                                </td>
+                                                                <td className="px-6 py-5 align-top">
+                                                                    <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-black uppercase">
+                                                                        {data.department}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-6 py-5">
+                                                                    <div className="flex flex-wrap items-center gap-4">
+                                                                        {data.leaves.length > 0 && (
+                                                                            <div className="px-4 py-2 bg-purple-50 border border-purple-100 rounded-xl flex items-center gap-2">
+                                                                                <span className="material-symbols-outlined text-purple-600 text-lg">event_available</span>
+                                                                                <span className="text-sm font-black text-purple-700">{data.leaves[0].leave_type?.name}</span>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {pairs.map((pair, pIdx) => (
+                                                                            <React.Fragment key={pIdx}>
+                                                                                <div className="flex items-center gap-3">
+                                                                                    {pair.map((p, idx) => (
+                                                                                        <div key={p.id} className={`flex items-center gap-3 p-3 rounded-2xl border ${p.check_type === 'IN'
+                                                                                            ? 'bg-emerald-50/50 border-emerald-100'
+                                                                                            : 'bg-orange-50/50 border-orange-100'
+                                                                                            }`}>
+                                                                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${p.check_type === 'IN' ? 'bg-emerald-500' : 'bg-orange-500'
+                                                                                                }`}>
+                                                                                                <span className="material-symbols-outlined text-white text-sm">
+                                                                                                    {p.check_type === 'IN' ? 'login' : 'logout'}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                            <div>
+                                                                                                <div className="flex items-center gap-2">
+                                                                                                    <span className={`text-lg font-black font-mono leading-none ${p.check_type === 'IN' ? 'text-emerald-900' : 'text-orange-900'
+                                                                                                        }`}>
+                                                                                                        {new Date(p.timestamp).toLocaleTimeString('zh-TW', {
+                                                                                                            hour: '2-digit',
+                                                                                                            minute: '2-digit',
+                                                                                                            hour12: false
+                                                                                                        })}
+                                                                                                    </span>
+                                                                                                    <span className="text-[10px] font-bold text-slate-400 uppercase">
+                                                                                                        {p.check_type === 'IN' ? '上班' : '下班'}
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                                {p.latitude && (
+                                                                                                    <a
+                                                                                                        href={`https://www.google.com/maps?q=${p.latitude},${p.longitude}`}
+                                                                                                        target="_blank"
+                                                                                                        rel="noopener noreferrer"
+                                                                                                        className="flex items-center gap-1 mt-1 text-[10px] font-bold text-slate-400 hover:text-blue-500 transition-colors border-b border-dotted border-slate-300"
+                                                                                                    >
+                                                                                                        <span className="material-symbols-outlined text-[12px]">location_on</span>
+                                                                                                        {Number(p.latitude).toFixed(4)}, {Number(p.longitude).toFixed(4)}
+                                                                                                    </a>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                                {pIdx < pairs.length - 1 && (
+                                                                                    <span className="material-symbols-outlined text-slate-200 font-black">double_arrow</span>
+                                                                                )}
+                                                                            </React.Fragment>
+                                                                        ))}
+
+                                                                        {data.punches.length === 0 && data.leaves.length === 0 && (
+                                                                            <span className="text-xs font-bold text-slate-300 italic">無紀錄</span>
+                                                                        )}
                                                                     </div>
-                                                                    <p className={`text-[10px] font-black mb-1 uppercase tracking-wider ${log.check_type === 'IN' ? 'text-emerald-700' : 'text-orange-700'
-                                                                        }`}>
-                                                                        {log.check_type === 'IN' ? '上班打卡' : '下班打卡'}
-                                                                    </p>
-                                                                    <p className={`text-2xl font-black font-mono ${log.check_type === 'IN' ? 'text-emerald-900' : 'text-orange-900'
-                                                                        }`}>
-                                                                        {new Date(log.timestamp).toLocaleTimeString('zh-TW', {
-                                                                            hour: '2-digit',
-                                                                            minute: '2-digit',
-                                                                            hour12: false
-                                                                        })}
-                                                                    </p>
-                                                                    {log.location_accuracy && (
-                                                                        <p className={`text-[10px] font-bold mt-1 ${log.check_type === 'IN' ? 'text-emerald-600' : 'text-orange-600'
-                                                                            }`}>±{Math.round(log.location_accuracy)}M</p>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-
-                                                        {/* 請假資訊 */}
-                                                        {leaveInfo && (
-                                                            <div className="p-4 rounded-xl border-2 transition-all border-purple-200 shadow-sm shadow-purple-100/50"
-                                                                style={{ backgroundColor: `${leaveInfo.leave_type?.color}15` }}>
-                                                                <div className="text-center">
-                                                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-md" style={{
-                                                                        backgroundColor: leaveInfo.leave_type?.color || '#9333EA'
-                                                                    }}>
-                                                                        <span className="material-symbols-outlined text-white text-xl">event_available</span>
-                                                                    </div>
-                                                                    <p className="text-[10px] font-black mb-1 uppercase tracking-wider" style={{
-                                                                        color: leaveInfo.leave_type?.color || '#9333EA'
-                                                                    }}>
-                                                                        {leaveInfo.leave_type?.name || '請假'}
-                                                                    </p>
-                                                                    <p className="text-sm font-bold text-slate-700 line-clamp-2 px-2">
-                                                                        {leaveInfo.reason || '無事由'}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        {/* 若當天完全沒紀錄也沒請假 */}
-                                                        {sortedLogs.length === 0 && !leaveInfo && (
-                                                            <div className="col-span-full py-8 text-center bg-slate-50 rounded-xl border-2 border-slate-200 border-dashed">
-                                                                <span className="material-symbols-outlined text-slate-300 text-3xl">event_busy</span>
-                                                                <p className="text-xs font-bold text-slate-400 mt-2">該日無出勤紀錄</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
 
@@ -440,6 +517,11 @@ const EmployeeAttendancePage: React.FC = () => {
                                                             </span>
                                                         </div>
                                                         <div>
+                                                            {viewingEmployeeId === 'all' && (
+                                                                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">
+                                                                    {request.employee?.name || '未知人員'}
+                                                                </p>
+                                                            )}
                                                             <p className="font-black text-slate-900">
                                                                 {request.check_type === 'IN' ? '上班打卡' : '下班打卡'}
                                                             </p>
