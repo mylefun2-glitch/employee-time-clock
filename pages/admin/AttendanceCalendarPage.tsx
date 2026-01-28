@@ -3,8 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, parseISO, addMonths, subMonths } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X } from 'lucide-react';
-import { deleteAttendanceLog } from '../../services/admin';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X, CheckSquare, Square } from 'lucide-react';
+import { deleteAttendanceLog, deleteAttendanceLogs } from '../../services/admin';
 import { Employee, CheckType } from '../../types';
 
 interface AttendanceLog {
@@ -46,6 +46,7 @@ const AttendanceCalendarPage: React.FC = () => {
     // Deletion State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
+    const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
     const [isDeleting, setIsDeleting] = useState(false);
 
     // 民國年度轉換
@@ -177,18 +178,28 @@ const AttendanceCalendarPage: React.FC = () => {
     };
 
     const confirmDelete = async () => {
-        if (!deletingLogId) return;
+        if (!deletingLogId && selectedLogIds.size === 0) return;
 
         setIsDeleting(true);
         try {
-            const success = await deleteAttendanceLog(deletingLogId);
-            if (success) {
-                // Refresh data
-                await fetchData();
-                setIsDeleteModalOpen(false);
-                setDeletingLogId(null);
-            } else {
-                alert('刪除失敗，請稍後再試');
+            if (deletingLogId) {
+                const success = await deleteAttendanceLog(deletingLogId);
+                if (success) {
+                    await fetchData();
+                    setIsDeleteModalOpen(false);
+                    setDeletingLogId(null);
+                } else {
+                    alert('刪除失敗，請稍後再試');
+                }
+            } else if (selectedLogIds.size > 0) {
+                const result = await deleteAttendanceLogs(Array.from(selectedLogIds));
+                if (result.success) {
+                    await fetchData();
+                    setSelectedLogIds(new Set());
+                    setIsDeleteModalOpen(false);
+                } else {
+                    alert('批量刪除失敗，請稍後再試');
+                }
             }
         } catch (error) {
             console.error('Error deleting log:', error);
@@ -196,6 +207,31 @@ const AttendanceCalendarPage: React.FC = () => {
         } finally {
             setIsDeleting(false);
         }
+    };
+
+    const toggleSelectLog = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const newSelected = new Set(selectedLogIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedLogIds(newSelected);
+    };
+
+    const selectAllLogsInDay = (dayLogs: AttendanceLog[], e: React.MouseEvent) => {
+        e.stopPropagation();
+        const newSelected = new Set(selectedLogIds);
+        const dayIds = dayLogs.map(l => l.id);
+        const allSelected = dayIds.every(id => newSelected.has(id));
+
+        if (allSelected) {
+            dayIds.forEach(id => newSelected.delete(id));
+        } else {
+            dayIds.forEach(id => newSelected.add(id));
+        }
+        setSelectedLogIds(newSelected);
     };
 
     return (
@@ -247,6 +283,19 @@ const AttendanceCalendarPage: React.FC = () => {
                                 ))}
                             </select>
                         </div>
+
+                        {selectedLogIds.size > 0 && (
+                            <button
+                                onClick={() => {
+                                    setDeletingLogId(null);
+                                    setIsDeleteModalOpen(true);
+                                }}
+                                className="inline-flex items-center px-4 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-black hover:bg-rose-600 transition-all shadow-lg shadow-rose-100"
+                            >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                批量刪除 ({selectedLogIds.size})
+                            </button>
+                        )}
 
                         <button
                             onClick={handlePrint}
@@ -321,11 +370,21 @@ const AttendanceCalendarPage: React.FC = () => {
                                         }`}>
                                         {format(day, 'd')}
                                     </span>
-                                    {dayInfo.hours > 0 && (
-                                        <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                                            {dayInfo.hours}H
-                                        </span>
-                                    )}
+                                    <div className="flex gap-2 items-center">
+                                        {dayInfo.logs.length > 1 && (
+                                            <button
+                                                onClick={(e) => selectAllLogsInDay(dayInfo.logs, e)}
+                                                className="text-[10px] font-black text-slate-400 hover:text-blue-600 bg-slate-100 px-2 py-0.5 rounded transition-all"
+                                            >
+                                                {dayInfo.logs.every(l => selectedLogIds.has(l.id)) ? '取消全選' : '全選今日'}
+                                            </button>
+                                        )}
+                                        {dayInfo.hours > 0 && (
+                                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                                {dayInfo.hours}H
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="flex-1 space-y-1.5 overflow-y-auto max-h-[100px] scrollbar-hide">
@@ -333,19 +392,32 @@ const AttendanceCalendarPage: React.FC = () => {
                                     {dayInfo.logs.length > 0 && (
                                         <div className="space-y-1">
                                             {dayInfo.logs.map(log => (
-                                                <div key={log.id} className={`flex items-center justify-between gap-1.5 px-2 py-1 rounded-md text-[10px] font-black border group/log ${log.check_type === CheckType.IN
-                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                                    : 'bg-orange-50 text-orange-700 border-orange-100'
-                                                    }`}>
+                                                <div
+                                                    key={log.id}
+                                                    onClick={(e) => toggleSelectLog(log.id, e)}
+                                                    className={`flex items-center justify-between gap-1.5 px-2 py-1 rounded-md text-[10px] font-black border group/log cursor-pointer transition-all ${selectedLogIds.has(log.id)
+                                                            ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105 z-10'
+                                                            : log.check_type === CheckType.IN
+                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                                                : 'bg-orange-50 text-orange-700 border-orange-100'
+                                                        }`}
+                                                >
                                                     <div className="flex items-center gap-1.5">
-                                                        <span className="material-symbols-outlined text-[12px]">
-                                                            {log.check_type === CheckType.IN ? 'login' : 'logout'}
-                                                        </span>
+                                                        {selectedLogIds.has(log.id) ? (
+                                                            <CheckSquare className="h-3 w-3" />
+                                                        ) : (
+                                                            <span className="material-symbols-outlined text-[12px]">
+                                                                {log.check_type === CheckType.IN ? 'login' : 'logout'}
+                                                            </span>
+                                                        )}
                                                         {format(parseISO(log.timestamp), 'HH:mm')}
                                                     </div>
                                                     <button
                                                         onClick={(e) => handleDeleteClick(log.id, e)}
-                                                        className="opacity-0 group-hover/log:opacity-100 p-0.5 hover:bg-white rounded transition-all text-slate-400 hover:text-rose-500"
+                                                        className={`opacity-0 group-hover/log:opacity-100 p-0.5 rounded transition-all ${selectedLogIds.has(log.id)
+                                                                ? 'hover:bg-white/20 text-white/70 hover:text-white'
+                                                                : 'hover:bg-white text-slate-400 hover:text-rose-500'
+                                                            }`}
                                                         title="刪除紀錄"
                                                     >
                                                         <Trash2 className="h-3 w-3" />

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Download, Trash2 } from 'lucide-react';
-import { getAttendanceLogs, deleteAttendanceLog } from '../../services/admin';
+import { Download, Trash2, CheckSquare, Square } from 'lucide-react';
+import { getAttendanceLogs, deleteAttendanceLog, deleteAttendanceLogs } from '../../services/admin';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { Calendar as CalendarIcon } from 'lucide-react';
@@ -20,6 +20,8 @@ const AttendancePage: React.FC = () => {
     const [departments, setDepartments] = useState<string[]>([]);
     const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
     const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
+    const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -49,17 +51,57 @@ const AttendancePage: React.FC = () => {
     };
 
     const confirmDelete = async () => {
-        if (!deletingLogId) return;
+        if (!deletingLogId && selectedLogIds.size === 0) return;
 
-        const result = await deleteAttendanceLog(deletingLogId);
-        if (result.success) {
-            await fetchLogs();
-        } else {
-            alert(`刪除失敗：${result.error}`);
+        setIsBulkDeleting(true);
+        try {
+            if (deletingLogId) {
+                // Single delete
+                const result = await deleteAttendanceLog(deletingLogId);
+                if (result.success) {
+                    await fetchLogs();
+                } else {
+                    alert(`刪除失敗：${result.error}`);
+                }
+            } else if (selectedLogIds.size > 0) {
+                // Bulk delete
+                const result = await deleteAttendanceLogs(Array.from(selectedLogIds));
+                if (result.success) {
+                    await fetchLogs();
+                    setSelectedLogIds(new Set());
+                } else {
+                    alert(`批量刪除失敗：${result.error}`);
+                }
+            }
+        } finally {
+            setIsBulkDeleting(false);
+            setDeleteConfirmModal(false);
+            setDeletingLogId(null);
         }
+    };
 
-        setDeleteConfirmModal(false);
-        setDeletingLogId(null);
+    const toggleSelectLog = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const newSelected = new Set(selectedLogIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedLogIds(newSelected);
+    };
+
+    const selectAllLogsInGroup = (groupLogs: any[]) => {
+        const newSelected = new Set(selectedLogIds);
+        const groupIds = groupLogs.map(l => l.id);
+        const allSelected = groupIds.every(id => newSelected.has(id));
+
+        if (allSelected) {
+            groupIds.forEach(id => newSelected.delete(id));
+        } else {
+            groupIds.forEach(id => newSelected.add(id));
+        }
+        setSelectedLogIds(newSelected);
     };
 
     // 篩選邏輯
@@ -159,6 +201,19 @@ const AttendancePage: React.FC = () => {
                     </p>
                 </div>
                 <div className="flex gap-3">
+                    {selectedLogIds.size > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setDeletingLogId(null);
+                                setDeleteConfirmModal(true);
+                            }}
+                            className="flex-1 lg:flex-none inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-rose-500 text-sm font-bold text-white shadow-lg shadow-rose-100 hover:bg-rose-600 transition-all"
+                        >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            批量刪除 ({selectedLogIds.size})
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={handleExportCSV}
@@ -297,8 +352,19 @@ const AttendancePage: React.FC = () => {
                             ) : groupedLogsValue.map((group) => (
                                 <tr key={group.key} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-8 py-5 whitespace-nowrap">
-                                        <div className="text-sm font-black text-slate-400 font-mono tracking-tighter">
-                                            {group.dateKey}
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                onClick={() => selectAllLogsInGroup(group.logs)}
+                                                className="text-slate-300 hover:text-blue-500 transition-colors"
+                                            >
+                                                {group.logs.every((l: any) => selectedLogIds.has(l.id))
+                                                    ? <CheckSquare className="h-5 w-5 text-blue-500" />
+                                                    : <Square className="h-5 w-5" />
+                                                }
+                                            </button>
+                                            <div className="text-sm font-black text-slate-400 font-mono tracking-tighter">
+                                                {group.dateKey}
+                                            </div>
                                         </div>
                                     </td>
                                     <td className="px-8 py-5 whitespace-nowrap">
@@ -322,22 +388,33 @@ const AttendancePage: React.FC = () => {
                                         <div className="flex flex-wrap gap-4 items-center">
                                             {group.logs.map((log: any, idx: number) => (
                                                 <div key={log.id} className="flex items-center gap-3">
-                                                    <div className={`relative group inline-flex flex-col p-3 rounded-2xl border transition-all hover:shadow-md ${log.type === 'IN'
-                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100'
-                                                        : 'bg-orange-50 text-orange-700 border-orange-100 hover:bg-orange-100'
-                                                        }`}>
+                                                    <div className={`relative group inline-flex flex-col p-3 rounded-2xl border transition-all hover:shadow-md cursor-pointer ${selectedLogIds.has(log.id)
+                                                        ? 'bg-blue-50 border-blue-200 outline outline-2 outline-blue-400 shadow-md transform scale-105 z-10'
+                                                        : log.type === 'IN'
+                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100'
+                                                            : 'bg-orange-50 text-orange-700 border-orange-100 hover:bg-orange-100'
+                                                        }`}
+                                                        onClick={(e) => toggleSelectLog(log.id, e)}
+                                                    >
                                                         <div className="flex items-center gap-2 mb-1">
-                                                            <span className="material-symbols-outlined text-[18px]">
-                                                                {log.type === 'IN' ? 'login' : 'logout'}
-                                                            </span>
+                                                            {selectedLogIds.has(log.id) ? (
+                                                                <CheckSquare className="h-4 w-4 text-blue-600" />
+                                                            ) : (
+                                                                <span className="material-symbols-outlined text-[18px]">
+                                                                    {log.type === 'IN' ? 'login' : 'logout'}
+                                                                </span>
+                                                            )}
                                                             <span className="text-sm font-black font-mono tracking-tight">{log.time}</span>
-                                                            <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">
-                                                                {log.type === 'IN' ? '上班' : '下班'}
-                                                            </span>
+                                                            {!selectedLogIds.has(log.id) && (
+                                                                <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">
+                                                                    {log.type === 'IN' ? '上班' : '下班'}
+                                                                </span>
+                                                            )}
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    handleDeleteLog(log.id);
+                                                                    setDeletingLogId(log.id);
+                                                                    setDeleteConfirmModal(true);
                                                                 }}
                                                                 className="ml-auto p-1 opacity-0 group-hover:opacity-100 hover:bg-white/50 rounded-lg transition-all text-slate-400 hover:text-rose-600"
                                                                 title="刪除紀錄"

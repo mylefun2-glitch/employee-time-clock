@@ -158,6 +158,21 @@ export const deleteAttendanceLog = async (id: string) => {
     }
 };
 
+export const deleteAttendanceLogs = async (ids: string[]) => {
+    try {
+        const { error } = await supabase
+            .from('attendance_logs')
+            .delete()
+            .in('id', ids);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error bulk deleting attendance logs:', error);
+        return { success: false, error: error.message };
+    }
+};
+
 // 補登申請管理（直屬主管審核）
 export const getMakeupRequests = async (status?: string, managerId?: string) => {
     try {
