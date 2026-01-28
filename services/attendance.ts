@@ -31,6 +31,7 @@ export const logAttendance = async (
     location?: { latitude: number; longitude: number; accuracy: number }
 ): Promise<{ success: boolean; error?: string }> => {
     try {
+        /* 
         // 檢查 5 分鐘內是否有重複的相同類型打卡
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
@@ -47,6 +48,7 @@ export const logAttendance = async (
         } else if (recentLogs && recentLogs.length > 0) {
             return { success: false, error: '請勿在 5 分鐘內連續進行相同的打卡操作' };
         }
+        */
 
         const logData: any = {
             employee_id: employeeId,
