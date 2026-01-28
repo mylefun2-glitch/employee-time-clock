@@ -8,6 +8,7 @@ const AdminLayout: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+    const [isCollapsed, setIsCollapsed] = React.useState(false);
 
     // Close menu when route changes
     React.useEffect(() => {
@@ -78,15 +79,25 @@ const AdminLayout: React.FC = () => {
 
                 {/* Sidebar Content */}
                 <aside className={`
-                    absolute left-0 top-0 bottom-0 w-72 bg-white border-r border-slate-200 flex flex-col transform transition-transform duration-300 ease-in-out
-                    ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-                    lg:w-64 lg:static
+                    absolute left-0 top-0 bottom-0 bg-white border-r border-slate-200 flex flex-col transform transition-all duration-300 ease-in-out
+                    ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'}
+                    ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}
+                    lg:static
                 `}>
-                    <div className="p-6 border-b border-slate-100 hidden lg:flex items-center justify-center">
-                        <div className="flex flex-col items-center gap-2">
+                    <div className={`p-6 border-b border-slate-100 hidden lg:flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+                        <div className={`flex flex-col items-center gap-2 ${isCollapsed ? 'hidden' : 'flex'}`}>
                             <img src="/logo.jpg" alt="Y'ACC Logo" className="h-16 w-auto object-contain" />
-                            <span className="text-primary font-black text-xs tracking-[0.2em] uppercase">管理後台系統</span>
+                            <span className="text-primary font-black text-xs tracking-[0.2em] uppercase whitespace-nowrap">管理後台系統</span>
                         </div>
+                        <button
+                            onClick={() => setIsCollapsed(!isCollapsed)}
+                            className={`p-2 rounded-xl text-slate-400 hover:bg-slate-50 transition-all ${isCollapsed ? '' : 'ml-auto'}`}
+                            title={isCollapsed ? '展開側邊欄' : '縮小側邊欄'}
+                        >
+                            <span className="material-symbols-outlined text-xl">
+                                {isCollapsed ? 'last_page' : 'first_page'}
+                            </span>
+                        </button>
                     </div>
 
                     <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -97,32 +108,35 @@ const AdminLayout: React.FC = () => {
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname === item.path || (location.pathname.startsWith(item.path) && location.pathname[item.path.length] === '/')
                                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
                                     : 'text-slate-500 hover:bg-slate-50'
-                                    }`}
+                                    } ${isCollapsed ? 'justify-center px-0' : 'px-4'}`}
+                                title={isCollapsed ? item.label : ''}
                             >
-                                <span className="material-symbols-outlined text-xl">{item.icon}</span>
-                                {item.label}
+                                <span className={`material-symbols-outlined text-xl ${isCollapsed ? 'text-2xl' : ''}`}>{item.icon}</span>
+                                {!isCollapsed && <span>{item.label}</span>}
                             </Link>
                         ))}
                     </nav>
 
                     <div className="p-4 border-t border-slate-100 flex flex-col gap-1 bg-slate-50/50">
-                        <div className="px-4 py-3 mb-2 bg-white rounded-xl border border-slate-100">
+                        <div className={`px-4 py-3 mb-2 bg-white rounded-xl border border-slate-100 ${isCollapsed ? 'hidden' : 'block'}`}>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">登入帳號</p>
                             <p className="text-xs font-bold text-slate-600 truncate">{user?.email}</p>
                         </div>
                         <button
                             onClick={() => navigate('/')}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-blue-600 hover:bg-blue-50 rounded-xl font-bold transition-all text-sm"
+                            className={`w-full flex items-center gap-3 py-3 text-blue-600 hover:bg-blue-50 rounded-xl font-bold transition-all text-sm ${isCollapsed ? 'justify-center px-0' : 'px-4'}`}
+                            title={isCollapsed ? '返回打卡系統' : ''}
                         >
                             <span className="material-symbols-outlined text-xl">grid_view</span>
-                            返回打卡系統
+                            {!isCollapsed && <span>返回打卡系統</span>}
                         </button>
                         <button
                             onClick={handleLogout}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-rose-500 hover:bg-rose-50 rounded-xl font-bold transition-all text-sm"
+                            className={`w-full flex items-center gap-3 py-3 text-rose-500 hover:bg-rose-50 rounded-xl font-bold transition-all text-sm ${isCollapsed ? 'justify-center px-0' : 'px-4'}`}
+                            title={isCollapsed ? '登出系統' : ''}
                         >
                             <span className="material-symbols-outlined text-xl">logout</span>
-                            登出系統
+                            {!isCollapsed && <span>登出系統</span>}
                         </button>
                     </div>
                 </aside>

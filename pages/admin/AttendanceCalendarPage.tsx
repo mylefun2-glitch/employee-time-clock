@@ -374,9 +374,13 @@ const AttendanceCalendarPage: React.FC = () => {
                                         {dayInfo.logs.length > 1 && (
                                             <button
                                                 onClick={(e) => selectAllLogsInDay(dayInfo.logs, e)}
-                                                className="text-[10px] font-black text-slate-400 hover:text-blue-600 bg-slate-100 px-2 py-0.5 rounded transition-all"
+                                                className={`p-1 rounded-lg transition-all ${dayInfo.logs.every(l => selectedLogIds.has(l.id))
+                                                        ? 'bg-rose-50 text-rose-600 shadow-sm'
+                                                        : 'text-slate-400 hover:bg-slate-100'
+                                                    }`}
+                                                title={dayInfo.logs.every(l => selectedLogIds.has(l.id)) ? '取消全選' : '選取今日所有紀錄'}
                                             >
-                                                {dayInfo.logs.every(l => selectedLogIds.has(l.id)) ? '取消全選' : '全選今日'}
+                                                <Trash2 className="h-4 w-4" />
                                             </button>
                                         )}
                                         {dayInfo.hours > 0 && (
@@ -396,10 +400,10 @@ const AttendanceCalendarPage: React.FC = () => {
                                                     key={log.id}
                                                     onClick={(e) => toggleSelectLog(log.id, e)}
                                                     className={`flex items-center justify-between gap-1.5 px-2 py-1 rounded-md text-[10px] font-black border group/log cursor-pointer transition-all ${selectedLogIds.has(log.id)
-                                                            ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105 z-10'
-                                                            : log.check_type === CheckType.IN
-                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                                                : 'bg-orange-50 text-orange-700 border-orange-100'
+                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105 z-10'
+                                                        : log.check_type === CheckType.IN
+                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                                            : 'bg-orange-50 text-orange-700 border-orange-100'
                                                         }`}
                                                 >
                                                     <div className="flex items-center gap-1.5">
@@ -415,8 +419,8 @@ const AttendanceCalendarPage: React.FC = () => {
                                                     <button
                                                         onClick={(e) => handleDeleteClick(log.id, e)}
                                                         className={`opacity-0 group-hover/log:opacity-100 p-0.5 rounded transition-all ${selectedLogIds.has(log.id)
-                                                                ? 'hover:bg-white/20 text-white/70 hover:text-white'
-                                                                : 'hover:bg-white text-slate-400 hover:text-rose-500'
+                                                            ? 'hover:bg-white/20 text-white/70 hover:text-white'
+                                                            : 'hover:bg-white text-slate-400 hover:text-rose-500'
                                                             }`}
                                                         title="刪除紀錄"
                                                     >
