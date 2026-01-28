@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Plus, Pencil, Trash2, Search, Upload, Download, Filter, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Upload, Download, Filter, ArrowUpDown, ChevronUp, ChevronDown, Calendar as CalendarIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Employee } from '../../types';
 import { createEmployee, updateEmployee, deleteEmployee } from '../../services/admin';
@@ -70,6 +71,7 @@ const EmployeesPage: React.FC = () => {
     const [importing, setImporting] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: keyof Employee | 'seniority'; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const navigate = useNavigate();
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -464,6 +466,13 @@ const EmployeesPage: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-5 whitespace-nowrap text-right">
                                             <div className="flex justify-end gap-3">
+                                                <button
+                                                    onClick={() => navigate(`/admin/attendance-calendar?employeeId=${person.id}`)}
+                                                    className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all border border-transparent hover:border-emerald-100"
+                                                    title="查看出勤月曆"
+                                                >
+                                                    <CalendarIcon className="h-5 w-5" />
+                                                </button>
                                                 <button
                                                     onClick={() => handleEdit(person)}
                                                     className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all border border-transparent hover:border-blue-100"

@@ -42,7 +42,7 @@ const KioskPage: React.FC = () => {
     const [showFailure, setShowFailure] = useState(false);
     const [failureMessage, setFailureMessage] = useState('');
     const [isGettingLocation, setIsGettingLocation] = useState(false);
-    const [locationInfo, setLocationInfo] = useState<{ distance: number; withinRange: boolean; locationName?: string } | null>(null);
+    const [locationInfo, setLocationInfo] = useState<{ distance: number; withinRange: boolean; locationName?: string; error?: string } | null>(null);
     const [companyLocations, setCompanyLocations] = useState<CompanyLocation[]>([]);
 
     // Update clock every second
@@ -135,34 +135,55 @@ const KioskPage: React.FC = () => {
             let locationData: { latitude: number; longitude: number; accuracy: number } | undefined;
 
             if (isGeolocationSupported()) {
-                setIsGettingLocation(true);
-                try {
-                    const position = await getCurrentPosition();
-                    locationData = position;
+                const isSecure = window.isSecureContext || window.location.hostname === 'localhost';
 
-                    // 檢查是否在任一公司地點範圍內
-                    const { withinRange, distance, nearestLocation } = isWithinAnyLocation(
-                        position.latitude,
-                        position.longitude,
-                        companyLocations
-                    );
-
+                if (!isSecure) {
+                    console.warn('非安全連線 (非 HTTPS)，瀏覽器將禁用地理定位功能');
                     setLocationInfo({
-                        distance,
-                        withinRange,
-                        locationName: nearestLocation?.name || '公司'
+                        distance: 0,
+                        withinRange: false,
+                        error: '連線不安全：請使用 HTTPS 網址以啟用導航定位'
                     });
+                } else {
+                    setIsGettingLocation(true);
+                    try {
+                        const position = await getCurrentPosition();
+                        locationData = position;
 
-                    // 記錄模式：顯示警告但仍允許打卡
-                    if (!withinRange) {
-                        console.warn(`打卡位置超出範圍：${distance} 公尺（最近地點：${nearestLocation?.name || '未知'}）`);
+                        // 檢查是否在任一公司地點範圍內
+                        const { withinRange, distance, nearestLocation } = isWithinAnyLocation(
+                            position.latitude,
+                            position.longitude,
+                            companyLocations
+                        );
+
+                        setLocationInfo({
+                            distance,
+                            withinRange,
+                            locationName: nearestLocation?.name || '公司'
+                        });
+
+                        // 記錄模式：顯示警告但仍允許打卡
+                        if (!withinRange) {
+                            console.warn(`打卡位置超出範圍：${distance} 公尺（最近地點：${nearestLocation?.name || '未知'}）`);
+                        }
+                    } catch (error: any) {
+                        console.warn('無法取得位置：', error.message);
+                        setLocationInfo({
+                            distance: 0,
+                            withinRange: false,
+                            error: `定位失敗：${error.message} (請檢查瀏覽器讀取權限)`
+                        });
+                    } finally {
+                        setIsGettingLocation(false);
                     }
-                } catch (error: any) {
-                    console.warn('無法取得位置：', error.message);
-                    // 記錄模式：定位失敗仍允許打卡
-                } finally {
-                    setIsGettingLocation(false);
                 }
+            } else {
+                setLocationInfo({
+                    distance: 0,
+                    withinRange: false,
+                    error: '您的瀏覽器不支援定位功能'
+                });
             }
 
             // 3. Log Attendance
@@ -285,25 +306,31 @@ const KioskPage: React.FC = () => {
                     )}
 
                     {locationInfo && !isGettingLocation && (
-                        <div className={`mb-4 p-3 border rounded-lg flex items-center gap-2 ${locationInfo.withinRange
-                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                            : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                        <div className={`mb-4 p-3 border rounded-lg flex items-center gap-2 ${locationInfo.error
+                            ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800'
+                            : locationInfo.withinRange
+                                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                                : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
                             }`}>
-                            <span className="material-symbols-outlined text-lg">
-                                {locationInfo.withinRange ? 'check_circle' : 'warning'}
+                            <span className={`material-symbols-outlined text-lg ${locationInfo.error ? 'text-rose-600' : ''}`}>
+                                {locationInfo.error ? 'location_off' : (locationInfo.withinRange ? 'check_circle' : 'warning')}
                             </span>
                             <div className="flex-1">
-                                <p className={`text-sm font-medium ${locationInfo.withinRange
-                                    ? 'text-green-700 dark:text-green-300'
-                                    : 'text-amber-700 dark:text-amber-300'
+                                <p className={`text-sm font-medium ${locationInfo.error
+                                    ? 'text-rose-700 dark:text-rose-300'
+                                    : locationInfo.withinRange
+                                        ? 'text-green-700 dark:text-green-300'
+                                        : 'text-amber-700 dark:text-amber-300'
                                     }`}>
-                                    {locationInfo.withinRange ? '位置正常' : '位置異常'}
+                                    {locationInfo.error ? '定位功能受限' : (locationInfo.withinRange ? '位置正常' : '位置異常')}
                                 </p>
-                                <p className={`text-xs ${locationInfo.withinRange
-                                    ? 'text-green-600 dark:text-green-400'
-                                    : 'text-amber-600 dark:text-amber-400'
+                                <p className={`text-xs ${locationInfo.error
+                                    ? 'text-rose-600 dark:text-rose-400'
+                                    : locationInfo.withinRange
+                                        ? 'text-green-600 dark:text-green-400'
+                                        : 'text-amber-600 dark:text-amber-400'
                                     }`}>
-                                    距離{locationInfo.locationName || '公司'} {formatDistance(locationInfo.distance)}
+                                    {locationInfo.error || `距離${locationInfo.locationName || '公司'} ${formatDistance(locationInfo.distance)}`}
                                 </p>
                             </div>
                         </div>

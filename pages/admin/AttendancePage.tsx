@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Download, Trash2 } from 'lucide-react';
 import { getAttendanceLogs, deleteAttendanceLog } from '../../services/admin';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+import { Calendar as CalendarIcon } from 'lucide-react';
 
 interface DepartmentStats {
     department: string;
@@ -18,6 +20,7 @@ const AttendancePage: React.FC = () => {
     const [departments, setDepartments] = useState<string[]>([]);
     const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
     const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         fetchLogs();
@@ -299,7 +302,16 @@ const AttendancePage: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="px-8 py-5 whitespace-nowrap">
-                                        <div className="text-base font-black text-slate-900">{group.employee?.name}</div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="text-base font-black text-slate-900">{group.employee?.name}</div>
+                                            <button
+                                                onClick={() => navigate(`/admin/attendance-calendar?employeeId=${group.employee?.id}`)}
+                                                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all border border-transparent hover:border-emerald-100"
+                                                title="查看個人出勤月曆"
+                                            >
+                                                <CalendarIcon className="h-4 w-4" />
+                                            </button>
+                                        </div>
                                     </td>
                                     <td className="px-8 py-5 whitespace-nowrap">
                                         <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-black">

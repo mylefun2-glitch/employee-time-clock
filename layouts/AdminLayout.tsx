@@ -41,6 +41,7 @@ const AdminLayout: React.FC = () => {
         { path: '/admin/employees', icon: 'groups', label: '員工管理' },
         { path: '/admin/stats', icon: 'bar_chart', label: '人事統計' },
         { path: '/admin/attendance', icon: 'event_note', label: '考勤記錄' },
+        { path: '/admin/attendance-calendar', icon: 'calendar_month', label: '出勤月曆' },
         { path: '/admin/makeup-requests', label: '補登審核', icon: 'edit_calendar' },
         { path: '/admin/requests', label: '差勤/公務車', icon: 'fact_check' },
         { path: '/admin/cars', label: '公務車管理', icon: 'directions_car' },
@@ -93,7 +94,7 @@ const AdminLayout: React.FC = () => {
                             <Link
                                 key={item.path}
                                 to={item.path}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname.startsWith(item.path)
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname === item.path || (location.pathname.startsWith(item.path) && location.pathname[item.path.length] === '/')
                                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
                                     : 'text-slate-500 hover:bg-slate-50'
                                     }`}
