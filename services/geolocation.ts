@@ -71,7 +71,7 @@ export const getCurrentPosition = (): Promise<GeolocationData> => {
 };
 
 /**
- * 獲取高精度當前位置（透過持續監測 2 秒，取精確度最優值）
+ * 獲取高精度當前位置（透過持續監測 5 秒，取精確度最優值）
  * 解決 GPS 剛開啟或定位未穩定時的偏移問題
  */
 export interface AccuratePositionResult {
@@ -81,7 +81,7 @@ export interface AccuratePositionResult {
 }
 
 export const getAccurateCurrentPosition = (
-    timeoutMs: number = 2000,
+    timeoutMs: number = 5000,
     accuracyThresholdMeters: number = 100
 ): Promise<AccuratePositionResult> => {
     return new Promise((resolve) => {
