@@ -64,8 +64,8 @@ const MakeupRequestForm: React.FC<MakeupRequestFormProps> = ({ employeeId, onClo
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-                <div className="flex items-center justify-between mb-6">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full flex flex-col max-h-[90vh] overflow-hidden">
+                <div className="flex items-center justify-between p-6 border-b border-slate-100 shrink-0">
                     <h2 className="text-xl font-black text-slate-900">申請補登打卡</h2>
                     <button
                         onClick={onClose}
@@ -75,105 +75,107 @@ const MakeupRequestForm: React.FC<MakeupRequestFormProps> = ({ employeeId, onClo
                     </button>
                 </div>
 
-                {/* 錯誤訊息 */}
-                {errorMessage && (
-                    <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl">
-                        <div className="flex items-start gap-2">
-                            <span className="material-symbols-outlined text-rose-600 text-lg">error</span>
-                            <p className="text-sm text-rose-700 font-medium">{errorMessage}</p>
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+                    <div className="p-6 space-y-4 overflow-y-auto flex-1 scrollbar-hide">
+                        {/* 錯誤訊息 */}
+                        {errorMessage && (
+                            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl">
+                                <div className="flex items-start gap-2">
+                                    <span className="material-symbols-outlined text-rose-600 text-lg">error</span>
+                                    <p className="text-sm text-rose-700 font-medium">{errorMessage}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 日期選擇 */}
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">
+                                補登日期 <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                                type="date"
+                                required
+                                value={formData.requestDate}
+                                onChange={(e) => setFormData({ ...formData, requestDate: e.target.value })}
+                                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+                            />
                         </div>
-                    </div>
-                )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* 日期選擇 */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">
-                            補登日期 <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                            type="date"
-                            required
-                            value={formData.requestDate}
-                            onChange={(e) => setFormData({ ...formData, requestDate: e.target.value })}
-                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
-                        />
-                    </div>
-
-                    {/* 打卡類型 */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">
-                            打卡類型 <span className="text-rose-500">*</span>
-                        </label>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setFormData({ ...formData, checkType: 'IN' })}
-                                className={`px-4 py-3 rounded-xl font-bold transition-all ${formData.checkType === 'IN'
-                                    ? 'bg-emerald-600 text-white shadow-md'
-                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                    }`}
-                            >
-                                <span className="material-symbols-outlined text-sm mr-1">login</span>
-                                上班打卡
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setFormData({ ...formData, checkType: 'OUT' })}
-                                className={`px-4 py-3 rounded-xl font-bold transition-all ${formData.checkType === 'OUT'
-                                    ? 'bg-orange-600 text-white shadow-md'
-                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                    }`}
-                            >
-                                <span className="material-symbols-outlined text-sm mr-1">logout</span>
-                                下班打卡
-                            </button>
+                        {/* 打卡類型 */}
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">
+                                打卡類型 <span className="text-rose-500">*</span>
+                            </label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, checkType: 'IN' })}
+                                    className={`px-4 py-3 rounded-xl font-bold transition-all ${formData.checkType === 'IN'
+                                        ? 'bg-emerald-600 text-white shadow-md'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        }`}
+                                >
+                                    <span className="material-symbols-outlined text-sm mr-1">login</span>
+                                    上班打卡
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, checkType: 'OUT' })}
+                                    className={`px-4 py-3 rounded-xl font-bold transition-all ${formData.checkType === 'OUT'
+                                        ? 'bg-orange-600 text-white shadow-md'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        }`}
+                                >
+                                    <span className="material-symbols-outlined text-sm mr-1">logout</span>
+                                    下班打卡
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* 時間選擇 */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">
-                            打卡時間 <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                            type="time"
-                            required
-                            value={formData.requestTime}
-                            onChange={(e) => setFormData({ ...formData, requestTime: e.target.value })}
-                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
-                        />
-                    </div>
+                        {/* 時間選擇 */}
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">
+                                打卡時間 <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                                type="time"
+                                required
+                                value={formData.requestTime}
+                                onChange={(e) => setFormData({ ...formData, requestTime: e.target.value })}
+                                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+                            />
+                        </div>
 
-                    {/* 原因說明 */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">
-                            補登原因 <span className="text-rose-500">*</span>
-                        </label>
-                        <textarea
-                            required
-                            rows={3}
-                            value={formData.reason}
-                            onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                            placeholder="請說明為何需要補登打卡..."
-                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none font-medium"
-                        />
+                        {/* 原因說明 */}
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">
+                                補登原因 <span className="text-rose-500">*</span>
+                            </label>
+                            <textarea
+                                required
+                                rows={3}
+                                value={formData.reason}
+                                onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                                placeholder="請說明為何需要補登打卡..."
+                                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none font-medium"
+                            />
+                        </div>
                     </div>
 
                     {/* 按鈕 */}
-                    <div className="flex gap-3 pt-2">
+                    <div className="p-6 border-t border-slate-100 flex gap-3 bg-slate-50/50 shrink-0">
                         <button
                             type="button"
                             onClick={onClose}
                             disabled={submitting}
-                            className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             取消
                         </button>
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {submitting ? '提交中...' : '提交申請'}
                         </button>

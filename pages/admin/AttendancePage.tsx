@@ -13,8 +13,8 @@ interface DepartmentStats {
 const AttendancePage: React.FC = () => {
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
+    const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+    const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [filterDepartment, setFilterDepartment] = useState<string>('ALL');
     const [filterType, setFilterType] = useState<string>('ALL');
     const [departments, setDepartments] = useState<string[]>([]);

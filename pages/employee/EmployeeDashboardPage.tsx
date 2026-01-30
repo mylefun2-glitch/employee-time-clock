@@ -79,7 +79,16 @@ const EmployeeDashboardPage: React.FC = () => {
         return <div className="p-4 text-center font-bold text-slate-400 py-20">載入中...</div>;
     }
 
-    const statCards = [
+    interface StatCard {
+        name: string;
+        value: number;
+        unit: string;
+        icon: string;
+        color: string;
+        highlight?: boolean;
+    }
+
+    const statCards: StatCard[] = [
         { name: '本月出勤', value: stats.attendanceDays, unit: '天', icon: 'today', color: 'from-blue-600 to-blue-700' },
         { name: '本月請假', value: stats.leaveDays, unit: '天', icon: 'description', color: 'from-emerald-500 to-emerald-600' },
         { name: '待審核申請', value: stats.pendingRequests, unit: '件', icon: 'pending_actions', color: 'from-amber-500 to-amber-600' },
@@ -122,29 +131,29 @@ const EmployeeDashboardPage: React.FC = () => {
             </div>
 
             {/* Premium Stats Grid */}
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {statCards.map((item) => (
                     <div
                         key={item.name}
-                        className={`group relative bg-white p-7 rounded-[2rem] border transition-all duration-300 hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-1 ${item.highlight ? 'border-rose-200 bg-rose-50/20' : 'border-slate-100'
+                        className={`group relative bg-white p-4 rounded-3xl border transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/50 hover:-translate-y-0.5 ${item.highlight ? 'border-rose-200 bg-rose-50/20' : 'border-slate-100'
                             }`}
                     >
-                        <div className="flex flex-col gap-5">
-                            <div className={`w-14 h-14 bg-gradient-to-br ${item.color} rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200/20 group-hover:scale-110 transition-transform`}>
-                                <span className="material-symbols-outlined text-white text-3xl">
+                        <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 shrink-0 bg-gradient-to-br ${item.color} rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200/20 group-hover:scale-105 transition-transform`}>
+                                <span className="material-symbols-outlined text-white text-2xl">
                                     {item.icon}
                                 </span>
                             </div>
-                            <div>
-                                <p className="text-sm font-black text-slate-400 uppercase tracking-widest mb-1">{item.name}</p>
+                            <div className="min-w-0">
+                                <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-0.5 truncate">{item.name}</p>
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-4xl font-black text-slate-900 tracking-tight">{item.value}</span>
-                                    <span className="text-sm font-bold text-slate-400 ml-1">{item.unit}</span>
+                                    <span className="text-2xl font-black text-slate-900 tracking-tight">{item.value}</span>
+                                    <span className="text-xs font-bold text-slate-400 ml-0.5">{item.unit}</span>
                                 </div>
                             </div>
                         </div>
                         {item.highlight && (
-                            <div className="absolute top-7 right-7 px-3 py-1 bg-rose-100 text-rose-600 text-[10px] font-black rounded-full uppercase tracking-tighter">
+                            <div className="absolute top-3 right-3 px-2 py-0.5 bg-rose-100 text-rose-600 text-[9px] font-black rounded-full uppercase tracking-tighter">
                                 需處理
                             </div>
                         )}
@@ -210,27 +219,7 @@ const EmployeeDashboardPage: React.FC = () => {
                 {/* Sidebar Cards */}
                 <div className="space-y-6">
                     <h3 className="text-xl font-black text-slate-900 tracking-tight px-2">常用操作</h3>
-                    <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden">
-                        {/* Decorative circles */}
-                        <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
-                        <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl"></div>
 
-                        <h4 className="text-lg font-black mb-6 flex items-center gap-3">
-                            <span className="material-symbols-outlined text-blue-400">bolt</span>
-                            快速連結
-                        </h4>
-
-                        <div className="space-y-4 relative z-10">
-                            <a href="/employee/attendance" className="flex items-center justify-between p-4 bg-white/10 rounded-2xl border border-white/10 hover:bg-white/20 transition-all group">
-                                <span className="font-bold tracking-wide">前往打卡統計</span>
-                                <span className="material-symbols-outlined text-base group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                            </a>
-                            <a href="/employee/profile" className="flex items-center justify-between p-4 bg-white/10 rounded-2xl border border-white/10 hover:bg-white/20 transition-all group">
-                                <span className="font-bold tracking-wide">檢視個人檔案</span>
-                                <span className="material-symbols-outlined text-base group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                            </a>
-                        </div>
-                    </div>
 
                     {/* Announcement Card or Similar */}
                     <div className="bg-blue-50 rounded-[2.5rem] p-8 border border-blue-100">

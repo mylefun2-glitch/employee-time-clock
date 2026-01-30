@@ -33,20 +33,19 @@ export const requestService = {
                 .from('leave_requests')
                 .select(`
                     *,
-                    leave_type:leave_types(*),
-                    car:cars(*)
+                    leave_type:leave_types(*)
                 `)
                 .eq('employee_id', employeeId)
                 .order('created_at', { ascending: false });
 
             if (error) {
-                console.error('Error fetching requests:', error);
+                console.error('Error fetching requests for employee:', employeeId, error);
                 return [];
             }
 
             return data || [];
         } catch (err) {
-            console.error('Unexpected error fetching requests:', err);
+            console.error('Unexpected error fetching requests for employee:', employeeId, err);
             return [];
         }
     },
@@ -61,8 +60,7 @@ export const requestService = {
                 .select(`
                     *,
                     leave_type:leave_types(*),
-                    employee:employees(name, department),
-                    car:cars(*)
+                    employee:employees(name, department)
                 `)
                 .order('created_at', { ascending: false });
 

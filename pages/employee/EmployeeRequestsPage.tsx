@@ -22,8 +22,11 @@ const EmployeeRequestsPage: React.FC = () => {
         try {
             const data = await requestService.getEmployeeRequests(employee.id);
             setRequests(data || []);
+            if (!data || data.length === 0) {
+                console.log('No requests found for employee:', employee.id);
+            }
         } catch (error) {
-            console.error('Error fetching requests:', error);
+            console.error('Error fetching requests in EmployeeRequestsPage:', error);
         } finally {
             setLoading(false);
         }
@@ -40,12 +43,10 @@ const EmployeeRequestsPage: React.FC = () => {
 
     const filteredRequests = requests.filter(req => filter === 'ALL' || req.status === filter);
 
-    const stats = [
-        { label: '總申請數', value: requests.length, icon: 'list_alt', color: 'bg-blue-600' },
-        { label: '待審核', value: requests.filter(r => r.status === 'PENDING').length, icon: 'pending', color: 'bg-amber-500' },
-        { label: '已核准', value: requests.filter(r => r.status === 'APPROVED').length, icon: 'check_circle', color: 'bg-emerald-500' },
-        { label: '已拒絕', value: requests.filter(r => r.status === 'REJECTED').length, icon: 'cancel', color: 'bg-rose-500' }
-    ];
+    const getCount = (status: 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED') => {
+        if (status === 'ALL') return requests.length;
+        return requests.filter(r => r.status === status).length;
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -64,22 +65,6 @@ const EmployeeRequestsPage: React.FC = () => {
                 </button>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {stats.map((item) => (
-                    <div key={item.label} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                        <div className="flex flex-col items-center text-center gap-3">
-                            <div className={`${item.color} w-12 h-12 rounded-xl flex items-center justify-center shadow-lg`}>
-                                <span className="material-symbols-outlined text-white text-2xl">{item.icon}</span>
-                            </div>
-                            <div>
-                                <p className="text-3xl font-black text-slate-900 leading-none mb-1">{item.value}</p>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{item.label}</p>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
 
             {/* Filter Tabs */}
             <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -93,6 +78,9 @@ const EmployeeRequestsPage: React.FC = () => {
                             }`}
                     >
                         {status === 'ALL' ? '全部申請' : getStatusInfo(status).text}
+                        <span className="ml-2 px-2 py-0.5 bg-slate-100 text-slate-500 rounded-lg text-[10px] group-hover:bg-slate-200 transition-colors">
+                            {getCount(status)}
+                        </span>
                     </button>
                 ))}
             </div>
@@ -110,15 +98,15 @@ const EmployeeRequestsPage: React.FC = () => {
                     filteredRequests.map((request) => {
                         const status = getStatusInfo(request.status);
                         return (
-                            <div key={request.id} className="group bg-white rounded-3xl border border-slate-100 p-6 hover:shadow-xl transition-all duration-300">
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                            <div key={request.id} className="group bg-white rounded-3xl border border-slate-100 p-5 hover:shadow-xl transition-all duration-300">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div className="flex items-center gap-5">
-                                        <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 border border-blue-100 shrink-0">
-                                            <span className="material-symbols-outlined text-3xl">edit_calendar</span>
+                                        <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 border border-blue-100 shrink-0">
+                                            <span className="material-symbols-outlined text-2xl">edit_calendar</span>
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-3 mb-1">
-                                                <h3 className="text-xl font-black text-slate-900">
+                                                <h3 className="text-lg font-black text-slate-900">
                                                     {request.leave_type?.name || '差勤申請'}
                                                 </h3>
                                                 <span className={`px-3 py-1 text-[10px] font-black rounded-lg border uppercase tracking-wider ${status.class}`}>
@@ -147,7 +135,7 @@ const EmployeeRequestsPage: React.FC = () => {
                                     </div>
                                 </div>
                                 {request.reason && (
-                                    <div className="mt-6 bg-slate-50 rounded-2xl p-4 border border-slate-100 text-sm font-bold text-slate-700">
+                                    <div className="mt-4 bg-slate-50 rounded-2xl p-3 border border-slate-100 text-sm font-bold text-slate-700">
                                         {request.reason}
                                     </div>
                                 )}

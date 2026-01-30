@@ -47,6 +47,7 @@ export interface LeaveRequest {
   approver_id?: string;
   approved_at?: string;
   employee_name?: string;
+  hours?: number; // 新增：申請總時數
 }
 
 export interface Employee {
@@ -73,6 +74,14 @@ export interface Employee {
   insurance_start_date?: string;
   insurance_end_date?: string;
   join_date?: string;
+  work_start_time?: string;
+  work_end_time?: string;
+  break_start_time?: string;
+  break_end_time?: string;
+  break2_start_time?: string;
+  break2_end_time?: string;
+  break3_start_time?: string;
+  break3_end_time?: string;
 }
 
 export interface EmployeeMovement {

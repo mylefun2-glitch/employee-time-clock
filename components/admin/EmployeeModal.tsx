@@ -33,6 +33,14 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
     const [insuranceStartDate, setInsuranceStartDate] = useState('');
     const [insuranceEndDate, setInsuranceEndDate] = useState('');
     const [joinDate, setJoinDate] = useState('');
+    const [workStartTime, setWorkStartTime] = useState('08:00');
+    const [workEndTime, setWorkEndTime] = useState('17:00');
+    const [breakStartTime, setBreakStartTime] = useState('12:00');
+    const [breakEndTime, setBreakEndTime] = useState('13:00');
+    const [break2StartTime, setBreak2StartTime] = useState('');
+    const [break2EndTime, setBreak2EndTime] = useState('');
+    const [break3StartTime, setBreak3StartTime] = useState('');
+    const [break3EndTime, setBreak3EndTime] = useState('');
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -58,6 +66,14 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             setInsuranceStartDate(employee.insurance_start_date || '');
             setInsuranceEndDate(employee.insurance_end_date || '');
             setJoinDate(employee.join_date || '');
+            setWorkStartTime(employee.work_start_time || '08:00');
+            setWorkEndTime(employee.work_end_time || '17:00');
+            setBreakStartTime(employee.break_start_time || '12:00');
+            setBreakEndTime(employee.break_end_time || '13:00');
+            setBreak2StartTime(employee.break2_start_time || '');
+            setBreak2EndTime(employee.break2_end_time || '');
+            setBreak3StartTime(employee.break3_start_time || '');
+            setBreak3EndTime(employee.break3_end_time || '');
         } else if (!employee && isOpen) {
             setName('');
             setUsername('');
@@ -112,7 +128,15 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                 emergency_contact_phone: emergencyContactPhone || null,
                 insurance_start_date: insuranceStartDate || null,
                 insurance_end_date: insuranceEndDate || null,
-                join_date: joinDate || null
+                join_date: joinDate || null,
+                work_start_time: workStartTime,
+                work_end_time: workEndTime,
+                break_start_time: breakStartTime,
+                break_end_time: breakEndTime,
+                break2_start_time: break2StartTime || null,
+                break2_end_time: break2EndTime || null,
+                break3_start_time: break3StartTime || null,
+                break3_end_time: break3EndTime || null
             });
             onClose();
         } catch (err: any) {
@@ -149,215 +173,302 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             </div>
 
             {activeTab !== 'history' ? (
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {error && (
-                        <div className="rounded-xl bg-rose-50 p-4 border border-rose-100 text-sm text-rose-600 font-bold">
-                            {error}
-                        </div>
-                    )}
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                    <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 mb-6">
+                        {error && (
+                            <div className="rounded-xl bg-rose-50 p-4 border border-rose-100 text-sm text-rose-600 font-bold">
+                                {error}
+                            </div>
+                        )}
 
-                    {activeTab === 'basic' && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">姓名</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">登入帳號 (預設為姓名)</label>
-                                <input
-                                    type="text"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50 font-medium"
-                                    placeholder="建議使用 Gmail 或工號"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">PIN 碼 (6位身分證後六碼)</label>
-                                <input
-                                    type="text"
-                                    required
-                                    maxLength={6}
-                                    value={pin}
-                                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50 font-mono"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">部門</label>
-                                <input
-                                    type="text"
-                                    value={department}
-                                    onChange={(e) => setDepartment(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">職務</label>
-                                <input
-                                    type="text"
-                                    value={position}
-                                    onChange={(e) => setPosition(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">直屬主管</label>
-                                <select
-                                    value={managerId}
-                                    onChange={(e) => setManagerId(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                >
-                                    <option value="">無</option>
-                                    {allEmployees
-                                        .filter(emp => emp.id !== employee?.id)
-                                        .map(emp => (
-                                            <option key={emp.id} value={emp.id}>{emp.name}</option>
-                                        ))
-                                    }
-                                </select>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'personal' && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">性別</label>
-                                <select
-                                    value={gender}
-                                    onChange={(e) => setGender(e.target.value as any)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                >
-                                    <option value="">請選擇</option>
-                                    <option value="MALE">男</option>
-                                    <option value="FEMALE">女</option>
-                                    <option value="OTHER">其他</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">出生日期</label>
-                                <input
-                                    type="date"
-                                    value={birthDate}
-                                    onChange={(e) => setBirthDate(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                />
-                            </div>
-                            <div className="items-center sm:col-span-2">
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">通訊地址</label>
-                                <input
-                                    type="text"
-                                    value={mailingAddress}
-                                    onChange={(e) => setMailingAddress(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">電話 / 手機</label>
-                                <input
-                                    type="text"
-                                    value={contactPhone}
-                                    onChange={(e) => setContactPhone(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Gmail</label>
-                                <input
-                                    type="email"
-                                    value={gmail}
-                                    onChange={(e) => setGmail(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                />
-                            </div>
-                            <div className="sm:col-span-2 mt-4 pt-4 border-t border-slate-100">
-                                <h4 className="text-sm font-bold text-slate-900 mb-4">緊急聯絡資訊</h4>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">連絡人姓名</label>
-                                <input
-                                    type="text"
-                                    value={emergencyContactName}
-                                    onChange={(e) => setEmergencyContactName(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">關係</label>
-                                <input
-                                    type="text"
-                                    value={emergencyContactRelationship}
-                                    onChange={(e) => setEmergencyContactRelationship(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                />
-                            </div>
-                            <div className="sm:col-span-2">
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">緊急聯絡電話</label>
-                                <input
-                                    type="text"
-                                    value={emergencyContactPhone}
-                                    onChange={(e) => setEmergencyContactPhone(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'work' && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="sm:col-span-2">
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">到職日期</label>
-                                <input
-                                    type="date"
-                                    value={joinDate}
-                                    onChange={(e) => setJoinDate(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">勞(健)加保日期</label>
-                                <input
-                                    type="date"
-                                    value={insuranceStartDate}
-                                    onChange={(e) => setInsuranceStartDate(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">退保日期</label>
-                                <input
-                                    type="date"
-                                    value={insuranceEndDate}
-                                    onChange={(e) => setInsuranceEndDate(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                />
-                            </div>
-
-                            {employee && (
-                                <div className="sm:col-span-2 mt-4 flex items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        {activeTab === 'basic' && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">姓名</label>
                                     <input
-                                        id="is_active"
-                                        type="checkbox"
-                                        checked={isActive}
-                                        onChange={(e) => setIsActive(e.target.checked)}
-                                        className="h-5 w-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        type="text"
+                                        required
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
                                     />
-                                    <label htmlFor="is_active" className="ml-3 block text-sm font-bold text-slate-700">
-                                        帳號啟用狀態 (在職)
-                                    </label>
                                 </div>
-                            )}
-                        </div>
-                    )}
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">登入帳號 (預設為姓名)</label>
+                                    <input
+                                        type="text"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50 font-medium"
+                                        placeholder="建議使用 Gmail 或工號"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">PIN 碼 (6位身分證後六碼)</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        maxLength={6}
+                                        value={pin}
+                                        onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50 font-mono"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">部門</label>
+                                    <input
+                                        type="text"
+                                        value={department}
+                                        onChange={(e) => setDepartment(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">職務</label>
+                                    <input
+                                        type="text"
+                                        value={position}
+                                        onChange={(e) => setPosition(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">直屬主管</label>
+                                    <select
+                                        value={managerId}
+                                        onChange={(e) => setManagerId(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    >
+                                        <option value="">無</option>
+                                        {allEmployees
+                                            .filter(emp => emp.id !== employee?.id)
+                                            .map(emp => (
+                                                <option key={emp.id} value={emp.id}>{emp.name}</option>
+                                            ))
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                        )}
 
-                    <div className="flex gap-3 pt-6 border-t border-slate-100">
+                        {activeTab === 'personal' && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">性別</label>
+                                    <select
+                                        value={gender}
+                                        onChange={(e) => setGender(e.target.value as any)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    >
+                                        <option value="">請選擇</option>
+                                        <option value="MALE">男</option>
+                                        <option value="FEMALE">女</option>
+                                        <option value="OTHER">其他</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">出生日期</label>
+                                    <input
+                                        type="date"
+                                        value={birthDate}
+                                        onChange={(e) => setBirthDate(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div className="items-center sm:col-span-2">
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">通訊地址</label>
+                                    <input
+                                        type="text"
+                                        value={mailingAddress}
+                                        onChange={(e) => setMailingAddress(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">電話 / 手機</label>
+                                    <input
+                                        type="text"
+                                        value={contactPhone}
+                                        onChange={(e) => setContactPhone(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Gmail</label>
+                                    <input
+                                        type="email"
+                                        value={gmail}
+                                        onChange={(e) => setGmail(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div className="sm:col-span-2 mt-4 pt-4 border-t border-slate-100">
+                                    <h4 className="text-sm font-bold text-slate-900 mb-4">緊急聯絡資訊</h4>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">連絡人姓名</label>
+                                    <input
+                                        type="text"
+                                        value={emergencyContactName}
+                                        onChange={(e) => setEmergencyContactName(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">關係</label>
+                                    <input
+                                        type="text"
+                                        value={emergencyContactRelationship}
+                                        onChange={(e) => setEmergencyContactRelationship(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">緊急聯絡電話</label>
+                                    <input
+                                        type="text"
+                                        value={emergencyContactPhone}
+                                        onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'work' && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="sm:col-span-2">
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">到職日期</label>
+                                    <input
+                                        type="date"
+                                        value={joinDate}
+                                        onChange={(e) => setJoinDate(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">勞(健)加保日期</label>
+                                    <input
+                                        type="date"
+                                        value={insuranceStartDate}
+                                        onChange={(e) => setInsuranceStartDate(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">退保日期</label>
+                                    <input
+                                        type="date"
+                                        value={insuranceEndDate}
+                                        onChange={(e) => setInsuranceEndDate(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+
+                                <div className="sm:col-span-2 mt-4 pt-4 border-t border-slate-100">
+                                    <h4 className="text-sm font-bold text-slate-900 mb-4">出勤時間設定 (預設 08:00-17:00 / 12:00-13:00)</h4>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">上班時間</label>
+                                    <input
+                                        type="time"
+                                        value={workStartTime}
+                                        onChange={(e) => setWorkStartTime(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">下班時間</label>
+                                    <input
+                                        type="time"
+                                        value={workEndTime}
+                                        onChange={(e) => setWorkEndTime(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">休息開始</label>
+                                    <input
+                                        type="time"
+                                        value={breakStartTime}
+                                        onChange={(e) => setBreakStartTime(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">休息結束</label>
+                                    <input
+                                        type="time"
+                                        value={breakEndTime}
+                                        onChange={(e) => setBreakEndTime(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+
+                                <div className="sm:col-span-2 mt-4 pt-4 border-t border-slate-100">
+                                    <h4 className="text-sm font-bold text-slate-900 mb-4">第二組休息時段 (選填)</h4>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">休息開始2</label>
+                                    <input
+                                        type="time"
+                                        value={break2StartTime}
+                                        onChange={(e) => setBreak2StartTime(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">休息結束2</label>
+                                    <input
+                                        type="time"
+                                        value={break2EndTime}
+                                        onChange={(e) => setBreak2EndTime(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+
+                                <div className="sm:col-span-2 mt-4 pt-4 border-t border-slate-100">
+                                    <h4 className="text-sm font-bold text-slate-900 mb-4">第三組休息時段 (選填)</h4>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">休息開始3</label>
+                                    <input
+                                        type="time"
+                                        value={break3StartTime}
+                                        onChange={(e) => setBreak3StartTime(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">休息結束3</label>
+                                    <input
+                                        type="time"
+                                        value={break3EndTime}
+                                        onChange={(e) => setBreak3EndTime(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                    />
+                                </div>
+
+                                {employee && (
+                                    <div className="sm:col-span-2 mt-4 flex items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                        <input
+                                            id="is_active"
+                                            type="checkbox"
+                                            checked={isActive}
+                                            onChange={(e) => setIsActive(e.target.checked)}
+                                            className="h-5 w-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <label htmlFor="is_active" className="ml-3 block text-sm font-bold text-slate-700">
+                                            帳號啟用狀態 (在職)
+                                        </label>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                    </div>
+
+                    <div className="flex gap-3 pt-6 border-t border-slate-100 shrink-0 bg-white">
                         <button
                             type="button"
                             onClick={onClose}

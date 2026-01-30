@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { KeypadValue } from '../types';
 import { checkPin, logAttendance, getRecentAttendance } from '../services/attendance';
 import { Employee } from '../types';
-import { getCurrentPosition, isWithinAnyLocation, formatDistance, isGeolocationSupported, CompanyLocation } from '../services/geolocation';
+import { getAccurateCurrentPosition, isWithinAnyLocation, formatDistance, isGeolocationSupported, CompanyLocation, GeolocationData } from '../services/geolocation';
 import { getActiveLocations } from '../services/companyLocationService';
 import SuccessOverlay from '../components/SuccessOverlay';
 import FailureOverlay from '../components/FailureOverlay';
@@ -116,6 +116,30 @@ const KioskPage: React.FC = () => {
 
         setIsLoading(true);
 
+        // 啟動定位請求（在驗證 PIN 之前，以確保在 Safari 等瀏覽器中能更可靠地觸發權限提示）
+        let locationPromise: Promise<{ position: GeolocationData | null; error?: string; errorCode?: number }> | null = null;
+        const isSecure = window.isSecureContext || window.location.hostname === 'localhost';
+
+        if (isGeolocationSupported()) {
+            if (!isSecure) {
+                console.warn('非安全連線 (非 HTTPS)，瀏覽器將禁用地理定位功能');
+                setLocationInfo({
+                    distance: 0,
+                    withinRange: false,
+                    error: '連線不安全：請使用 HTTPS 網址以啟用導航定位'
+                });
+            } else {
+                setIsGettingLocation(true);
+                locationPromise = getAccurateCurrentPosition();
+            }
+        } else {
+            setLocationInfo({
+                distance: 0,
+                withinRange: false,
+                error: '您的瀏覽器不支援定位功能'
+            });
+        }
+
         try {
             // 1. Verify PIN
             const employee = await checkPin(pin);
@@ -131,23 +155,15 @@ const KioskPage: React.FC = () => {
                 return;
             }
 
-            // 2. 獲取地理位置（記錄模式：即使失敗也允許打卡）
+            // 2. 等待地理位置結果
             let locationData: { latitude: number; longitude: number; accuracy: number } | undefined;
 
-            if (isGeolocationSupported()) {
-                const isSecure = window.isSecureContext || window.location.hostname === 'localhost';
+            if (locationPromise) {
+                try {
+                    const result = await locationPromise;
+                    const { position, error } = result;
 
-                if (!isSecure) {
-                    console.warn('非安全連線 (非 HTTPS)，瀏覽器將禁用地理定位功能');
-                    setLocationInfo({
-                        distance: 0,
-                        withinRange: false,
-                        error: '連線不安全：請使用 HTTPS 網址以啟用導航定位'
-                    });
-                } else {
-                    setIsGettingLocation(true);
-                    try {
-                        const position = await getCurrentPosition();
+                    if (position) {
                         locationData = position;
 
                         // 檢查是否在任一公司地點範圍內
@@ -167,23 +183,23 @@ const KioskPage: React.FC = () => {
                         if (!withinRange) {
                             console.warn(`打卡位置超出範圍：${distance} 公尺（最近地點：${nearestLocation?.name || '未知'}）`);
                         }
-                    } catch (error: any) {
-                        console.warn('無法取得位置：', error.message);
+                    } else {
                         setLocationInfo({
                             distance: 0,
                             withinRange: false,
-                            error: `定位失敗：${error.message} (請檢查瀏覽器讀取權限)`
+                            error: error || '無法取得位置：定位請求逾時或功能受限'
                         });
-                    } finally {
-                        setIsGettingLocation(false);
                     }
+                } catch (error: any) {
+                    console.warn('無法取得位置：', error.message);
+                    setLocationInfo({
+                        distance: 0,
+                        withinRange: false,
+                        error: `定位失敗：${error.message}`
+                    });
+                } finally {
+                    setIsGettingLocation(false);
                 }
-            } else {
-                setLocationInfo({
-                    distance: 0,
-                    withinRange: false,
-                    error: '您的瀏覽器不支援定位功能'
-                });
             }
 
             // 3. Log Attendance

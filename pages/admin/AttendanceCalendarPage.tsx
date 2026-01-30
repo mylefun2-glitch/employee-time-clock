@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, parseISO, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, parseISO, addMonths, subMonths, startOfWeek } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X, CheckSquare, Square } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X, CheckSquare, Square, Info } from 'lucide-react';
 import { deleteAttendanceLog, deleteAttendanceLogs } from '../../services/admin';
 import { Employee, CheckType } from '../../types';
+import { isNationalHoliday } from '../../lib/holidays';
 
 interface AttendanceLog {
     id: string;
@@ -21,6 +22,7 @@ interface LeaveRequest {
     end_date: string;
     reason: string;
     status: string;
+    hours?: number; // 新增時數欄位
     leave_type?: {
         name: string;
         color: string;
@@ -32,6 +34,7 @@ const AttendanceCalendarPage: React.FC = () => {
     const navigate = useNavigate();
 
     const [employees, setEmployees] = useState<Employee[]>([]);
+    const [selectedDepartment, setSelectedDepartment] = useState<string>('ALL');
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(searchParams.get('employeeId') || '');
     const [currentDate, setCurrentDate] = useState<Date>(
         searchParams.get('year') && searchParams.get('month')
@@ -124,43 +127,118 @@ const AttendanceCalendarPage: React.FC = () => {
     }, [currentDate]);
 
     const monthData = useMemo(() => {
-        const data: { [key: string]: { logs: AttendanceLog[], leaves: LeaveRequest[], hours: number } } = {};
+        const data: { [key: string]: { logs: AttendanceLog[], leaves: LeaveRequest[], hours: number, holidayName?: string } } = {};
 
         days.forEach(day => {
             const dateKey = format(day, 'yyyy-MM-dd');
+            const holidayName = isNationalHoliday(day);
             const dayLogs = logs.filter(log => isSameDay(parseISO(log.timestamp), day))
                 .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
             const dayLeaves = leaves.filter(leave => {
                 const s = parseISO(leave.start_date);
                 const e = parseISO(leave.end_date);
-                return day >= s && day <= e;
+                const startOfDay = new Date(day);
+                startOfDay.setHours(0, 0, 0, 0);
+                const endOfDay = new Date(day);
+                endOfDay.setHours(23, 59, 59, 999);
+                return s <= endOfDay && e >= startOfDay;
             });
 
-            // Calculate simple work hours (IN to OUT)
+            // Calculate advanced work hours
             let hours = 0;
             if (dayLogs.length >= 2) {
-                const checkIn = dayLogs.find(l => l.check_type === CheckType.IN);
-                const checkOut = [...dayLogs].reverse().find(l => l.check_type === CheckType.OUT);
-                if (checkIn && checkOut) {
-                    const diff = new Date(checkOut.timestamp).getTime() - new Date(checkIn.timestamp).getTime();
-                    hours = Math.max(0, diff / (1000 * 60 * 60));
-                    // Subtract 1 hour for lunch break if worked more than 5 hours (simple heuristic)
-                    if (hours > 5) hours -= 1;
+                const checkInLog = dayLogs.find(l => l.check_type === CheckType.IN);
+                const checkOutLog = [...dayLogs].reverse().find(l => l.check_type === CheckType.OUT);
+
+                if (checkInLog && checkOutLog) {
+                    const employee = employees.find(e => e.id === selectedEmployeeId);
+
+                    // 1. Get schedule times (prioritize individual settings)
+                    const scheduleStart = employee?.work_start_time || '08:00';
+                    const scheduleEnd = employee?.work_end_time || '17:00';
+                    const breakStart = employee?.break_start_time || '12:00';
+                    const breakEnd = employee?.break_end_time || '13:00';
+
+                    const actualIn = new Date(checkInLog.timestamp);
+                    const actualOut = new Date(checkOutLog.timestamp);
+
+                    // Utility to create a Date object for a specific time on the day
+                    const getDayTime = (timeStr: string) => {
+                        const [hours, minutes] = timeStr.split(':').map(Number);
+                        const d = new Date(actualIn);
+                        d.setHours(hours, minutes, 0, 0);
+                        return d;
+                    };
+
+                    const scheduledInDate = getDayTime(scheduleStart);
+                    const scheduledOutDate = getDayTime(scheduleEnd);
+
+                    // 2. Apply 30-minute grace period logic
+                    let effectiveIn = actualIn;
+                    const thirtyMins = 30 * 60 * 1000;
+
+                    if (Math.abs(actualIn.getTime() - scheduledInDate.getTime()) <= thirtyMins) {
+                        effectiveIn = scheduledInDate;
+                    }
+
+                    let effectiveOut = actualOut;
+                    if (Math.abs(actualOut.getTime() - scheduledOutDate.getTime()) <= thirtyMins) {
+                        effectiveOut = scheduledOutDate;
+                    }
+
+                    // 3. Calculate gross duration
+                    let durationMs = effectiveOut.getTime() - effectiveIn.getTime();
+                    if (durationMs < 0) durationMs = 0;
+
+                    // 4. Precise break deduction (Support multiple breaks)
+                    const breaks = [
+                        { start: breakStart, end: breakEnd },
+                        { start: employee?.break2_start_time, end: employee?.break2_end_time },
+                        { start: employee?.break3_start_time, end: employee?.break3_end_time }
+                    ].filter(b => b.start && b.end);
+
+                    let totalBreakOverlapMs = 0;
+                    breaks.forEach(b => {
+                        const bStartDate = getDayTime(b.start!);
+                        const bEndDate = getDayTime(b.end!);
+                        const overlapStart = new Date(Math.max(effectiveIn.getTime(), bStartDate.getTime()));
+                        const overlapEnd = new Date(Math.min(effectiveOut.getTime(), bEndDate.getTime()));
+
+                        if (overlapStart < overlapEnd) {
+                            totalBreakOverlapMs += overlapEnd.getTime() - overlapStart.getTime();
+                        }
+                    });
+
+                    hours = (durationMs - totalBreakOverlapMs) / (1000 * 60 * 60);
                 }
-            } else if (dayLogs.length === 0 && dayLeaves.some(l => l.leave_type?.name === '出差' || l.leave_type?.name === '公假')) {
-                hours = 8; // Business trip / official leave count as 8 hours
             }
 
-            data[dateKey] = { logs: dayLogs, leaves: dayLeaves, hours: parseFloat(hours.toFixed(2)) };
+            data[dateKey] = { logs: dayLogs, leaves: dayLeaves, hours: parseFloat(hours.toFixed(2)), holidayName };
         });
 
         return data;
     }, [days, logs, leaves]);
 
+    const departments = useMemo(() => {
+        const deps = Array.from(new Set(employees.map(emp => emp.department))).sort();
+        return ['ALL', ...deps];
+    }, [employees]);
+
+    const filteredEmployees = useMemo(() => {
+        if (selectedDepartment === 'ALL') return employees;
+        return employees.filter(emp => emp.department === selectedDepartment);
+    }, [employees, selectedDepartment]);
+
+    useEffect(() => {
+        if (filteredEmployees.length > 0 && !filteredEmployees.find(e => e.id === selectedEmployeeId)) {
+            setSelectedEmployeeId(filteredEmployees[0].id);
+        }
+    }, [filteredEmployees]);
+
     const totalMonthlyHours = Object.values(monthData).reduce((acc, curr) => acc + curr.hours, 0);
 
-    const weekDays = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+    const weekDays = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
 
     const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
     const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
@@ -238,48 +316,54 @@ const AttendanceCalendarPage: React.FC = () => {
         <div className="space-y-6 print:space-y-4 print:p-0">
             {/* Header & Filters */}
             <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm print:shadow-none print:border-none print:p-0">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div className="flex flex-row items-center justify-between w-full gap-4">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center print:hidden">
-                            <CalendarIcon className="text-blue-600 h-6 w-6" />
+                        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center print:hidden">
+                            <CalendarIcon className="text-blue-600 h-5 w-5" />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-black text-slate-900 tracking-tight">出勤月曆檢視</h1>
-                            <p className="text-sm text-slate-500 font-medium print:hidden">查看員工每月詳細出勤、差勤與工時統計</p>
-                            <div className="hidden print:block text-sm font-bold text-slate-600 mt-1">
-                                年度：{rocYear} | 月份：{monthStr} | 姓名：{selectedEmployee?.name}
+                            <h1 className="text-xl font-black text-slate-900 tracking-tight">出勤月曆</h1>
+                            <div className="hidden print:block text-sm font-bold text-slate-600">
+                                {rocYear} 年 {monthStr} 月 | {selectedEmployee?.name}
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 print:hidden">
+                    <div className="flex items-center gap-2 print:hidden">
                         <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                            <button
-                                onClick={prevMonth}
-                                className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600"
-                            >
-                                <ChevronLeft className="h-5 w-5" />
+                            <button onClick={prevMonth} className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600">
+                                <ChevronLeft className="h-4 w-4" />
                             </button>
-                            <div className="px-4 py-1 text-sm font-black text-slate-700 font-mono">
-                                {rocYear} 年 {monthStr} 月
+                            <div className="px-2 py-1 text-xs font-black text-slate-700 font-mono whitespace-nowrap">
+                                {rocYear} / {monthStr}
                             </div>
-                            <button
-                                onClick={nextMonth}
-                                className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600"
-                            >
-                                <ChevronRight className="h-5 w-5" />
+                            <button onClick={nextMonth} className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600">
+                                <ChevronRight className="h-4 w-4" />
                             </button>
                         </div>
 
                         <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                            <User className="ml-2 text-slate-400 h-4 w-4" />
+                            <Info className="ml-1.5 text-slate-400 h-3.5 w-3.5" />
+                            <select
+                                value={selectedDepartment}
+                                onChange={(e) => setSelectedDepartment(e.target.value)}
+                                className="bg-transparent border-none text-xs font-black text-slate-700 focus:ring-0 py-1.5 pr-6 outline-none"
+                            >
+                                {departments.map(dep => (
+                                    <option key={dep} value={dep}>{dep === 'ALL' ? '所有單位' : dep}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                            <User className="ml-1.5 text-slate-400 h-3.5 w-3.5" />
                             <select
                                 value={selectedEmployeeId}
                                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                                className="bg-transparent border-none text-sm font-black text-slate-700 focus:ring-0 py-2 pr-8"
+                                className="bg-transparent border-none text-xs font-black text-slate-700 focus:ring-0 py-1.5 pr-6 outline-none"
                             >
-                                {employees.map(emp => (
-                                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.department})</option>
+                                {filteredEmployees.map(emp => (
+                                    <option key={emp.id} value={emp.id}>{emp.name}</option>
                                 ))}
                             </select>
                         </div>
@@ -290,54 +374,28 @@ const AttendanceCalendarPage: React.FC = () => {
                                     setDeletingLogId(null);
                                     setIsDeleteModalOpen(true);
                                 }}
-                                className="inline-flex items-center px-4 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-black hover:bg-rose-600 transition-all shadow-lg shadow-rose-100"
+                                className="px-3 py-2 bg-rose-500 text-white rounded-xl text-xs font-black hover:bg-rose-600 transition-all shadow-md shadow-rose-100"
                             >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                批量刪除 ({selectedLogIds.size})
+                                刪除 ({selectedLogIds.size})
                             </button>
                         )}
 
+                        <div className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl shadow-md shadow-blue-100 whitespace-nowrap">
+                            <FileText className="h-3.5 w-3.5" />
+                            <span className="text-xs font-black">工時: {totalMonthlyHours.toFixed(1)}</span>
+                        </div>
+
                         <button
                             onClick={handlePrint}
-                            className="inline-flex items-center px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+                            className="inline-flex items-center px-3 py-2 bg-slate-900 text-white rounded-xl text-xs font-black hover:bg-slate-800 transition-all shadow-md shadow-slate-200"
                         >
-                            <Download className="h-4 w-4 mr-2" />
-                            匯出 PDF
+                            <Download className="h-3.5 w-3.5 mr-1" />
+                            PDF
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Stats Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">目前員工</p>
-                        <p className="text-xl font-black text-slate-900 mt-1">{selectedEmployee?.name || '未選擇'}</p>
-                    </div>
-                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400">
-                        <User className="h-6 w-6" />
-                    </div>
-                </div>
-                <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">年度 / 月份</p>
-                        <p className="text-xl font-black text-slate-900 mt-1">{rocYear} / {monthStr}</p>
-                    </div>
-                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400">
-                        <CalendarIcon className="h-6 w-6" />
-                    </div>
-                </div>
-                <div className="bg-blue-600 p-5 rounded-3xl shadow-xl shadow-blue-100 flex items-center justify-between">
-                    <div>
-                        <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest">本月工時總計</p>
-                        <p className="text-3xl font-black text-white mt-1">{totalMonthlyHours.toFixed(1)} <span className="text-sm font-bold opacity-80">hrs</span></p>
-                    </div>
-                    <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white">
-                        <FileText className="h-6 w-6" />
-                    </div>
-                </div>
-            </div>
 
             {/* Calendar Grid */}
             <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-lg overflow-hidden">
@@ -349,8 +407,8 @@ const AttendanceCalendarPage: React.FC = () => {
                     ))}
                 </div>
                 <div className="grid grid-cols-7">
-                    {/* Calendar Padding for start of month */}
-                    {Array.from({ length: getDay(startOfMonth(currentDate)) }).map((_, i) => (
+                    {/* Calendar Padding for start of month (Adjusted for Monday start) */}
+                    {Array.from({ length: (getDay(startOfMonth(currentDate)) + 6) % 7 }).map((_, i) => (
                         <div key={`pad-${i}`} className="min-h-[140px] bg-slate-50/20 border-r border-b border-slate-100" />
                     ))}
 
@@ -358,25 +416,42 @@ const AttendanceCalendarPage: React.FC = () => {
                         const dateKey = format(day, 'yyyy-MM-dd');
                         const dayInfo = monthData[dateKey];
                         const isToday = isSameDay(day, new Date());
-                        const isWeekend = getDay(day) === 0 || getDay(day) === 6;
+                        const holidayName = dayInfo.holidayName;
+                        const isSaturday = getDay(day) === 6;
+                        const isSunday = getDay(day) === 0;
 
                         return (
                             <div
                                 key={dateKey}
-                                className={`min-h-[140px] p-3 border-r border-b border-slate-100 flex flex-col group hover:bg-slate-50/50 transition-colors ${isWeekend ? 'bg-slate-50/30' : ''}`}
+                                className={`min-h-[140px] p-3 border-r border-b border-slate-100 flex flex-col group hover:bg-slate-50/50 transition-colors 
+                                    ${holidayName ? 'bg-rose-50/30' : ''} 
+                                    ${isSaturday && !holidayName ? 'bg-amber-50/30' : ''} 
+                                    ${isSunday && !holidayName ? 'bg-slate-100/40' : ''} 
+                                    ${!holidayName && !isSaturday && !isSunday ? '' : ''}`}
                             >
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className={`w-7 h-7 flex items-center justify-center text-sm font-black rounded-lg ${isToday ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-400'
-                                        }`}>
-                                        {format(day, 'd')}
-                                    </span>
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className={`w-7 h-7 flex items-center justify-center text-sm font-black rounded-lg 
+                                            ${isToday ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' :
+                                                holidayName ? 'text-rose-600' :
+                                                    isSunday ? 'text-slate-400' :
+                                                        'text-slate-600'
+                                            }`}>
+                                            {format(day, 'd')}
+                                        </span>
+                                        {holidayName && (
+                                            <span className="text-[10px] font-bold text-rose-500 truncate max-w-[60px]" title={holidayName}>
+                                                {holidayName}
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="flex gap-2 items-center">
                                         {dayInfo.logs.length > 1 && (
                                             <button
                                                 onClick={(e) => selectAllLogsInDay(dayInfo.logs, e)}
                                                 className={`p-1 rounded-lg transition-all ${dayInfo.logs.every(l => selectedLogIds.has(l.id))
-                                                        ? 'bg-rose-50 text-rose-600 shadow-sm'
-                                                        : 'text-slate-400 hover:bg-slate-100'
+                                                    ? 'bg-rose-50 text-rose-600 shadow-sm'
+                                                    : 'text-slate-400 hover:bg-slate-100'
                                                     }`}
                                                 title={dayInfo.logs.every(l => selectedLogIds.has(l.id)) ? '取消全選' : '選取今日所有紀錄'}
                                             >
@@ -439,7 +514,7 @@ const AttendanceCalendarPage: React.FC = () => {
                                             style={{ backgroundColor: leave.leave_type?.color || '#3b82f6' }}
                                             title={leave.reason}
                                         >
-                                            {leave.leave_type?.name}
+                                            {leave.leave_type?.name} {leave.hours ? `${leave.hours}H` : ''}
                                         </div>
                                     ))}
                                 </div>
@@ -448,7 +523,7 @@ const AttendanceCalendarPage: React.FC = () => {
                     })}
 
                     {/* Fill the rest of the grid */}
-                    {Array.from({ length: (7 - (getDay(endOfMonth(currentDate)) + 1)) % 7 }).map((_, i) => (
+                    {Array.from({ length: (7 - ((getDay(endOfMonth(currentDate)) + 6) % 7 + 1)) % 7 }).map((_, i) => (
                         <div key={`pad-end-${i}`} className="min-h-[140px] bg-slate-50/20 border-b border-slate-100 last:border-r-0" />
                     ))}
                 </div>
