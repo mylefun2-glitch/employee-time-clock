@@ -109,7 +109,8 @@ const EmployeeDashboardPage: React.FC = () => {
         const badges = {
             PENDING: { text: '待審核', class: 'bg-amber-50 text-amber-700 border-amber-200' },
             APPROVED: { text: '已核准', class: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-            REJECTED: { text: '已拒絕', class: 'bg-rose-50 text-rose-700 border-rose-200' }
+            REJECTED: { text: '已拒絕', class: 'bg-rose-50 text-rose-700 border-rose-200' },
+            WITHDRAWN: { text: '已撤回', class: 'bg-slate-50 text-slate-600 border-slate-200' }
         };
         return badges[status as keyof typeof badges] || badges.PENDING;
     };
