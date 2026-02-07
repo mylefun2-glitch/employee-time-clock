@@ -180,44 +180,71 @@ const StatisticsPage: React.FC = () => {
             </div>
 
             {/* 篩選工具列 */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-4">
-                <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest px-1">
-                    <Filter className="h-4 w-4" />
-                    複合篩選
+            <div className="space-y-4">
+                {/* 部門篩選 */}
+                <div>
+                    <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
+                        <Filter className="h-4 w-4" />
+                        部門篩選
+                    </div>
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                        {departments.map((dept) => (
+                            <button
+                                key={dept}
+                                onClick={() => setFilters(prev => ({ ...prev, department: dept }))}
+                                className={`px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${filters.department === dept
+                                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
+                                    : 'bg-white text-slate-500 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
+                                    }`}
+                            >
+                                {dept === 'ALL' ? '全部部門' : dept}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <select
-                        value={filters.department}
-                        onChange={(e) => setFilters(prev => ({ ...prev, department: e.target.value }))}
-                        className="block w-full pl-3 pr-10 py-2.5 border-slate-200 bg-slate-50/50 rounded-xl text-sm font-bold text-slate-700 focus:ring-blue-500 focus:border-blue-500 border transition-all"
-                    >
-                        <option value="ALL">全部部門</option>
-                        {departments.filter(d => d !== 'ALL').map(dept => (
-                            <option key={dept} value={dept}>{dept}</option>
+                {/* 職務篩選 */}
+                <div>
+                    <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
+                        <Users className="h-4 w-4" />
+                        職務篩選
+                    </div>
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                        {positions.map((pos) => (
+                            <button
+                                key={pos}
+                                onClick={() => setFilters(prev => ({ ...prev, position: pos }))}
+                                className={`px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${filters.position === pos
+                                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
+                                    : 'bg-white text-slate-500 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
+                                    }`}
+                            >
+                                {pos === 'ALL' ? '全部職務' : pos}
+                            </button>
                         ))}
-                    </select>
+                    </div>
+                </div>
 
-                    <select
-                        value={filters.position}
-                        onChange={(e) => setFilters(prev => ({ ...prev, position: e.target.value }))}
-                        className="block w-full pl-3 pr-10 py-2.5 border-slate-200 bg-slate-50/50 rounded-xl text-sm font-bold text-slate-700 focus:ring-blue-500 focus:border-blue-500 border transition-all"
-                    >
-                        <option value="ALL">全部職務</option>
-                        {positions.filter(p => p !== 'ALL').map(pos => (
-                            <option key={pos} value={pos}>{pos}</option>
+                {/* 性別篩選 */}
+                <div>
+                    <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
+                        <UserCheck className="h-4 w-4" />
+                        性別篩選
+                    </div>
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                        {genders.map((g) => (
+                            <button
+                                key={g.value}
+                                onClick={() => setFilters(prev => ({ ...prev, gender: g.value }))}
+                                className={`px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${filters.gender === g.value
+                                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
+                                    : 'bg-white text-slate-500 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
+                                    }`}
+                            >
+                                {g.label}
+                            </button>
                         ))}
-                    </select>
-
-                    <select
-                        value={filters.gender}
-                        onChange={(e) => setFilters(prev => ({ ...prev, gender: e.target.value }))}
-                        className="block w-full pl-3 pr-10 py-2.5 border-slate-200 bg-slate-50/50 rounded-xl text-sm font-bold text-slate-700 focus:ring-blue-500 focus:border-blue-500 border transition-all"
-                    >
-                        {genders.map(g => (
-                            <option key={g.value} value={g.value}>{g.label}</option>
-                        ))}
-                    </select>
+                    </div>
                 </div>
             </div>
 

@@ -1,15 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { getMakeupRequests, approveMakeupRequest, rejectMakeupRequest } from '../../services/admin';
+import { getMakeupRequests, batchApproveMakeupRequests, batchRejectMakeupRequests, approveMakeupRequest, rejectMakeupRequest } from '../../services/admin';
 import { useEmployee } from '../../contexts/EmployeeContext';
 import { useAuth } from '../../contexts/AuthContext';
 
 const MakeupRequestsPage: React.FC = () => {
     const { employee } = useEmployee();
-    const { user } = useAuth(); // 新增：用於管理端管理員身分
+    const { user } = useAuth();
     const [requests, setRequests] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
     const [processingId, setProcessingId] = useState<string | null>(null);
+
+    // 批量審核相關狀態
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isBatchProcessing, setIsBatchProcessing] = useState(false);
 
     // 對話框狀態
     const [reviewDialog, setReviewDialog] = useState<{
@@ -25,7 +29,22 @@ const MakeupRequestsPage: React.FC = () => {
         message: string;
     }>({ show: false, success: false, message: '' });
 
-    // 判斷當前是管理員模式還是主管模式
+    // 批量操作對話框
+    const [batchDialog, setBatchDialog] = useState<{
+        show: boolean;
+        type: 'approve' | 'reject' | null;
+        comment: string;
+    }>({ show: false, type: null, comment: '' });
+
+    // 批量操作結果對話框
+    const [batchResultDialog, setBatchResultDialog] = useState<{
+        show: boolean;
+        total: number;
+        succeeded: number;
+        failed: number;
+        errors: string[];
+    }>({ show: false, total: 0, succeeded: 0, failed: 0, errors: [] });
+
     const isAdminMode = !employee && !!user;
 
     useEffect(() => {
@@ -33,27 +52,17 @@ const MakeupRequestsPage: React.FC = () => {
     }, [filter, employee, user]);
 
     const fetchRequests = async () => {
-        // 如果兩者都沒有登入，則無法讀取
         if (!employee && !user) {
-            console.log('[MakeupRequestsPage] No active session (Admin or Employee)');
             setLoading(false);
             return;
         }
 
         setLoading(true);
         try {
-            // 如果是主管模式，傳入 employee.id 作為 managerId
-            // 如果是管理員模式，不傳入 managerId，讀取全公司資料
             const managerId = isAdminMode ? undefined : employee?.id;
-
-            console.log('[MakeupRequestsPage] Fetching requests:', {
-                mode: isAdminMode ? 'ADMIN' : 'MANAGER',
-                managerId: managerId,
-                filter: filter
-            });
-
             const data = await getMakeupRequests(filter, managerId);
             setRequests(data || []);
+            setSelectedIds(new Set());
         } catch (error) {
             console.error('[MakeupRequestsPage] Error fetching requests:', error);
             setRequests([]);
@@ -110,6 +119,83 @@ const MakeupRequestsPage: React.FC = () => {
         }
     };
 
+    // 批量審核相關函數
+    const toggleSelectAll = () => {
+        const pendingRequests = requests.filter(r => r.status === 'PENDING');
+        if (selectedIds.size === pendingRequests.length && pendingRequests.length > 0) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(pendingRequests.map(r => r.id)));
+        }
+    };
+
+    const toggleSelectItem = (id: string) => {
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedIds(newSelected);
+    };
+
+    const handleBatchAction = (type: 'approve' | 'reject') => {
+        if (selectedIds.size === 0) return;
+        setBatchDialog({ show: true, type, comment: '' });
+    };
+
+    const handleBatchConfirm = async () => {
+        const activeReviewerId = employee?.id || user?.id;
+        if (!activeReviewerId || !batchDialog.type || selectedIds.size === 0) return;
+
+        if (batchDialog.type === 'reject' && !batchDialog.comment.trim()) {
+            setResultDialog({
+                show: true,
+                success: false,
+                message: '批量拒絕必須提供拒絕原因'
+            });
+            return;
+        }
+
+        setBatchDialog({ show: false, type: null, comment: '' });
+        setIsBatchProcessing(true);
+
+        try {
+            const result = batchDialog.type === 'approve'
+                ? await batchApproveMakeupRequests(
+                    Array.from(selectedIds),
+                    activeReviewerId,
+                    batchDialog.comment || undefined
+                )
+                : await batchRejectMakeupRequests(
+                    Array.from(selectedIds),
+                    activeReviewerId,
+                    batchDialog.comment
+                );
+
+            setBatchResultDialog({
+                show: true,
+                total: result.total,
+                succeeded: result.succeeded,
+                failed: result.failed,
+                errors: result.errors
+            });
+
+            await fetchRequests();
+        } catch (error: any) {
+            console.error('Error in batch operation:', error);
+            setBatchResultDialog({
+                show: true,
+                total: selectedIds.size,
+                succeeded: 0,
+                failed: selectedIds.size,
+                errors: ['批量操作失敗: ' + (error.message || '未知錯誤')]
+            });
+        } finally {
+            setIsBatchProcessing(false);
+        }
+    };
+
     const getStatusInfo = (status: string) => {
         const statuses = {
             PENDING: { text: '待審核', class: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -121,8 +207,8 @@ const MakeupRequestsPage: React.FC = () => {
 
     const getTypeIcon = (type: string) => {
         return type === 'IN'
-            ? { icon: 'login', color: 'text-emerald-600', bg: 'bg-emerald-50', label: '上班補登' }
-            : { icon: 'logout', color: 'text-orange-600', bg: 'bg-orange-50', label: '下班補登' };
+            ? { icon: 'login', color: 'text-emerald-600', bg: 'bg-emerald-50', label: '上班' }
+            : { icon: 'logout', color: 'text-orange-600', bg: 'bg-orange-50', label: '下班' };
     };
 
     const stats = [
@@ -131,12 +217,14 @@ const MakeupRequestsPage: React.FC = () => {
         { label: '已拒絕', value: requests.filter(r => r.status === 'REJECTED').length, color: 'bg-rose-500', icon: 'cancel' }
     ];
 
+    const pendingRequests = requests.filter(r => r.status === 'PENDING');
+
     if (loading) {
         return <div className="p-4 text-center font-bold text-slate-400 py-20">載入中...</div>;
     }
 
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">
@@ -147,26 +235,9 @@ const MakeupRequestsPage: React.FC = () => {
                 </p>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-3 gap-4">
-                {stats.map((stat) => (
-                    <div key={stat.label} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
-                        <div className="flex flex-col items-center text-center gap-2">
-                            <div className={`${stat.color} w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-slate-100`}>
-                                <span className="material-symbols-outlined text-white text-xl">{stat.icon}</span>
-                            </div>
-                            <div>
-                                <p className="text-2xl font-black text-slate-900 leading-none">{stat.value}</p>
-                                <p className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-widest">{stat.label}</p>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
             {/* Filter Tabs */}
             <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {(['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const).map((status) => (
+                {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
                     <button
                         key={status}
                         onClick={() => setFilter(status)}
@@ -175,124 +246,173 @@ const MakeupRequestsPage: React.FC = () => {
                             : 'bg-white text-slate-500 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
                             }`}
                     >
-                        {status === 'ALL' ? '全部處理' : getStatusInfo(status).text}
+                        {status === 'ALL' ? '全部' : getStatusInfo(status).text}
+                        <span className={`ml-2 px-2 py-0.5 rounded-lg text-[10px] transition-colors ${filter === status
+                            ? 'bg-slate-700 text-slate-200'
+                            : 'bg-slate-100 text-slate-500'
+                            }`}>
+                            {status === 'ALL' ? requests.length : requests.filter(r => r.status === status).length}
+                        </span>
                     </button>
                 ))}
             </div>
 
-            {/* Requests List */}
-            <div className="space-y-4">
+            {/* 批量操作工具列 */}
+            {pendingRequests.length > 0 && filter === 'PENDING' && (
+                <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                    {/* 全選 Checkbox */}
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                        <input
+                            type="checkbox"
+                            checked={selectedIds.size === pendingRequests.length && pendingRequests.length > 0}
+                            onChange={toggleSelectAll}
+                            className="w-5 h-5 rounded border-2 border-slate-300 checked:bg-blue-600 checked:border-blue-600 cursor-pointer transition-all"
+                        />
+                        <span className="text-sm font-black text-slate-700 group-hover:text-blue-600 transition-colors">
+                            {selectedIds.size === pendingRequests.length && pendingRequests.length > 0 ? '取消全選' : '全選'}
+                        </span>
+                    </label>
+
+                    {/* 已選擇數量 */}
+                    {selectedIds.size > 0 && (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-xl border border-blue-100">
+                            <span className="material-symbols-outlined text-blue-600 text-lg">check_circle</span>
+                            <span className="text-sm font-black text-blue-700">已選擇 {selectedIds.size} 筆</span>
+                        </div>
+                    )}
+
+                    <div className="flex-1"></div>
+
+                    {/* 批量操作按鈕 */}
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => handleBatchAction('approve')}
+                            disabled={selectedIds.size === 0 || isBatchProcessing}
+                            className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl text-sm font-black hover:bg-emerald-700 shadow-lg shadow-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                        >
+                            <span className="material-symbols-outlined text-lg">verified</span>
+                            批量核准
+                        </button>
+                        <button
+                            onClick={() => handleBatchAction('reject')}
+                            disabled={selectedIds.size === 0 || isBatchProcessing}
+                            className="flex items-center gap-2 px-6 py-3 bg-white text-rose-600 border-2 border-rose-200 rounded-xl text-sm font-black hover:bg-rose-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                        >
+                            <span className="material-symbols-outlined text-lg">cancel</span>
+                            批量拒絕
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Requests Table */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                 {requests.length === 0 ? (
-                    <div className="bg-white rounded-3xl border border-slate-100 py-20 text-center shadow-sm">
+                    <div className="py-20 text-center">
                         <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
                             <span className="material-symbols-outlined text-slate-200 text-5xl font-light">folder_off</span>
                         </div>
                         <p className="text-slate-400 font-black tracking-wider">尚無相關申請記錄</p>
                     </div>
                 ) : (
-                    requests.map((request) => {
-                        const statusInfo = getStatusInfo(request.status);
-                        const typeInfo = getTypeIcon(request.check_type);
-                        const isPending = request.status === 'PENDING';
-                        const isProcessing = processingId === request.id;
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-slate-50 border-b border-slate-100">
+                                <tr>
+                                    {filter === 'PENDING' && (
+                                        <th className="px-4 py-3 text-left w-12"></th>
+                                    )}
+                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">員工</th>
+                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">部門</th>
+                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">補登日期</th>
+                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">時間</th>
+                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">類型</th>
+                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">原因</th>
+                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">狀態</th>
+                                    {filter === 'PENDING' && (
+                                        <th className="px-4 py-3 text-right text-xs font-black text-slate-500 uppercase tracking-wider">操作</th>
+                                    )}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {requests.map((request) => {
+                                    const statusInfo = getStatusInfo(request.status);
+                                    const typeInfo = getTypeIcon(request.check_type);
+                                    const isPending = request.status === 'PENDING';
+                                    const isProcessing = processingId === request.id;
+                                    const isSelected = selectedIds.has(request.id);
 
-                        return (
-                            <div key={request.id} className="group bg-white rounded-3xl border border-slate-100 p-6 hover:shadow-xl hover:border-blue-100 transition-all duration-300">
-                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                                    {/* Left: Info */}
-                                    <div className="flex items-center gap-5 flex-1">
-                                        <div className={`w-16 h-16 ${typeInfo.bg} rounded-2xl flex items-center justify-center shrink-0 border border-slate-50`}>
-                                            <span className={`material-symbols-outlined ${typeInfo.color} text-3xl`}>
-                                                {typeInfo.icon}
-                                            </span>
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-3 mb-1.5">
-                                                <h3 className="text-xl font-black text-slate-900 truncate">
-                                                    {request.employee?.name || '未知員工'}
-                                                </h3>
-                                                <span className={`px-3 py-1 text-[10px] font-black rounded-lg border uppercase tracking-widest ${statusInfo.class}`}>
+                                    return (
+                                        <tr
+                                            key={request.id}
+                                            className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}
+                                        >
+                                            {filter === 'PENDING' && (
+                                                <td className="px-4 py-4">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => toggleSelectItem(request.id)}
+                                                        className="w-5 h-5 rounded border-2 border-slate-300 checked:bg-blue-600 checked:border-blue-600 cursor-pointer transition-all"
+                                                    />
+                                                </td>
+                                            )}
+                                            <td className="px-4 py-4">
+                                                <div className="font-bold text-slate-900">{request.employee?.name || '未知'}</div>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <div className="text-sm text-slate-600 font-medium">{request.employee?.department || '未分配'}</div>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <div className="text-sm font-mono text-slate-700">{new Date(request.request_date).toLocaleDateString('zh-TW')}</div>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <div className="text-sm font-mono font-bold text-slate-900">{request.request_time}</div>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg ${typeInfo.bg}`}>
+                                                    <span className={`material-symbols-outlined text-sm ${typeInfo.color}`}>{typeInfo.icon}</span>
+                                                    <span className={`text-xs font-black ${typeInfo.color}`}>{typeInfo.label}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-4 max-w-xs">
+                                                <div className="text-sm text-slate-600 truncate" title={request.reason}>{request.reason}</div>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <span className={`inline-block px-3 py-1 text-xs font-black rounded-lg border ${statusInfo.class}`}>
                                                     {statusInfo.text}
                                                 </span>
-                                            </div>
-                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-bold text-slate-400">
-                                                <span className="flex items-center gap-1.5">
-                                                    <span className="material-symbols-outlined text-base">business</span>
-                                                    {request.employee?.department || '未分配'}
-                                                </span>
-                                                <span className="text-slate-200 hidden sm:inline">|</span>
-                                                <span className="flex items-center gap-1.5 text-slate-700">
-                                                    <span className="material-symbols-outlined text-base text-slate-400">calendar_today</span>
-                                                    <span className="font-mono">{new Date(request.request_date).toLocaleDateString('zh-TW')}</span>
-                                                    <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-black">{request.request_time}</span>
-                                                </span>
-                                                <span className="text-slate-200 hidden sm:inline">|</span>
-                                                <span className={`flex items-center gap-1.5 font-black ${typeInfo.color} text-xs`}>
-                                                    {typeInfo.label}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Right: Actions or Meta */}
-                                    <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between lg:justify-center gap-4 pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-50">
-                                        <div className="flex flex-col lg:items-end">
-                                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">ID: {request.id.slice(0, 8)}</span>
-                                            <span className="text-[10px] text-slate-400 font-bold mt-0.5">申請於 {new Date(request.created_at).toLocaleDateString('zh-TW')}</span>
-                                        </div>
-
-                                        {isPending && (
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => handleReject(request.id)}
-                                                    disabled={isProcessing}
-                                                    className="px-6 py-2.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-black hover:bg-rose-100 transition-all disabled:opacity-50 active:scale-95"
-                                                >
-                                                    拒絕
-                                                </button>
-                                                <button
-                                                    onClick={() => handleApprove(request.id)}
-                                                    disabled={isProcessing}
-                                                    className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all disabled:opacity-50 active:scale-95"
-                                                >
-                                                    {isProcessing ? '...' : '核准'}
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Reason & Comment Section */}
-                                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className="material-symbols-outlined text-slate-400 text-sm">notes</span>
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">補登原因</span>
-                                        </div>
-                                        <p className="text-sm font-bold text-slate-700 leading-relaxed">
-                                            {request.reason}
-                                        </p>
-                                    </div>
-
-                                    {request.review_comment && (
-                                        <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-100">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <span className="material-symbols-outlined text-amber-500 text-sm">rate_review</span>
-                                                <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">審核備註</span>
-                                            </div>
-                                            <p className="text-sm font-bold text-amber-700 leading-relaxed">
-                                                {request.review_comment}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })
+                                            </td>
+                                            {filter === 'PENDING' && (
+                                                <td className="px-4 py-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={() => handleReject(request.id)}
+                                                            disabled={isProcessing}
+                                                            className="px-4 py-2 bg-rose-50 text-rose-600 rounded-lg text-xs font-black hover:bg-rose-100 transition-all disabled:opacity-50"
+                                                        >
+                                                            拒絕
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleApprove(request.id)}
+                                                            disabled={isProcessing}
+                                                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-black hover:bg-emerald-700 transition-all disabled:opacity-50"
+                                                        >
+                                                            {isProcessing ? '...' : '核准'}
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
 
-            {/* 審核對話框 */}
+            {/* 單筆審核對話框 */}
             {reviewDialog.show && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
                     <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-300">
@@ -328,7 +448,7 @@ const MakeupRequestsPage: React.FC = () => {
                                     onClick={() => setReviewDialog({ show: false, type: null, requestId: null, comment: '' })}
                                     className="flex-1 px-6 py-4 bg-white text-slate-500 border border-slate-100 rounded-2xl font-black hover:bg-slate-50 transition-all"
                                 >
-                                    取消退出
+                                    取消
                                 </button>
                                 <button
                                     onClick={handleReviewConfirm}
@@ -341,6 +461,117 @@ const MakeupRequestsPage: React.FC = () => {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 批量操作確認對話框 */}
+            {batchDialog.show && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-300">
+                        <div className={`w-20 h-20 ${batchDialog.type === 'approve' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} rounded-3xl flex items-center justify-center mx-auto mb-6`}>
+                            <span className="material-symbols-outlined text-4xl">
+                                {batchDialog.type === 'approve' ? 'verified' : 'help'}
+                            </span>
+                        </div>
+                        <h2 className="text-2xl font-black text-slate-900 mb-2 text-center">
+                            {batchDialog.type === 'approve' ? '批量核准確認' : '批量拒絕確認'}
+                        </h2>
+                        <p className="text-slate-500 font-bold mb-6 text-center px-4">
+                            您即將 {batchDialog.type === 'approve' ? '核准' : '拒絕'} <span className="text-blue-600 font-black">{selectedIds.size}</span> 筆補登申請
+                        </p>
+
+                        <div className="space-y-6">
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">
+                                    {batchDialog.type === 'approve' ? '批量備註（選填）' : '批量拒絕原因（必填）'}
+                                </label>
+                                <textarea
+                                    autoFocus
+                                    value={batchDialog.comment}
+                                    onChange={(e) => setBatchDialog({ ...batchDialog, comment: e.target.value })}
+                                    placeholder={batchDialog.type === 'approve' ? '輸入批量備註...' : '請輸入批量拒絕原因...'}
+                                    rows={4}
+                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all resize-none font-bold text-slate-700 placeholder:text-slate-300"
+                                />
+                            </div>
+
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setBatchDialog({ show: false, type: null, comment: '' })}
+                                    className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black transition-all hover:bg-slate-100"
+                                >
+                                    我再想想
+                                </button>
+                                <button
+                                    onClick={handleBatchConfirm}
+                                    className={`flex-1 py-4 rounded-2xl font-black text-white shadow-xl transition-all active:scale-95 ${batchDialog.type === 'approve'
+                                        ? 'bg-emerald-600 shadow-emerald-100'
+                                        : 'bg-rose-600 shadow-rose-100'
+                                        }`}
+                                >
+                                    確定執行
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 批量操作結果對話框 */}
+            {batchResultDialog.show && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-300">
+                        <div className={`w-20 h-20 ${batchResultDialog.failed === 0
+                            ? 'bg-emerald-100 text-emerald-600'
+                            : batchResultDialog.succeeded === 0
+                                ? 'bg-rose-100 text-rose-600'
+                                : 'bg-amber-100 text-amber-600'
+                            } rounded-3xl flex items-center justify-center mx-auto mb-6`}>
+                            <span className="material-symbols-outlined text-4xl">
+                                {batchResultDialog.failed === 0 ? 'check_circle' : batchResultDialog.succeeded === 0 ? 'error' : 'warning'}
+                            </span>
+                        </div>
+                        <h2 className="text-2xl font-black text-slate-900 mb-2 text-center">
+                            批量操作完成
+                        </h2>
+
+                        {/* 統計資訊 */}
+                        <div className="bg-slate-50 rounded-2xl p-6 mb-6">
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div>
+                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">總數</p>
+                                    <p className="text-2xl font-black text-slate-900">{batchResultDialog.total}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-1">成功</p>
+                                    <p className="text-2xl font-black text-emerald-600">{batchResultDialog.succeeded}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-black text-rose-400 uppercase tracking-widest mb-1">失敗</p>
+                                    <p className="text-2xl font-black text-rose-600">{batchResultDialog.failed}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 錯誤訊息 */}
+                        {batchResultDialog.errors.length > 0 && (
+                            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-6 max-h-48 overflow-y-auto">
+                                <p className="text-xs font-black text-rose-600 uppercase tracking-widest mb-2">錯誤詳情</p>
+                                <div className="space-y-1">
+                                    {batchResultDialog.errors.map((err, idx) => (
+                                        <p key={idx} className="text-xs text-rose-700 font-medium">{err}</p>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <button
+                            onClick={() => setBatchResultDialog({ show: false, total: 0, succeeded: 0, failed: 0, errors: [] })}
+                            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black shadow-xl shadow-slate-200 transition-all active:scale-95"
+                        >
+                            我了解了
+                        </button>
                     </div>
                 </div>
             )}

@@ -14,7 +14,8 @@ export type KeypadValue = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | 
 export enum RequestStatus {
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
-  REJECTED = 'REJECTED'
+  REJECTED = 'REJECTED',
+  WITHDRAWN = 'WITHDRAWN'  // 已撤回
 }
 
 export enum RequestType {
@@ -48,6 +49,14 @@ export interface LeaveRequest {
   approved_at?: string;
   employee_name?: string;
   hours?: number; // 新增：申請總時數
+
+  // 變更相關欄位
+  original_request_id?: string;      // 如果這是變更申請,指向原始申請的 ID
+  is_modified?: boolean;             // 標記此申請是否已被變更
+  modified_by_request_id?: string;   // 如果此申請已被變更,指向新申請的 ID
+  modification_reason?: string;      // 變更原因
+  original_request?: LeaveRequest;   // 包含原始申請資訊
+  modified_request?: LeaveRequest;   // 包含變更後的申請資訊
 }
 
 export interface Employee {

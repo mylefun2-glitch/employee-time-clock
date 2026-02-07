@@ -297,3 +297,138 @@ export const rejectMakeupRequest = async (id: string, reviewerId: string, commen
         return { success: false, error: error.message };
     }
 };
+
+/**
+ * 批量核准補登申請
+ */
+export const batchApproveMakeupRequests = async (
+    requestIds: string[],
+    reviewerId: string,
+    comment?: string
+): Promise<{
+    success: boolean;
+    total: number;
+    succeeded: number;
+    failed: number;
+    errors: string[];
+}> => {
+    try {
+        if (!requestIds || requestIds.length === 0) {
+            return {
+                success: false,
+                total: 0,
+                succeeded: 0,
+                failed: 0,
+                errors: ['沒有提供任何補登申請 ID']
+            };
+        }
+
+        // 使用 Promise.allSettled 並行處理所有請求
+        const results = await Promise.allSettled(
+            requestIds.map(id => approveMakeupRequest(id, reviewerId, comment))
+        );
+
+        // 統計結果
+        const succeeded = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+        const failed = results.length - succeeded;
+        const errors: string[] = [];
+
+        results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+                errors.push(`申請 ${requestIds[index].slice(0, 8)}: ${result.reason}`);
+            } else if (!result.value.success) {
+                errors.push(`申請 ${requestIds[index].slice(0, 8)}: ${result.value.error || '未知錯誤'}`);
+            }
+        });
+
+        return {
+            success: failed === 0,
+            total: requestIds.length,
+            succeeded,
+            failed,
+            errors
+        };
+    } catch (err: any) {
+        console.error('Unexpected error in batch approve:', err);
+        return {
+            success: false,
+            total: requestIds.length,
+            succeeded: 0,
+            failed: requestIds.length,
+            errors: ['批量操作發生系統錯誤']
+        };
+    }
+};
+
+/**
+ * 批量拒絕補登申請
+ */
+export const batchRejectMakeupRequests = async (
+    requestIds: string[],
+    reviewerId: string,
+    comment: string
+): Promise<{
+    success: boolean;
+    total: number;
+    succeeded: number;
+    failed: number;
+    errors: string[];
+}> => {
+    try {
+        if (!requestIds || requestIds.length === 0) {
+            return {
+                success: false,
+                total: 0,
+                succeeded: 0,
+                failed: 0,
+                errors: ['沒有提供任何補登申請 ID']
+            };
+        }
+
+        if (!comment || !comment.trim()) {
+            return {
+                success: false,
+                total: requestIds.length,
+                succeeded: 0,
+                failed: requestIds.length,
+                errors: ['批量拒絕必須提供拒絕原因']
+            };
+        }
+
+        // 使用 Promise.allSettled 並行處理所有請求
+        const results = await Promise.allSettled(
+            requestIds.map(id => rejectMakeupRequest(id, reviewerId, comment))
+        );
+
+        // 統計結果
+        const succeeded = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+        const failed = results.length - succeeded;
+        const errors: string[] = [];
+
+        results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+                errors.push(`申請 ${requestIds[index].slice(0, 8)}: ${result.reason}`);
+            } else if (!result.value.success) {
+                errors.push(`申請 ${requestIds[index].slice(0, 8)}: ${result.value.error || '未知錯誤'}`);
+            }
+        });
+
+        return {
+            success: failed === 0,
+            total: requestIds.length,
+            succeeded,
+            failed,
+            errors
+        };
+    } catch (err: any) {
+        console.error('Unexpected error in batch reject:', err);
+        return {
+            success: false,
+            total: requestIds.length,
+            succeeded: 0,
+            failed: requestIds.length,
+            errors: ['批量操作發生系統錯誤']
+        };
+    }
+};
+

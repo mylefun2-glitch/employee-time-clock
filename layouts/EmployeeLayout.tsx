@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useEmployee } from '../contexts/EmployeeContext';
 
@@ -6,6 +6,7 @@ const EmployeeLayout: React.FC = () => {
     const { employee, loading, logout } = useEmployee();
     const navigate = useNavigate();
     const location = useLocation();
+    const [isCollapsed, setIsCollapsed] = useState(false);
 
     if (loading) {
         return (
@@ -45,23 +46,36 @@ const EmployeeLayout: React.FC = () => {
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col sm:flex-row">
             {/* Sidebar (桌面版) */}
-            <aside className="hidden sm:flex w-56 bg-white border-r border-slate-200 flex-col fixed inset-y-0 shadow-sm">
-                <div className="p-4 border-b border-slate-100 flex flex-col items-center gap-2">
-                    <img src="/logo.jpg" alt="Logo" className="h-14 w-auto object-contain" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">員工服務平台</span>
+            <aside className={`hidden sm:flex bg-white border-r border-slate-200 flex-col fixed inset-y-0 shadow-sm transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-56'}`}>
+                {/* Toggle Button */}
+                <button
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                    className="absolute -right-3 top-6 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm z-10"
+                    title={isCollapsed ? '展開側邊欄' : '收合側邊欄'}
+                >
+                    <span className="material-symbols-outlined text-sm">
+                        {isCollapsed ? 'chevron_right' : 'chevron_left'}
+                    </span>
+                </button>
+
+                <div className={`p-4 border-b border-slate-100 flex flex-col items-center gap-2 ${isCollapsed ? 'px-2' : ''}`}>
+                    <img src="/logo.jpg" alt="Logo" className={`object-contain transition-all ${isCollapsed ? 'h-10 w-10' : 'h-14 w-auto'}`} />
+                    {!isCollapsed && <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">員工服務平台</span>}
                 </div>
 
-                <div className="p-6 border-b border-slate-100">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-100">
+                <div className={`border-b border-slate-100 transition-all ${isCollapsed ? 'p-3' : 'p-6'}`}>
+                    <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
+                        <div className={`bg-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-100 transition-all ${isCollapsed ? 'w-10 h-10' : 'w-10 h-10'}`}>
                             <span className="text-white font-bold text-lg">
                                 {employee.name.charAt(0)}
                             </span>
                         </div>
-                        <div className="overflow-hidden">
-                            <h1 className="text-sm font-bold text-slate-900 truncate">{employee.name}</h1>
-                            <p className="text-xs text-slate-500 truncate">{employee.department}</p>
-                        </div>
+                        {!isCollapsed && (
+                            <div className="overflow-hidden">
+                                <h1 className="text-sm font-bold text-slate-900 truncate">{employee.name}</h1>
+                                <p className="text-xs text-slate-500 truncate">{employee.department}</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -70,31 +84,37 @@ const EmployeeLayout: React.FC = () => {
                         <Link
                             key={item.path}
                             to={item.path}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${location.pathname.startsWith(item.path)
-                                ? 'bg-blue-50 text-blue-600'
-                                : 'text-slate-500 hover:bg-slate-50'
+                            className={`flex items-center rounded-xl font-medium transition-all ${isCollapsed ? 'justify-center px-3 py-3' : 'gap-3 px-4 py-3'
+                                } ${location.pathname.startsWith(item.path)
+                                    ? 'bg-blue-50 text-blue-600'
+                                    : 'text-slate-500 hover:bg-slate-50'
                                 }`}
+                            title={isCollapsed ? item.label : ''}
                         >
                             <span className="material-symbols-outlined">{item.icon}</span>
-                            {item.label}
+                            {!isCollapsed && item.label}
                         </Link>
                     ))}
                 </nav>
 
-                <div className="p-4 border-t border-slate-100 flex flex-col gap-2">
+                <div className={`p-4 border-t border-slate-100 flex flex-col gap-2 ${isCollapsed ? 'px-2' : ''}`}>
                     <button
                         onClick={() => navigate('/')}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-blue-600 hover:bg-blue-50 rounded-xl font-bold transition-all"
+                        className={`flex items-center text-blue-600 hover:bg-blue-50 rounded-xl font-bold transition-all ${isCollapsed ? 'justify-center px-3 py-3' : 'gap-3 px-4 py-3 w-full'
+                            }`}
+                        title={isCollapsed ? '返回打卡系統' : ''}
                     >
                         <span className="material-symbols-outlined">grid_view</span>
-                        返回打卡系統
+                        {!isCollapsed && '返回打卡系統'}
                     </button>
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-rose-500 hover:bg-rose-50 rounded-xl font-medium transition-all"
+                        className={`flex items-center text-rose-500 hover:bg-rose-50 rounded-xl font-medium transition-all ${isCollapsed ? 'justify-center px-3 py-3' : 'gap-3 px-4 py-3 w-full'
+                            }`}
+                        title={isCollapsed ? '登出系統' : ''}
                     >
                         <span className="material-symbols-outlined">logout</span>
-                        登出系統
+                        {!isCollapsed && '登出系統'}
                     </button>
                 </div>
             </aside>
@@ -118,7 +138,7 @@ const EmployeeLayout: React.FC = () => {
             </header>
 
             {/* 主要內容 */}
-            <main className="flex-1 sm:ml-56 pb-20 sm:pb-0 min-h-screen">
+            <main className={`flex-1 pb-20 sm:pb-0 min-h-screen transition-all duration-300 ${isCollapsed ? 'sm:ml-20' : 'sm:ml-56'}`}>
                 <div className="p-6 lg:p-8 max-w-7xl mx-auto">
                     <Outlet />
                 </div>
@@ -145,4 +165,3 @@ const EmployeeLayout: React.FC = () => {
 };
 
 export default EmployeeLayout;
-
