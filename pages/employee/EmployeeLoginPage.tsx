@@ -70,7 +70,7 @@ const EmployeeLoginPage: React.FC = () => {
                         {/* 帳號輸入 */}
                         <div>
                             <label htmlFor="username" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
-                                員工帳號 (預設為姓名)
+                                員工帳號
                             </label>
                             <input
                                 type="text"
@@ -86,7 +86,7 @@ const EmployeeLoginPage: React.FC = () => {
                         {/* PIN 碼輸入 */}
                         <div>
                             <label htmlFor="pin" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
-                                PIN 碼 (6位身分證後六碼)
+                                PIN 碼
                             </label>
                             <input
                                 type="password"

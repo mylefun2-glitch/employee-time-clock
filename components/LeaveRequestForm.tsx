@@ -22,10 +22,13 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
     const [needCar, setNeedCar] = useState(false);
     const [availableCars, setAvailableCars] = useState<any[]>([]);
     const [selectedCarId, setSelectedCarId] = useState<string>('');
+    const [employees, setEmployees] = useState<any[]>([]);
+    const [selectedDeputyId, setSelectedDeputyId] = useState<string>('');
 
     useEffect(() => {
         loadLeaveTypes();
         loadCars();
+        loadEmployees();
     }, []);
 
     const loadCars = async () => {
@@ -40,6 +43,36 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
         }
     };
 
+    const loadEmployees = async () => {
+        try {
+            const { supabase } = await import('../lib/supabase');
+
+            // 先取得當前員工的部門
+            const { data: currentEmployee } = await supabase
+                .from('employees')
+                .select('department')
+                .eq('id', employeeId)
+                .single();
+
+            if (!currentEmployee) {
+                console.error('無法取得當前員工資訊');
+                return;
+            }
+
+            // 只載入相同部門的員工(排除自己)
+            const { data } = await supabase
+                .from('employees')
+                .select('id, name, department')
+                .eq('is_active', true)
+                .eq('department', currentEmployee.department)
+                .neq('id', employeeId)
+                .order('name');
+            setEmployees(data || []);
+        } catch (err) {
+            console.error('Error loading employees:', err);
+        }
+    };
+
     const loadLeaveTypes = async () => {
         setIsLoading(true);
         const types = await leaveTypeService.getActiveLeaveTypes();
@@ -50,7 +83,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
         setIsLoading(false);
     };
 
-    // 計算總時數邏輯（扣除 12:00 - 13:00 午休）
+    // 計算總時數邏輯(只計算工作時間 08:00-17:00,扣除 12:00-13:00 午休)
     const totalHours = useMemo(() => {
         if (!startDate || !endDate) return 0;
         const start = new Date(startDate);
@@ -59,51 +92,68 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
         if (end <= start) return 0;
 
         let totalMinutes = 0;
-        let current = new Date(start);
 
-        // 逐分或逐段計算可能太慢，改用邏輯判斷
-        // 簡單邏輯：計算總小時數，如果跨過 12:00 - 13:00 則減 60 分鐘
-        // 考慮跨天情況：每一天只要跨過該時段就減 1 小時
-
-        const diffMs = end.getTime() - start.getTime();
-        const rawMinutes = Math.floor(diffMs / (1000 * 60));
-
-        // 午休扣除邏輯
-        let lunchMinutes = 0;
+        // 工作時間定義
+        const WORK_START_HOUR = 8;
+        const WORK_END_HOUR = 17;
+        const LUNCH_START_HOUR = 12;
+        const LUNCH_END_HOUR = 13;
 
         // 遍歷每一天
-        const d = new Date(start);
-        d.setHours(0, 0, 0, 0);
+        let currentDay = new Date(start);
+        currentDay.setHours(0, 0, 0, 0);
+
         const endDay = new Date(end);
         endDay.setHours(0, 0, 0, 0);
 
-        while (d <= endDay) {
-            const dayStart = new Date(d);
-            dayStart.setHours(12, 0, 0, 0);
-            const dayEnd = new Date(d);
-            dayEnd.setHours(13, 0, 0, 0);
+        while (currentDay <= endDay) {
+            // 當天的工作時間範圍
+            const dayWorkStart = new Date(currentDay);
+            dayWorkStart.setHours(WORK_START_HOUR, 0, 0, 0);
 
-            // 判斷申請區間是否與該天的午休區間重疊
-            const overlapStart = new Date(Math.max(start.getTime(), dayStart.getTime()));
-            const overlapEnd = new Date(Math.min(end.getTime(), dayEnd.getTime()));
+            const dayWorkEnd = new Date(currentDay);
+            dayWorkEnd.setHours(WORK_END_HOUR, 0, 0, 0);
 
-            if (overlapStart < overlapEnd) {
-                const overlapMinutes = Math.floor((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60));
-                lunchMinutes += overlapMinutes;
+            // 計算當天實際的開始和結束時間(與申請時間取交集)
+            const actualStart = new Date(Math.max(start.getTime(), dayWorkStart.getTime()));
+            const actualEnd = new Date(Math.min(end.getTime(), dayWorkEnd.getTime()));
+
+            // 如果當天有工作時間
+            if (actualStart < actualEnd) {
+                // 計算當天的工作分鐘數
+                let dayMinutes = Math.floor((actualEnd.getTime() - actualStart.getTime()) / (1000 * 60));
+
+                // 扣除午休時間(如果跨過午休時段)
+                const lunchStart = new Date(currentDay);
+                lunchStart.setHours(LUNCH_START_HOUR, 0, 0, 0);
+
+                const lunchEnd = new Date(currentDay);
+                lunchEnd.setHours(LUNCH_END_HOUR, 0, 0, 0);
+
+                // 計算與午休時段的重疊
+                const lunchOverlapStart = new Date(Math.max(actualStart.getTime(), lunchStart.getTime()));
+                const lunchOverlapEnd = new Date(Math.min(actualEnd.getTime(), lunchEnd.getTime()));
+
+                if (lunchOverlapStart < lunchOverlapEnd) {
+                    const lunchMinutes = Math.floor((lunchOverlapEnd.getTime() - lunchOverlapStart.getTime()) / (1000 * 60));
+                    dayMinutes -= lunchMinutes;
+                }
+
+                totalMinutes += dayMinutes;
             }
 
-            d.setDate(d.getDate() + 1);
+            // 移到下一天
+            currentDay.setDate(currentDay.getDate() + 1);
         }
 
-        const finalMinutes = rawMinutes - lunchMinutes;
-        return Math.max(0, finalMinutes / 60);
+        return Math.max(0, totalMinutes / 60);
     }, [startDate, endDate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!selectedTypeId || !startDate || !endDate || !reason) {
-            setError('請填寫所有必填欄位');
+        if (!selectedTypeId || !startDate || !endDate || !reason || !selectedDeputyId) {
+            setError('請填寫所有必填欄位(包含職務代理人)');
             return;
         }
 
@@ -126,7 +176,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                 end_date: new Date(endDate).toISOString(),
                 reason,
                 hours: totalHours,
-                car_id: needCar ? selectedCarId : undefined
+                car_id: needCar ? selectedCarId : undefined,
+                deputy_id: selectedDeputyId || undefined
             });
             onSuccess();
         } catch (err: any) {
@@ -170,24 +221,28 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                         目前沒有可用的差勤類型
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                        {leaveTypes.map((type) => (
-                                            <button
-                                                key={type.id}
-                                                type="button"
-                                                onClick={() => setSelectedTypeId(type.id)}
-                                                className={`py-3 px-4 rounded-lg border-2 transition-all font-medium flex items-center gap-2 ${selectedTypeId === type.id
-                                                    ? 'border-primary bg-primary/5 text-primary'
-                                                    : 'border-slate-100 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
-                                                    }`}
-                                            >
-                                                <div
-                                                    className="w-3 h-3 rounded-full flex-shrink-0"
-                                                    style={{ backgroundColor: type.color }}
-                                                />
-                                                <span className="truncate font-bold">{type.name}</span>
-                                            </button>
-                                        ))}
+                                    <div className="relative">
+                                        <select
+                                            value={selectedTypeId}
+                                            onChange={(e) => setSelectedTypeId(e.target.value)}
+                                            className="w-full p-3 pl-10 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold appearance-none cursor-pointer"
+                                            required
+                                        >
+                                            {leaveTypes.map((type) => (
+                                                <option key={type.id} value={type.id}>
+                                                    {type.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {/* 顏色指示器 */}
+                                        <div
+                                            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full pointer-events-none"
+                                            style={{ backgroundColor: leaveTypes.find(t => t.id === selectedTypeId)?.color || '#3B82F6' }}
+                                        />
+                                        {/* 下拉箭頭 */}
+                                        <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                            expand_more
+                                        </span>
                                     </div>
                                 )}
                             </div>
@@ -243,6 +298,41 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                     placeholder="請敘明出差或請假具體事由..."
                                     required
                                 />
+                            </div>
+
+                            {/* 職代選擇 */}
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">
+                                    職務代理人 <span className="text-rose-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <select
+                                        value={selectedDeputyId}
+                                        onChange={(e) => setSelectedDeputyId(e.target.value)}
+                                        className="w-full p-3 pl-10 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold appearance-none cursor-pointer"
+                                        required
+                                    >
+                                        <option value="">請選擇職務代理人</option>
+                                        {employees.map((emp) => (
+                                            <option key={emp.id} value={emp.id}>
+                                                {emp.name} - {emp.department}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {/* 圖示 */}
+                                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                        person_pin
+                                    </span>
+                                    {/* 下拉箭頭 */}
+                                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                        expand_more
+                                    </span>
+                                </div>
+                                {selectedDeputyId && (
+                                    <p className="text-xs text-slate-500 mt-2 ml-1">
+                                        已選擇 {employees.find(e => e.id === selectedDeputyId)?.name} 作為職務代理人
+                                    </p>
+                                )}
                             </div>
 
                             {/* 公務車借用區塊 */}

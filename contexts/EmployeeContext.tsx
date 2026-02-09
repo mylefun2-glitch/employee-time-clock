@@ -79,11 +79,14 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const login = async (username: string, pin: string): Promise<{ success: boolean; error?: string }> => {
         try {
+            // 正規化帳號：去除前後空格並轉為小寫
+            const normalizedUsername = username.trim().toLowerCase();
+
             // 驗證帳號與 PIN 碼
             const { data, error } = await supabase
                 .from('employees')
                 .select('*')
-                .eq('username', username)
+                .eq('username', normalizedUsername)
                 .eq('pin', pin)
                 .eq('is_active', true)
                 .single();

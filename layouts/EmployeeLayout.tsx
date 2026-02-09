@@ -29,7 +29,7 @@ const EmployeeLayout: React.FC = () => {
     };
 
     const navItems = [
-        { path: '/employee/dashboard', icon: 'dashboard', label: '首頁' },
+        { path: '/employee/dashboard', icon: 'dashboard', label: '儀表板' },
         { path: '/employee/profile', icon: 'person', label: '個人資訊' },
         { path: '/employee/requests', icon: 'description', label: '申請記錄' },
         { path: '/employee/attendance', icon: 'event_note', label: '差勤統計' },

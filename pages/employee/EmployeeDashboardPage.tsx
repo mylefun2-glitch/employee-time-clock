@@ -12,6 +12,7 @@ const EmployeeDashboardPage: React.FC = () => {
         pendingApprovals: 0
     });
     const [recentRequests, setRecentRequests] = useState<any[]>([]);
+    const [todayLeaveEmployees, setTodayLeaveEmployees] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -53,11 +54,51 @@ const EmployeeDashboardPage: React.FC = () => {
 
             const pendingCount = (leaveData || []).filter(r => r.status === 'PENDING').length;
 
+
             // 主管待審核
             let pendingApprovals = 0;
             if (employee.is_supervisor) {
                 const { count } = await getPendingApprovalsForSupervisor(employee.id);
                 pendingApprovals = count;
+
+                // 獲取當天請假的下屬員工
+                // 先獲取所有直屬下屬
+                const { data: subordinates } = await supabase
+                    .from('employees')
+                    .select('id')
+                    .eq('manager_id', employee.id);
+
+                console.log('主管 ID:', employee.id);
+                console.log('下屬數量:', subordinates?.length || 0);
+
+                if (subordinates && subordinates.length > 0) {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const tomorrow = new Date(today);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+
+                    const subordinateIds = subordinates.map(s => s.id);
+
+                    const { data: todayLeaves, error } = await supabase
+                        .from('leave_requests')
+                        .select(`
+                            *,
+                            employee:employees!leave_requests_employee_id_fkey(id, name, department),
+                            leave_type:leave_types(*)
+                        `)
+                        .eq('status', 'APPROVED')
+                        .lte('start_date', tomorrow.toISOString())
+                        .gte('end_date', today.toISOString())
+                        .in('employee_id', subordinateIds);
+
+                    console.log('今日請假查詢錯誤:', error);
+                    console.log('今日請假人數:', todayLeaves?.length || 0);
+
+                    setTodayLeaveEmployees(todayLeaves || []);
+                } else {
+                    console.log('沒有找到下屬員工');
+                    setTodayLeaveEmployees([]);
+                }
             }
 
             setStats({
@@ -162,42 +203,117 @@ const EmployeeDashboardPage: React.FC = () => {
                 ))}
             </div>
 
-            {/* Quick Actions & Recent Activity Container */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Recent Activity List */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="flex items-center justify-between px-4">
-                        <h3 className="text-xl font-black text-slate-900 tracking-tight">最近申請動態</h3>
-                        <a href="/employee/requests" className="text-sm font-bold text-blue-600 hover:underline">查看全部</a>
+            {/* Today's Leave - Supervisor Only */}
+            {employee?.is_supervisor && (
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">今日請假人員</h3>
+                        <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-xl border border-blue-100">
+                            <span className="material-symbols-outlined text-blue-600 text-lg">groups</span>
+                            <span className="text-sm font-black text-blue-700">{todayLeaveEmployees.length} 人</span>
+                        </div>
                     </div>
 
-                    <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
+                    <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+                        {todayLeaveEmployees.length === 0 ? (
+                            <div className="px-8 py-20 text-center">
+                                <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <span className="material-symbols-outlined text-emerald-300 text-4xl font-light">check_circle</span>
+                                </div>
+                                <p className="text-slate-400 font-black tracking-widest text-sm uppercase">今日無人請假</p>
+                                <p className="text-slate-400 text-xs mt-2">您的團隊成員今天都在崗位上</p>
+                            </div>
+                        ) : (
+                            <ul className="divide-y divide-slate-50">
+                                {todayLeaveEmployees.map((leave) => (
+                                    <li key={leave.id} className="px-6 py-5 hover:bg-slate-50/50 transition-all group">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200/50 shrink-0">
+                                                    <span className="material-symbols-outlined text-white text-xl">person</span>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-base font-black text-slate-900 tracking-tight">
+                                                            {leave.employee?.name}
+                                                        </p>
+                                                        <span className="text-xs text-slate-400 font-medium">
+                                                            {leave.employee?.department}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className={`px-2 py-0.5 text-xs font-black rounded-md`} style={{ backgroundColor: leave.leave_type?.color + '20', color: leave.leave_type?.color }}>
+                                                            {leave.leave_type?.name || '請假'}
+                                                        </span>
+                                                        <span className="text-xs text-slate-400 font-bold">
+                                                            {new Date(leave.start_date).toLocaleDateString('zh-TW')} {new Date(leave.start_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                                                            <span className="text-slate-300 mx-1">→</span>
+                                                            {new Date(leave.end_date).toLocaleDateString('zh-TW')} {new Date(leave.end_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {leave.reason && (
+                                                <div className="hidden md:block max-w-xs">
+                                                    <p className="text-xs text-slate-500 truncate" title={leave.reason}>
+                                                        {leave.reason}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Recent Activity List - Full Width */}
+            <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">最近申請動態</h3>
+                    <a href="/employee/requests" className="text-sm font-bold text-blue-600 hover:underline flex items-center gap-1">
+                        查看全部
+                        <span className="material-symbols-outlined text-base">arrow_forward</span>
+                    </a>
+                </div>
+
+                <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+                    {recentRequests.length === 0 ? (
+                        <div className="px-8 py-20 text-center">
+                            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <span className="material-symbols-outlined text-slate-200 text-4xl font-light">inbox</span>
+                            </div>
+                            <p className="text-slate-400 font-black tracking-widest text-sm uppercase">目前沒有最近的申請記錄</p>
+                        </div>
+                    ) : (
                         <ul className="divide-y divide-slate-50">
                             {recentRequests.map((request) => {
                                 const badge = getStatusBadge(request.status);
                                 return (
-                                    <li key={request.id} className="px-8 py-6 hover:bg-slate-50/50 transition-all group">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-5">
-                                                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 group-hover:bg-white transition-colors">
-                                                    <span className="material-symbols-outlined text-slate-400 text-2xl font-light tracking-tighter">description</span>
+                                    <li key={request.id} className="px-6 py-5 hover:bg-slate-50/50 transition-all group">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100 group-hover:bg-white transition-colors shrink-0">
+                                                    <span className="material-symbols-outlined text-slate-400 text-xl">description</span>
                                                 </div>
-                                                <div>
-                                                    <p className="text-lg font-black text-slate-900 tracking-tight">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-base font-black text-slate-900 tracking-tight truncate">
                                                         {request.leave_type?.name || '請假申請'}
                                                     </p>
-                                                    <div className="flex items-center gap-2 mt-1 text-slate-400 text-sm font-bold font-mono">
+                                                    <div className="flex items-center gap-2 mt-1 text-slate-400 text-xs font-bold">
                                                         <span>{new Date(request.start_date).toLocaleDateString('zh-TW')}</span>
-                                                        <span className="text-slate-200 font-sans tracking-widest text-[10px]">至</span>
+                                                        <span className="text-slate-300">→</span>
                                                         <span>{new Date(request.end_date).toLocaleDateString('zh-TW')}</span>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex flex-col items-end gap-2">
-                                                <span className={`px-4 py-1.5 text-[10px] font-black rounded-xl border-2 uppercase tracking-widest ${badge.class}`}>
+                                            <div className="flex items-center gap-4 shrink-0">
+                                                <span className={`px-3 py-1.5 text-xs font-black rounded-lg border ${badge.class} whitespace-nowrap`}>
                                                     {badge.text}
                                                 </span>
-                                                <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">
+                                                <span className="text-xs text-slate-300 font-medium hidden sm:block whitespace-nowrap">
                                                     {new Date(request.created_at).toLocaleDateString('zh-TW')}
                                                 </span>
                                             </div>
@@ -205,36 +321,8 @@ const EmployeeDashboardPage: React.FC = () => {
                                     </li>
                                 );
                             })}
-                            {recentRequests.length === 0 && (
-                                <li className="px-8 py-20 text-center">
-                                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <span className="material-symbols-outlined text-slate-200 text-4xl font-light tracking-tighter">inbox</span>
-                                    </div>
-                                    <p className="text-slate-400 font-black tracking-widest text-sm uppercase">目前沒有最近的申請記錄</p>
-                                </li>
-                            )}
                         </ul>
-                    </div>
-                </div>
-
-                {/* Sidebar Cards */}
-                <div className="space-y-6">
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight px-2">常用操作</h3>
-
-
-                    {/* Announcement Card or Similar */}
-                    <div className="bg-blue-50 rounded-[2.5rem] p-8 border border-blue-100">
-                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-6">
-                            <span className="material-symbols-outlined text-blue-600">notification_important</span>
-                        </div>
-                        <h4 className="text-blue-900 font-black text-lg mb-3 tracking-tight">系統通知</h4>
-                        <p className="text-blue-700/70 text-sm font-bold leading-relaxed mb-6">
-                            請務必定期確認您的個人資訊與緊急聯絡人是否正確。如有變更，請立即告知 HR 部門。
-                        </p>
-                        <div className="w-full h-1 bg-blue-100 rounded-full overflow-hidden">
-                            <div className="w-1/3 h-full bg-blue-600"></div>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>

@@ -315,10 +315,16 @@ const EmployeeApprovalsPage: React.FC = () => {
                                                 <div className="text-sm font-bold text-slate-700">{request.leave_type?.name || '請假'}</div>
                                             </td>
                                             <td className="px-4 py-4">
-                                                <div className="text-sm font-mono text-slate-700">{new Date(request.start_date).toLocaleDateString('zh-TW')}</div>
+                                                <div className="text-sm font-mono text-slate-700">
+                                                    <div>{new Date(request.start_date).toLocaleDateString('zh-TW')}</div>
+                                                    <div className="text-xs text-slate-500">{new Date(request.start_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</div>
+                                                </div>
                                             </td>
                                             <td className="px-4 py-4">
-                                                <div className="text-sm font-mono text-slate-700">{new Date(request.end_date).toLocaleDateString('zh-TW')}</div>
+                                                <div className="text-sm font-mono text-slate-700">
+                                                    <div>{new Date(request.end_date).toLocaleDateString('zh-TW')}</div>
+                                                    <div className="text-xs text-slate-500">{new Date(request.end_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</div>
+                                                </div>
                                             </td>
                                             <td className="px-4 py-4 max-w-xs">
                                                 <div className="text-sm text-slate-600 truncate" title={request.reason}>{request.reason || '-'}</div>

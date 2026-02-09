@@ -110,9 +110,12 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
         }
 
         try {
+            // 正規化帳號：去除前後空格並轉為小寫
+            const normalizedUsername = (username || name).trim().toLowerCase();
+
             await onSubmit({
                 name,
-                username: username || name, // 若未填寫則預設使用姓名
+                username: normalizedUsername,
                 pin,
                 department,
                 is_active: isActive,
@@ -194,7 +197,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">登入帳號 (預設為姓名)</label>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">登入帳號</label>
                                     <input
                                         type="text"
                                         value={username}
@@ -204,7 +207,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">PIN 碼 (6位身分證後六碼)</label>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">PIN 碼</label>
                                     <input
                                         type="text"
                                         required

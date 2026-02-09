@@ -33,7 +33,8 @@ export const requestService = {
                 .from('leave_requests')
                 .select(`
                     *,
-                    leave_type:leave_types(*)
+                    leave_type:leave_types(*),
+                    deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
                 `)
                 .eq('employee_id', employeeId)
                 .order('created_at', { ascending: false });

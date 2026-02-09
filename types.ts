@@ -49,6 +49,8 @@ export interface LeaveRequest {
   approved_at?: string;
   employee_name?: string;
   hours?: number; // 新增：申請總時數
+  deputy_id?: string; // 新增:職務代理人 ID
+  deputy?: Employee; // 新增:職務代理人完整資訊
 
   // 變更相關欄位
   original_request_id?: string;      // 如果這是變更申請,指向原始申請的 ID

@@ -128,6 +128,7 @@ const EmployeeRequestsPage: React.FC = () => {
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">開始時間</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">結束時間</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">事由</th>
+                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">職代</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">狀態</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">申請時間</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">操作</th>
@@ -180,6 +181,23 @@ const EmployeeRequestsPage: React.FC = () => {
                                                 <div className="text-sm text-slate-600 truncate" title={request.reason}>
                                                     {request.reason || '-'}
                                                 </div>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                {request.deputy ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
+                                                            <span className="text-purple-600 text-xs font-bold">
+                                                                {request.deputy.name.charAt(0)}
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-sm font-bold text-slate-900">{request.deputy.name}</div>
+                                                            <div className="text-xs text-slate-500">{request.deputy.department}</div>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-slate-400">未指定</span>
+                                                )}
                                             </td>
                                             <td className="px-4 py-4">
                                                 <span className={`px-3 py-1.5 text-xs font-black rounded-lg border inline-block ${status.class}`}>
