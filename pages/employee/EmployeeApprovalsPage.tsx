@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useEmployee } from '../../contexts/EmployeeContext';
-import { getPendingApprovalsForSupervisor } from '../../services/supervisorService';
+import { getPendingApprovalsForSupervisor, getAllSubordinateRequests } from '../../services/supervisorService';
 import { requestService } from '../../services/requestService';
 import { RequestStatus } from '../../types';
 
@@ -53,12 +53,13 @@ const EmployeeApprovalsPage: React.FC = () => {
         if (!employee) return;
         setLoading(true);
         try {
-            const { requests } = await getPendingApprovalsForSupervisor(employee.id);
+            // 載入所有狀態的下屬申請記錄
+            const requests = await getAllSubordinateRequests(employee.id);
             setAllRequests(requests);
             // 清空選擇狀態
             setSelectedIds(new Set());
         } catch (error) {
-            console.error('Error fetching pending approvals:', error);
+            console.error('Error fetching approvals:', error);
         } finally {
             setLoading(false);
         }

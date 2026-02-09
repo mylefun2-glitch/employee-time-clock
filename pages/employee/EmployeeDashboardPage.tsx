@@ -60,45 +60,45 @@ const EmployeeDashboardPage: React.FC = () => {
             if (employee.is_supervisor) {
                 const { count } = await getPendingApprovalsForSupervisor(employee.id);
                 pendingApprovals = count;
+            }
 
-                // 獲取當天請假的下屬員工
-                // 先獲取所有直屬下屬
-                const { data: subordinates } = await supabase
-                    .from('employees')
-                    .select('id')
-                    .eq('manager_id', employee.id);
+            // 獲取當天請假的同部門員工(所有人都能看到)
+            const { data: departmentColleagues } = await supabase
+                .from('employees')
+                .select('id')
+                .eq('department', employee.department)
+                .neq('id', employee.id); // 排除自己
 
-                console.log('主管 ID:', employee.id);
-                console.log('下屬數量:', subordinates?.length || 0);
+            console.log('當前部門:', employee.department);
+            console.log('同部門人數:', departmentColleagues?.length || 0);
 
-                if (subordinates && subordinates.length > 0) {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const tomorrow = new Date(today);
-                    tomorrow.setDate(tomorrow.getDate() + 1);
+            if (departmentColleagues && departmentColleagues.length > 0) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
 
-                    const subordinateIds = subordinates.map(s => s.id);
+                const colleagueIds = departmentColleagues.map(c => c.id);
 
-                    const { data: todayLeaves, error } = await supabase
-                        .from('leave_requests')
-                        .select(`
-                            *,
-                            employee:employees!leave_requests_employee_id_fkey(id, name, department),
-                            leave_type:leave_types(*)
-                        `)
-                        .eq('status', 'APPROVED')
-                        .lte('start_date', tomorrow.toISOString())
-                        .gte('end_date', today.toISOString())
-                        .in('employee_id', subordinateIds);
+                const { data: todayLeaves, error } = await supabase
+                    .from('leave_requests')
+                    .select(`
+                        *,
+                        employee:employees!leave_requests_employee_id_fkey(id, name, department),
+                        leave_type:leave_types(*)
+                    `)
+                    .eq('status', 'APPROVED')
+                    .lte('start_date', tomorrow.toISOString())
+                    .gte('end_date', today.toISOString())
+                    .in('employee_id', colleagueIds);
 
-                    console.log('今日請假查詢錯誤:', error);
-                    console.log('今日請假人數:', todayLeaves?.length || 0);
+                console.log('今日請假查詢錯誤:', error);
+                console.log('今日請假人數:', todayLeaves?.length || 0);
 
-                    setTodayLeaveEmployees(todayLeaves || []);
-                } else {
-                    console.log('沒有找到下屬員工');
-                    setTodayLeaveEmployees([]);
-                }
+                setTodayLeaveEmployees(todayLeaves || []);
+            } else {
+                console.log('沒有找到同部門員工');
+                setTodayLeaveEmployees([]);
             }
 
             setStats({
@@ -174,100 +174,106 @@ const EmployeeDashboardPage: React.FC = () => {
 
             {/* Premium Stats Grid */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {statCards.map((item) => (
-                    <div
-                        key={item.name}
-                        className={`group relative bg-white p-4 rounded-3xl border transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/50 hover:-translate-y-0.5 ${item.highlight ? 'border-rose-200 bg-rose-50/20' : 'border-slate-100'
-                            }`}
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 shrink-0 bg-gradient-to-br ${item.color} rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200/20 group-hover:scale-105 transition-transform`}>
-                                <span className="material-symbols-outlined text-white text-2xl">
-                                    {item.icon}
-                                </span>
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-0.5 truncate">{item.name}</p>
-                                <div className="flex items-baseline gap-1">
-                                    <span className="text-2xl font-black text-slate-900 tracking-tight">{item.value}</span>
-                                    <span className="text-xs font-bold text-slate-400 ml-0.5">{item.unit}</span>
+                {statCards.map((item) => {
+                    const isApprovalCard = item.name === '待我審核';
+                    const CardWrapper = isApprovalCard ? 'a' : 'div';
+                    const cardProps = isApprovalCard
+                        ? { href: '/employee/approvals', className: `group relative bg-white p-4 rounded-3xl border transition-all duration-300 hover:shadow-xl hover:shadow-rose-200/50 hover:-translate-y-1 cursor-pointer ${item.highlight ? 'border-rose-200 bg-rose-50/20' : 'border-slate-100'}` }
+                        : { className: `group relative bg-white p-4 rounded-3xl border transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/50 hover:-translate-y-0.5 ${item.highlight ? 'border-rose-200 bg-rose-50/20' : 'border-slate-100'}` };
+
+                    return (
+                        <CardWrapper
+                            key={item.name}
+                            {...cardProps}
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className={`w-12 h-12 shrink-0 bg-gradient-to-br ${item.color} rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200/20 group-hover:scale-105 transition-transform`}>
+                                    <span className="material-symbols-outlined text-white text-2xl">
+                                        {item.icon}
+                                    </span>
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-0.5 truncate">{item.name}</p>
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-2xl font-black text-slate-900 tracking-tight">{item.value}</span>
+                                        <span className="text-xs font-bold text-slate-400 ml-0.5">{item.unit}</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        {item.highlight && (
-                            <div className="absolute top-3 right-3 px-2 py-0.5 bg-rose-100 text-rose-600 text-[9px] font-black rounded-full uppercase tracking-tighter">
-                                需處理
-                            </div>
-                        )}
-                    </div>
-                ))}
+                            {item.highlight && (
+                                <div className="absolute top-3 right-3 px-2 py-0.5 bg-rose-100 text-rose-600 text-[9px] font-black rounded-full uppercase tracking-tighter flex items-center gap-1">
+                                    {isApprovalCard && <span className="material-symbols-outlined text-[10px]">arrow_forward</span>}
+                                    需處理
+                                </div>
+                            )}
+                        </CardWrapper>
+                    );
+                })}
             </div>
 
-            {/* Today's Leave - Supervisor Only */}
-            {employee?.is_supervisor && (
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">今日請假人員</h3>
-                        <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-xl border border-blue-100">
-                            <span className="material-symbols-outlined text-blue-600 text-lg">groups</span>
-                            <span className="text-sm font-black text-blue-700">{todayLeaveEmployees.length} 人</span>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
-                        {todayLeaveEmployees.length === 0 ? (
-                            <div className="px-8 py-20 text-center">
-                                <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <span className="material-symbols-outlined text-emerald-300 text-4xl font-light">check_circle</span>
-                                </div>
-                                <p className="text-slate-400 font-black tracking-widest text-sm uppercase">今日無人請假</p>
-                                <p className="text-slate-400 text-xs mt-2">您的團隊成員今天都在崗位上</p>
-                            </div>
-                        ) : (
-                            <ul className="divide-y divide-slate-50">
-                                {todayLeaveEmployees.map((leave) => (
-                                    <li key={leave.id} className="px-6 py-5 hover:bg-slate-50/50 transition-all group">
-                                        <div className="flex items-center justify-between gap-4">
-                                            <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200/50 shrink-0">
-                                                    <span className="material-symbols-outlined text-white text-xl">person</span>
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="text-base font-black text-slate-900 tracking-tight">
-                                                            {leave.employee?.name}
-                                                        </p>
-                                                        <span className="text-xs text-slate-400 font-medium">
-                                                            {leave.employee?.department}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <span className={`px-2 py-0.5 text-xs font-black rounded-md`} style={{ backgroundColor: leave.leave_type?.color + '20', color: leave.leave_type?.color }}>
-                                                            {leave.leave_type?.name || '請假'}
-                                                        </span>
-                                                        <span className="text-xs text-slate-400 font-bold">
-                                                            {new Date(leave.start_date).toLocaleDateString('zh-TW')} {new Date(leave.start_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
-                                                            <span className="text-slate-300 mx-1">→</span>
-                                                            {new Date(leave.end_date).toLocaleDateString('zh-TW')} {new Date(leave.end_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            {leave.reason && (
-                                                <div className="hidden md:block max-w-xs">
-                                                    <p className="text-xs text-slate-500 truncate" title={leave.reason}>
-                                                        {leave.reason}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
+            {/* Today's Department Activity - All Employees */}
+            <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">今日部門動態</h3>
+                    <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-xl border border-blue-100">
+                        <span className="material-symbols-outlined text-blue-600 text-lg">groups</span>
+                        <span className="text-sm font-black text-blue-700">{todayLeaveEmployees.length} 人</span>
                     </div>
                 </div>
-            )}
+
+                <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+                    {todayLeaveEmployees.length === 0 ? (
+                        <div className="px-8 py-20 text-center">
+                            <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <span className="material-symbols-outlined text-emerald-300 text-4xl font-light">check_circle</span>
+                            </div>
+                            <p className="text-slate-400 font-black tracking-widest text-sm uppercase">今日無人請假</p>
+                            <p className="text-slate-400 text-xs mt-2">您的部門同事今天都在崗位上</p>
+                        </div>
+                    ) : (
+                        <ul className="divide-y divide-slate-50">
+                            {todayLeaveEmployees.map((leave) => (
+                                <li key={leave.id} className="px-6 py-5 hover:bg-slate-50/50 transition-all group">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                                            <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100 group-hover:bg-blue-100 transition-colors shrink-0">
+                                                <span className="material-symbols-outlined text-blue-600 text-xl">person</span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-base font-black text-slate-900 tracking-tight">
+                                                        {leave.employee?.name}
+                                                    </p>
+                                                    <span className="text-xs text-slate-400 font-medium">
+                                                        {leave.employee?.department}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className={`px-2 py-0.5 text-xs font-black rounded-md`} style={{ backgroundColor: leave.leave_type?.color + '20', color: leave.leave_type?.color }}>
+                                                        {leave.leave_type?.name || '請假'}
+                                                    </span>
+                                                    <span className="text-xs text-slate-400 font-bold">
+                                                        {new Date(leave.start_date).toLocaleDateString('zh-TW')} {new Date(leave.start_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                                                        <span className="text-slate-300 mx-1">→</span>
+                                                        {new Date(leave.end_date).toLocaleDateString('zh-TW')} {new Date(leave.end_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {leave.reason && (
+                                            <div className="hidden md:block max-w-xs">
+                                                <p className="text-xs text-slate-500 truncate" title={leave.reason}>
+                                                    {leave.reason}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            </div>
 
             {/* Recent Activity List - Full Width */}
             <div className="space-y-6">

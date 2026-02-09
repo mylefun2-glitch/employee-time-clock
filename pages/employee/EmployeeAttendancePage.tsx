@@ -75,8 +75,9 @@ const EmployeeAttendancePage: React.FC = () => {
                 .from('leave_requests')
                 .select(`
                     *,
-                    employee:employees(name, department),
-                    leave_type:leave_types(*)
+                    employee:employees!leave_requests_employee_id_fkey(name, department),
+                    leave_type:leave_types(*),
+                    deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
                 `)
                 .in('employee_id', targetIds)
                 .eq('status', 'APPROVED')

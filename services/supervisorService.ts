@@ -76,6 +76,44 @@ export const getPendingApprovalsForSupervisor = async (supervisorEmployeeId: str
 };
 
 /**
+ * 獲取主管的所有下屬請假申請(包含所有狀態)
+ */
+export const getAllSubordinateRequests = async (supervisorEmployeeId: string): Promise<any[]> => {
+    try {
+        // 查詢所有下屬的請假申請(不限狀態)
+        const { data, error } = await supabase
+            .from('leave_requests')
+            .select(`
+                *,
+                employee:employees!leave_requests_employee_id_fkey (
+                    id,
+                    name,
+                    department,
+                    manager_id
+                ),
+                leave_type:leave_types(*),
+                deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
+            `)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching all subordinate requests:', error);
+            return [];
+        }
+
+        // 篩選出下屬的請假申請
+        const subordinateRequests = (data || []).filter(
+            (request: any) => request.employee?.manager_id === supervisorEmployeeId
+        );
+
+        return subordinateRequests;
+    } catch (err) {
+        console.error('Unexpected error fetching all subordinate requests:', err);
+        return [];
+    }
+};
+
+/**
  * 獲取所有待審核統計（按部門分組）
  */
 export const getPendingApprovalsByDepartment = async (supervisorEmployeeId: string) => {
