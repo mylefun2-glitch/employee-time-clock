@@ -44,13 +44,14 @@ export const getPendingApprovalsForSupervisor = async (supervisorEmployeeId: str
             .from('leave_requests')
             .select(`
                 *,
-                employee:employees (
+                employee:employees!leave_requests_employee_id_fkey (
                     id,
                     name,
                     department,
                     manager_id
                 ),
-                leave_type:leave_types(*)
+                leave_type:leave_types(*),
+                deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
             `)
             .eq('status', 'PENDING');
 

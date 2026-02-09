@@ -61,7 +61,8 @@ export const requestService = {
                 .select(`
                     *,
                     leave_type:leave_types(*),
-                    employee:employees(name, department)
+                    employee:employees!leave_requests_employee_id_fkey(name, department),
+                    deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
                 `)
                 .order('created_at', { ascending: false });
 
@@ -294,7 +295,8 @@ export const requestService = {
                 .select(`
                     *,
                     leave_type:leave_types(*),
-                    employee:employees(name, department)
+                    employee:employees!leave_requests_employee_id_fkey(name, department),
+                    deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
                 `)
                 .eq('original_request_id', requestId)
                 .order('created_at', { ascending: false });
