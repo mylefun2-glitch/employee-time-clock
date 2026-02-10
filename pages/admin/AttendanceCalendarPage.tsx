@@ -1,12 +1,13 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, parseISO, addMonths, subMonths, startOfWeek } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X, CheckSquare, Square, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X, CheckSquare, Square, Info, Search } from 'lucide-react';
 import { deleteAttendanceLog, deleteAttendanceLogs } from '../../services/admin';
 import { Employee, CheckType } from '../../types';
 import { isNationalHoliday } from '../../lib/holidays';
+import { sortByNameStroke } from '../../lib/nameStrokeSort';
 
 interface AttendanceLog {
     id: string;
@@ -51,6 +52,11 @@ const AttendanceCalendarPage: React.FC = () => {
     const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
     const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Employee Search State
+    const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
+    const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
+    const employeeDropdownRef = useRef<HTMLDivElement>(null);
 
     // 民國年度轉換
     const rocYear = currentDate.getFullYear() - 1911;
@@ -226,15 +232,43 @@ const AttendanceCalendarPage: React.FC = () => {
     }, [employees]);
 
     const filteredEmployees = useMemo(() => {
-        if (selectedDepartment === 'ALL') return employees;
-        return employees.filter(emp => emp.department === selectedDepartment);
-    }, [employees, selectedDepartment]);
+        let filtered = selectedDepartment === 'ALL' ? employees : employees.filter(emp => emp.department === selectedDepartment);
+
+        // 套用姓氏筆劃排序
+        filtered = sortByNameStroke(filtered);
+
+        // 套用搜尋過濾
+        if (employeeSearchQuery.trim()) {
+            const query = employeeSearchQuery.toLowerCase();
+            filtered = filtered.filter(emp => emp.name.toLowerCase().includes(query));
+        }
+
+        return filtered;
+    }, [employees, selectedDepartment, employeeSearchQuery]);
 
     useEffect(() => {
         if (filteredEmployees.length > 0 && !filteredEmployees.find(e => e.id === selectedEmployeeId)) {
             setSelectedEmployeeId(filteredEmployees[0].id);
         }
     }, [filteredEmployees]);
+
+    // 點擊外部關閉下拉選單
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (employeeDropdownRef.current && !employeeDropdownRef.current.contains(event.target as Node)) {
+                setIsEmployeeDropdownOpen(false);
+                setEmployeeSearchQuery('');
+            }
+        };
+
+        if (isEmployeeDropdownOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isEmployeeDropdownOpen]);
 
     const totalMonthlyHours = Object.values(monthData).reduce((acc, curr) => acc + curr.hours, 0);
 
@@ -355,17 +389,65 @@ const AttendanceCalendarPage: React.FC = () => {
                             </select>
                         </div>
 
-                        <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                            <User className="ml-1.5 text-slate-400 h-3.5 w-3.5" />
-                            <select
-                                value={selectedEmployeeId}
-                                onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                                className="bg-transparent border-none text-xs font-black text-slate-700 focus:ring-0 py-1.5 pr-6 outline-none"
+                        {/* 可搜尋的員工選擇器 */}
+                        <div className="relative" ref={employeeDropdownRef}>
+                            <div
+                                className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors"
+                                onClick={() => setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen)}
                             >
-                                {filteredEmployees.map(emp => (
-                                    <option key={emp.id} value={emp.id}>{emp.name}</option>
-                                ))}
-                            </select>
+                                <User className="ml-1.5 text-slate-400 h-3.5 w-3.5" />
+                                <span className="text-xs font-black text-slate-700 py-1.5 pr-2">
+                                    {selectedEmployee?.name || '選擇員工'}
+                                </span>
+                            </div>
+
+                            {isEmployeeDropdownOpen && (
+                                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden">
+                                    {/* 搜尋框 */}
+                                    <div className="p-3 border-b border-slate-100">
+                                        <div className="relative">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                            <input
+                                                type="text"
+                                                value={employeeSearchQuery}
+                                                onChange={(e) => setEmployeeSearchQuery(e.target.value)}
+                                                placeholder="搜尋員工姓名..."
+                                                className="w-full pl-10 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                                autoFocus
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* 員工列表 */}
+                                    <div className="max-h-64 overflow-y-auto">
+                                        {filteredEmployees.length === 0 ? (
+                                            <div className="px-4 py-8 text-center text-sm text-slate-400">
+                                                找不到符合的員工
+                                            </div>
+                                        ) : (
+                                            filteredEmployees.map(emp => (
+                                                <button
+                                                    key={emp.id}
+                                                    onClick={() => {
+                                                        setSelectedEmployeeId(emp.id);
+                                                        setIsEmployeeDropdownOpen(false);
+                                                        setEmployeeSearchQuery('');
+                                                    }}
+                                                    className={`w-full px-4 py-2.5 text-left text-sm font-bold hover:bg-slate-50 transition-colors ${emp.id === selectedEmployeeId ? 'bg-blue-50 text-blue-700' : 'text-slate-700'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <span>{emp.name}</span>
+                                                        {emp.department && (
+                                                            <span className="text-xs text-slate-400">{emp.department}</span>
+                                                        )}
+                                                    </div>
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {selectedLogIds.size > 0 && (

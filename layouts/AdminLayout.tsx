@@ -41,7 +41,6 @@ const AdminLayout: React.FC = () => {
         { path: '/admin/dashboard', icon: 'dashboard', label: '儀表板' },
         { path: '/admin/employees', icon: 'groups', label: '員工管理' },
         { path: '/admin/stats', icon: 'bar_chart', label: '人事統計' },
-        { path: '/admin/attendance', icon: 'event_note', label: '考勤記錄' },
         { path: '/admin/attendance-calendar', icon: 'calendar_month', label: '出勤月曆' },
         { path: '/admin/makeup-requests', label: '補登審核', icon: 'edit_calendar' },
         { path: '/admin/requests', label: '差勤/公務車', icon: 'fact_check' },

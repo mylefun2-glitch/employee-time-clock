@@ -10,7 +10,6 @@ const LoginPage = lazy(() => import('./pages/admin/LoginPage'));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const DashboardPage = lazy(() => import('./pages/admin/DashboardPage'));
 const EmployeesPage = lazy(() => import('./pages/admin/EmployeesPage'));
-const AttendancePage = lazy(() => import('./pages/admin/AttendancePage'));
 const MakeupRequestsPage = lazy(() => import('./pages/admin/MakeupRequestsPage'));
 const CarManagementPage = React.lazy(() => import('./pages/admin/CarManagementPage'));
 const CarRequestsPage = React.lazy(() => import('./pages/admin/CarRequestsPage'));
@@ -45,7 +44,6 @@ const App: React.FC = () => {
                 <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="employees" element={<EmployeesPage />} />
                 <Route path="stats" element={<StatisticsPage />} />
-                <Route path="attendance" element={<AttendancePage />} />
                 <Route path="attendance-calendar" element={<AttendanceCalendarPage />} />
                 <Route path="makeup-requests" element={<MakeupRequestsPage />} />
                 <Route path="requests" element={<RequestsPage />} />

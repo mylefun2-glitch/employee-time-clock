@@ -7,6 +7,7 @@ import { RequestStatus } from '../../types';
 const EmployeeApprovalsPage: React.FC = () => {
     const { employee } = useEmployee();
     const [allRequests, setAllRequests] = useState<any[]>([]);
+    const [chairmanRequests, setChairmanRequests] = useState<any[]>([]); // 理事長待審核列表
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
@@ -56,6 +57,13 @@ const EmployeeApprovalsPage: React.FC = () => {
             // 載入所有狀態的下屬申請記錄
             const requests = await getAllSubordinateRequests(employee.id);
             setAllRequests(requests);
+
+            // 如果是理事長，載入等待理事長審核的申請
+            if (employee.is_chairman) {
+                const chairmanPending = await requestService.getChairmanPendingRequests();
+                setChairmanRequests(chairmanPending);
+            }
+
             // 清空選擇狀態
             setSelectedIds(new Set());
         } catch (error) {
@@ -189,6 +197,69 @@ const EmployeeApprovalsPage: React.FC = () => {
                 <p className="text-slate-500 text-sm font-medium mt-1">目前有 <span className="text-blue-600 font-black">{allRequests.filter(r => r.status === 'PENDING').length}</span> 筆待處理申請</p>
             </div>
 
+            {/* 理事長審核區塊 */}
+            {employee?.is_chairman && chairmanRequests.length > 0 && (
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border-2 border-amber-200 p-6 shadow-lg">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center shadow-lg shadow-amber-200">
+                            <span className="material-symbols-outlined text-white text-2xl">admin_panel_settings</span>
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-black text-amber-900">等待理事長審核</h2>
+                            <p className="text-sm font-medium text-amber-700">
+                                有 <span className="font-black">{chairmanRequests.length}</span> 筆申請需要您的核准
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        {chairmanRequests.map((request) => (
+                            <div key={request.id} className="bg-white rounded-xl p-4 border border-amber-100 hover:shadow-md transition-shadow">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">員工</p>
+                                            <p className="text-sm font-bold text-slate-900">{request.employee?.name}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">假別</p>
+                                            <p className="text-sm font-bold text-slate-700">{request.leave_type?.name}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">期間</p>
+                                            <p className="text-xs font-medium text-slate-600">
+                                                {new Date(request.start_date).toLocaleDateString('zh-TW')} - {new Date(request.end_date).toLocaleDateString('zh-TW')}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">主管審核</p>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                                                <span className="text-xs font-bold text-emerald-600">已核准</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 shrink-0">
+                                        <button
+                                            onClick={() => handleReviewClick(request.id, 'reject')}
+                                            className="px-4 py-2 bg-rose-50 text-rose-600 rounded-lg text-xs font-black hover:bg-rose-100 transition-all"
+                                        >
+                                            拒絕
+                                        </button>
+                                        <button
+                                            onClick={() => handleReviewClick(request.id, 'approve')}
+                                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-black hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+                                        >
+                                            核准
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Filter Tabs */}
             <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
                 {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
@@ -283,6 +354,7 @@ const EmployeeApprovalsPage: React.FC = () => {
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">開始日期</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">結束日期</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">事由</th>
+                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">審核狀態</th>
                                     {filter === 'PENDING' && (
                                         <th className="px-4 py-3 text-right text-xs font-black text-slate-500 uppercase tracking-wider">操作</th>
                                     )}
@@ -329,6 +401,24 @@ const EmployeeApprovalsPage: React.FC = () => {
                                             </td>
                                             <td className="px-4 py-4 max-w-xs">
                                                 <div className="text-sm text-slate-600 truncate" title={request.reason}>{request.reason || '-'}</div>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                {request.requires_chairman_approval ? (
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className={`w-2 h-2 rounded-full ${request.supervisor_approved_at ? 'bg-emerald-500' : 'bg-slate-300'
+                                                                }`}></span>
+                                                            <span className="text-xs font-bold text-slate-600">主管</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className={`w-2 h-2 rounded-full ${request.chairman_approved_at ? 'bg-emerald-500' : 'bg-slate-300'
+                                                                }`}></span>
+                                                            <span className="text-xs font-bold text-slate-600">理事長</span>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs font-bold text-slate-500">單層審核</span>
+                                                )}
                                             </td>
                                             {filter === 'PENDING' && (
                                                 <td className="px-4 py-4 text-right">

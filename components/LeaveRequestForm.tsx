@@ -149,6 +149,24 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
         return Math.max(0, totalMinutes / 60);
     }, [startDate, endDate]);
 
+    // 計算請假天數（用於判斷是否需要理事長審核）
+    const totalDays = useMemo(() => {
+        if (!startDate || !endDate) return 0;
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+
+        if (end <= start) return 0;
+
+        // 計算跨越的日曆天數
+        // 例如：2/15 08:00 到 2/17 17:00 = 3 天 (2/15, 2/16, 2/17)
+        const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+        return Math.round((endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    }, [startDate, endDate]);
+
+    // 判斷是否需要理事長審核
+    const requiresChairmanApproval = totalDays >= 3;
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -285,6 +303,24 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                     </div>
                                     <div className="text-2xl font-black text-blue-600 tabular-nums">
                                         {totalHours.toFixed(1)} <span className="text-xs ml-1">HR</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 理事長審核提示 */}
+                            {requiresChairmanApproval && (
+                                <div className="bg-amber-50/50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2">
+                                    <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center shadow-lg shadow-amber-100 text-white shrink-0">
+                                        <span className="material-symbols-outlined text-xl">admin_panel_settings</span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">多層級審核</p>
+                                        <p className="text-sm font-bold text-amber-900">
+                                            此申請需要 <span className="font-black">主管及理事長</span> 雙重審核
+                                        </p>
+                                        <p className="text-xs text-amber-700 mt-1">
+                                            請假 {totalDays} 日 ≥ 3 日，將由主管審核後轉送理事長核准
+                                        </p>
                                     </div>
                                 </div>
                             )}

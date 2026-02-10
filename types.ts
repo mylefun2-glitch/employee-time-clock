@@ -52,6 +52,13 @@ export interface LeaveRequest {
   deputy_id?: string; // 新增:職務代理人 ID
   deputy?: Employee; // 新增:職務代理人完整資訊
 
+  // 多層級審核欄位
+  requires_chairman_approval?: boolean;  // 是否需要理事長審核（請假 >= 3 日）
+  supervisor_approved_at?: string;       // 主管審核時間
+  supervisor_approved_by?: string;       // 主管審核人 ID
+  chairman_approved_at?: string;         // 理事長審核時間
+  chairman_approved_by?: string;         // 理事長審核人 ID
+
   // 變更相關欄位
   original_request_id?: string;      // 如果這是變更申請,指向原始申請的 ID
   is_modified?: boolean;             // 標記此申請是否已被變更
@@ -70,6 +77,7 @@ export interface Employee {
   department: string;
   is_active: boolean;
   is_supervisor?: boolean;
+  is_chairman?: boolean; // 是否為理事長
   manager_id?: string; // 直屬主管 ID
 
   // --- 新增詳細資料欄位 ---

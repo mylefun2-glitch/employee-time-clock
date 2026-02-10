@@ -111,37 +111,6 @@ export const deleteEmployee = async (id: string) => {
     }
 };
 
-export const getAttendanceLogs = async (startDate?: string, endDate?: string) => {
-    try {
-        let query = supabase
-            .from('attendance_logs')
-            .select(`
-                *,
-                employees (name, department, pin)
-            `)
-            .order('timestamp', { ascending: false });
-
-        if (startDate) {
-            const start = new Date(startDate);
-            start.setHours(0, 0, 0, 0);
-            query = query.gte('timestamp', start.toISOString());
-        }
-
-        if (endDate) {
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            query = query.lte('timestamp', end.toISOString());
-        }
-
-        const { data, error } = await query;
-
-        if (error) throw error;
-        return data;
-    } catch (error) {
-        console.error('Error fetching attendance logs:', error);
-        return [];
-    }
-};
 
 export const deleteAttendanceLog = async (id: string) => {
     try {

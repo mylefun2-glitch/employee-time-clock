@@ -498,65 +498,83 @@ const EmployeeAttendancePage: React.FC = () => {
                                     <p className="text-slate-400 mt-4 font-bold">尚無補登申請記錄</p>
                                 </div>
                             ) : (
-                                <div className="space-y-4">
-                                    {makeupRequests.map((request) => {
-                                        const statusBadge = {
-                                            PENDING: { text: '待審核', class: 'bg-amber-50 text-amber-700 border-amber-200' },
-                                            APPROVED: { text: '已核准', class: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-                                            REJECTED: { text: '已拒絕', class: 'bg-rose-50 text-rose-700 border-rose-200' }
-                                        }[request.status] || { text: '未知', class: 'bg-slate-50 text-slate-700 border-slate-200' };
-
-                                        return (
-                                            <div key={request.id} className="bg-white rounded-2xl border border-slate-100 p-6 hover:shadow-md transition-all">
-                                                <div className="flex items-start justify-between gap-4 mb-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${request.check_type === 'IN' ? 'bg-emerald-100' : 'bg-orange-100'
-                                                            }`}>
-                                                            <span className={`material-symbols-outlined text-2xl ${request.check_type === 'IN' ? 'text-emerald-600' : 'text-orange-600'
-                                                                }`}>
-                                                                {request.check_type === 'IN' ? 'login' : 'logout'}
-                                                            </span>
-                                                        </div>
-                                                        <div>
-                                                            {viewingEmployeeId === 'all' && (
-                                                                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">
-                                                                    {request.employee?.name || '未知人員'}
-                                                                </p>
-                                                            )}
-                                                            <p className="font-black text-slate-900">
-                                                                {request.check_type === 'IN' ? '上班打卡' : '下班打卡'}
-                                                            </p>
-                                                            <p className="text-sm text-slate-500 font-medium">
-                                                                {new Date(request.request_date).toLocaleDateString('zh-TW')} {request.request_time}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <span className={`px-3 py-1 text-xs font-black rounded-lg border ${statusBadge.class}`}>
-                                                        {statusBadge.text}
-                                                    </span>
-                                                </div>
-
-                                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                                    <p className="text-xs font-bold text-slate-400 mb-1">申請原因</p>
-                                                    <p className="text-sm text-slate-700">{request.reason}</p>
-                                                </div>
-
-                                                {request.review_comment && (
-                                                    <div className="mt-3 bg-amber-50 rounded-xl p-4 border border-amber-200">
-                                                        <p className="text-xs font-bold text-amber-600 mb-1">審核備註</p>
-                                                        <p className="text-sm text-amber-700">{request.review_comment}</p>
-                                                    </div>
+                                <div className="overflow-x-auto -mx-6">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="border-b border-slate-100">
+                                                {viewingEmployeeId === 'all' && (
+                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">員工</th>
                                                 )}
+                                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">類型</th>
+                                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">日期時間</th>
+                                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">申請原因</th>
+                                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">狀態</th>
+                                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">申請時間</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {makeupRequests.map((request) => {
+                                                const statusBadge = {
+                                                    PENDING: { text: '待審核', class: 'bg-amber-50 text-amber-700 border-amber-200' },
+                                                    APPROVED: { text: '已核准', class: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+                                                    REJECTED: { text: '已拒絕', class: 'bg-rose-50 text-rose-700 border-rose-200' }
+                                                }[request.status] || { text: '未知', class: 'bg-slate-50 text-slate-700 border-slate-200' };
 
-                                                <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
-                                                    <span>申請時間：{new Date(request.created_at).toLocaleString('zh-TW')}</span>
-                                                    {request.reviewed_at && (
-                                                        <span>審核時間：{new Date(request.reviewed_at).toLocaleString('zh-TW')}</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                                return (
+                                                    <tr key={request.id} className="hover:bg-slate-50/50 transition-colors">
+                                                        {viewingEmployeeId === 'all' && (
+                                                            <td className="px-6 py-4 align-top">
+                                                                <div>
+                                                                    <p className="text-sm font-black text-slate-900">{request.employee?.name || '未知'}</p>
+                                                                    <p className="text-xs text-slate-400">{request.employee?.department || ''}</p>
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                        <td className="px-6 py-4 align-top">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`material-symbols-outlined text-lg ${request.check_type === 'IN' ? 'text-emerald-600' : 'text-orange-600'}`}>
+                                                                    {request.check_type === 'IN' ? 'login' : 'logout'}
+                                                                </span>
+                                                                <span className="text-sm font-bold text-slate-700">
+                                                                    {request.check_type === 'IN' ? '上班打卡' : '下班打卡'}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 align-top">
+                                                            <p className="text-sm font-bold text-slate-900 font-mono">
+                                                                {new Date(request.request_date).toLocaleDateString('zh-TW')}
+                                                            </p>
+                                                            <p className="text-xs text-slate-500 font-mono">
+                                                                {request.request_time}
+                                                            </p>
+                                                        </td>
+                                                        <td className="px-6 py-4 align-top">
+                                                            <p className="text-sm text-slate-700 max-w-xs">{request.reason}</p>
+                                                            {request.review_comment && (
+                                                                <p className="text-xs text-amber-600 mt-1 italic">備註：{request.review_comment}</p>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-6 py-4 align-top">
+                                                            <span className={`px-3 py-1 text-xs font-black rounded-lg border whitespace-nowrap ${statusBadge.class}`}>
+                                                                {statusBadge.text}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 align-top">
+                                                            <p className="text-xs text-slate-400 font-mono whitespace-nowrap">
+                                                                {new Date(request.created_at).toLocaleString('zh-TW', {
+                                                                    year: 'numeric',
+                                                                    month: '2-digit',
+                                                                    day: '2-digit',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit'
+                                                                })}
+                                                            </p>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
                                 </div>
                             )}
                         </div>
