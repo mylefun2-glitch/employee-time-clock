@@ -134,11 +134,41 @@ const AttendanceCalendarPage: React.FC = () => {
         }
     };
 
-    const days = useMemo(() => {
+    const weeks = useMemo(() => {
         const start = startOfMonth(currentDate);
         const end = endOfMonth(currentDate);
-        return eachDayOfInterval({ start, end });
+
+        // 取得月曆開始的第一天(週一開始)
+        const calendarStart = startOfWeek(start, { weekStartsOn: 1 });
+
+        const weeksArray: Date[][] = [];
+        let currentWeek: Date[] = [];
+
+        // 計算需要顯示的總天數 (包含填補的天數)
+        const diffDays = Math.ceil((end.getTime() - calendarStart.getTime()) / (1000 * 60 * 60 * 24));
+        const totalDaysToShow = Math.ceil((diffDays + (7 - (getDay(end) || 7) % 7 || 0)) / 7) * 7 + 7; // 多算一點確保覆蓋
+
+        // 我們直接跑 6 週通常足夠, 或者精確計算
+        let tempDate = new Date(calendarStart);
+        for (let i = 0; i < 42; i++) { // 最多 6 週
+            currentWeek.push(new Date(tempDate));
+            if (currentWeek.length === 7) {
+                weeksArray.push(currentWeek);
+                currentWeek = [];
+            }
+            tempDate.setDate(tempDate.getDate() + 1);
+
+            // 如果已經超過月底且剛好滿一週就停止
+            if (tempDate > end && currentWeek.length === 0) break;
+        }
+
+        // 確保最後一週如果不滿 7 天則不加入(雖然上面的邏輯應該會滿 7 天)
+        return weeksArray.filter(w => w.length === 7);
     }, [currentDate]);
+
+    const days = useMemo(() => {
+        return weeks.flat().filter(d => d >= startOfMonth(currentDate) && d <= endOfMonth(currentDate));
+    }, [weeks, currentDate]);
 
     const monthData = useMemo(() => {
         const data: { [key: string]: { logs: AttendanceLog[], leaves: LeaveRequest[], hours: number, holidayName?: string } } = {};
@@ -538,133 +568,133 @@ const AttendanceCalendarPage: React.FC = () => {
                         </div>
                     ))}
                 </div>
-                <div className="grid grid-cols-7">
-                    {/* Calendar Padding for start of month (Adjusted for Monday start) */}
-                    {Array.from({ length: (getDay(startOfMonth(currentDate)) + 6) % 7 }).map((_, i) => (
-                        <div key={`pad-${i}`} className="min-h-[140px] bg-slate-50/20 border-r border-b border-slate-100" />
-                    ))}
+                <div className="divide-y divide-slate-100">
+                    {weeks.map((week, weekIndex) => (
+                        <div key={`week-${weekIndex}`} className="grid grid-cols-7">
+                            {week.map(day => {
+                                const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+                                if (!isCurrentMonth) {
+                                    return (
+                                        <div key={day.toISOString()} className="min-h-[80px] bg-slate-50/20 border-r last:border-r-0 border-slate-100" />
+                                    );
+                                }
 
-                    {days.map(day => {
-                        const dateKey = format(day, 'yyyy-MM-dd');
-                        const dayInfo = monthData[dateKey];
-                        const isToday = isSameDay(day, new Date());
-                        const holidayName = dayInfo.holidayName;
-                        const isSaturday = getDay(day) === 6;
-                        const isSunday = getDay(day) === 0;
+                                const dateKey = format(day, 'yyyy-MM-dd');
+                                const dayInfo = monthData[dateKey];
+                                const isToday = isSameDay(day, new Date());
+                                const holidayName = dayInfo?.holidayName;
+                                const isSaturday = getDay(day) === 6;
+                                const isSunday = getDay(day) === 0;
 
-                        return (
-                            <div
-                                key={dateKey}
-                                onClick={(e) => handleDateClick(day, e)}
-                                className={`min-h-[140px] p-3 border-r border-b border-slate-100 flex flex-col group hover:bg-slate-50/50 transition-colors cursor-pointer relative
-                                    ${holidayName ? 'bg-rose-50/30' : ''} 
-                                    ${isSaturday && !holidayName ? 'bg-amber-50/30' : ''} 
-                                    ${isSunday && !holidayName ? 'bg-slate-100/40' : ''} 
-                                    ${!holidayName && !isSaturday && !isSunday ? '' : ''}`}
-                            >
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className={`w-7 h-7 flex items-center justify-center text-sm font-black rounded-lg 
-                                            ${isToday ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' :
-                                                holidayName ? 'text-rose-600' :
-                                                    isSunday ? 'text-slate-400' :
-                                                        'text-slate-600'
-                                            }`}>
-                                            {format(day, 'd')}
-                                        </span>
-                                        {holidayName && (
-                                            <span className="text-[10px] font-bold text-rose-500 truncate max-w-[60px]" title={holidayName}>
-                                                {holidayName}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex gap-2 items-center">
-                                        <button
-                                            onClick={(e) => handleDateClick(day, e)}
-                                            className="opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all text-blue-500 hover:bg-blue-50"
-                                            title="新增打卡紀錄"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </button>
-                                        {dayInfo.logs.length > 1 && (
-                                            <button
-                                                onClick={(e) => selectAllLogsInDay(dayInfo.logs, e)}
-                                                className={`p-1 rounded-lg transition-all ${dayInfo.logs.every(l => selectedLogIds.has(l.id))
-                                                    ? 'bg-rose-50 text-rose-600 shadow-sm'
-                                                    : 'text-slate-400 hover:bg-slate-100'
-                                                    }`}
-                                                title={dayInfo.logs.every(l => selectedLogIds.has(l.id)) ? '取消全選' : '選取今日所有紀錄'}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        )}
-                                        {dayInfo.hours > 0 && (
-                                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                                                {dayInfo.hours}H
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="flex-1 space-y-1.5 overflow-y-auto max-h-[100px] scrollbar-hide">
-                                    {/* Logs */}
-                                    {dayInfo.logs.length > 0 && (
-                                        <div className="space-y-1">
-                                            {dayInfo.logs.map(log => (
-                                                <div
-                                                    key={log.id}
-                                                    onClick={(e) => toggleSelectLog(log.id, e)}
-                                                    className={`flex items-center justify-between gap-1.5 px-2 py-1 rounded-md text-[10px] font-black border group/log cursor-pointer transition-all ${selectedLogIds.has(log.id)
-                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105 z-10'
-                                                        : log.check_type === CheckType.IN
-                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                                            : 'bg-orange-50 text-orange-700 border-orange-100'
-                                                        }`}
+                                return (
+                                    <div
+                                        key={dateKey}
+                                        onClick={(e) => handleDateClick(day, e)}
+                                        className={`min-h-[80px] p-3 border-r last:border-r-0 border-slate-100 flex flex-col group hover:bg-slate-50/50 transition-colors cursor-pointer relative
+                                            ${holidayName ? 'bg-rose-50/30' : ''} 
+                                            ${isSaturday && !holidayName ? 'bg-amber-50/30' : ''} 
+                                            ${isSunday && !holidayName ? 'bg-slate-100/40' : ''}`}
+                                    >
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className={`w-7 h-7 flex items-center justify-center text-sm font-black rounded-lg 
+                                                    ${isToday ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' :
+                                                        holidayName ? 'text-rose-600' :
+                                                            isSunday ? 'text-slate-400' :
+                                                                'text-slate-600'
+                                                    }`}>
+                                                    {format(day, 'd')}
+                                                </span>
+                                                {holidayName && (
+                                                    <span className="text-[10px] font-bold text-rose-500 truncate max-w-[60px]" title={holidayName}>
+                                                        {holidayName}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-2 items-center">
+                                                <button
+                                                    onClick={(e) => handleDateClick(day, e)}
+                                                    className="opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all text-blue-500 hover:bg-blue-50"
+                                                    title="新增打卡紀錄"
                                                 >
-                                                    <div className="flex items-center gap-1.5">
-                                                        {selectedLogIds.has(log.id) ? (
-                                                            <CheckSquare className="h-3 w-3" />
-                                                        ) : (
-                                                            <span className="material-symbols-outlined text-[12px]">
-                                                                {log.check_type === CheckType.IN ? 'login' : 'logout'}
-                                                            </span>
-                                                        )}
-                                                        {format(parseISO(log.timestamp), 'HH:mm')}
-                                                    </div>
+                                                    <Plus className="h-4 w-4" />
+                                                </button>
+                                                {dayInfo?.logs?.length > 1 && (
                                                     <button
-                                                        onClick={(e) => handleDeleteClick(log.id, e)}
-                                                        className={`opacity-0 group-hover/log:opacity-100 p-0.5 rounded transition-all ${selectedLogIds.has(log.id)
-                                                            ? 'hover:bg-white/20 text-white/70 hover:text-white'
-                                                            : 'hover:bg-white text-slate-400 hover:text-rose-500'
+                                                        onClick={(e) => selectAllLogsInDay(dayInfo.logs, e)}
+                                                        className={`p-1 rounded-lg transition-all ${dayInfo.logs.every(l => selectedLogIds.has(l.id))
+                                                            ? 'bg-rose-50 text-rose-600 shadow-sm'
+                                                            : 'text-slate-400 hover:bg-slate-100'
                                                             }`}
-                                                        title="刪除紀錄"
+                                                        title={dayInfo.logs.every(l => selectedLogIds.has(l.id)) ? '取消全選' : '選取今日所有紀錄'}
                                                     >
-                                                        <Trash2 className="h-3 w-3" />
+                                                        <Trash2 className="h-4 w-4" />
                                                     </button>
+                                                )}
+                                                {dayInfo?.hours > 0 && (
+                                                    <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                                        {dayInfo.hours}H
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex-1 space-y-1.5">
+                                            {/* Logs */}
+                                            {dayInfo?.logs?.length > 0 && (
+                                                <div className="space-y-1">
+                                                    {dayInfo.logs.map(log => (
+                                                        <div
+                                                            key={log.id}
+                                                            onClick={(e) => toggleSelectLog(log.id, e)}
+                                                            className={`flex items-center justify-between gap-1.5 px-2 py-1 rounded-md text-[10px] font-black border group/log cursor-pointer transition-all ${selectedLogIds.has(log.id)
+                                                                ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105 z-10'
+                                                                : log.check_type === CheckType.IN
+                                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                                                    : 'bg-orange-50 text-orange-700 border-orange-100'
+                                                                }`}
+                                                        >
+                                                            <div className="flex items-center gap-1.5">
+                                                                {selectedLogIds.has(log.id) ? (
+                                                                    <CheckSquare className="h-3 w-3" />
+                                                                ) : (
+                                                                    <span className="material-symbols-outlined text-[12px]">
+                                                                        {log.check_type === CheckType.IN ? 'login' : 'logout'}
+                                                                    </span>
+                                                                )}
+                                                                {format(parseISO(log.timestamp), 'HH:mm')}
+                                                            </div>
+                                                            <button
+                                                                onClick={(e) => handleDeleteClick(log.id, e)}
+                                                                className={`opacity-0 group-hover/log:opacity-100 p-0.5 rounded transition-all ${selectedLogIds.has(log.id)
+                                                                    ? 'hover:bg-white/20 text-white/70 hover:text-white'
+                                                                    : 'hover:bg-white text-slate-400 hover:text-rose-500'
+                                                                    }`}
+                                                                title="刪除紀錄"
+                                                            >
+                                                                <Trash2 className="h-3 w-3" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Leaves */}
+                                            {dayInfo?.leaves?.map(leave => (
+                                                <div
+                                                    key={leave.id}
+                                                    className="px-2 py-1 rounded-md text-[10px] font-black text-white shadow-sm"
+                                                    style={{ backgroundColor: leave.leave_type?.color || '#3b82f6' }}
+                                                    title={leave.reason}
+                                                >
+                                                    {leave.leave_type?.name} {leave.hours ? `${leave.hours}H` : ''}
                                                 </div>
                                             ))}
                                         </div>
-                                    )}
-
-                                    {/* Leaves */}
-                                    {dayInfo.leaves.map(leave => (
-                                        <div
-                                            key={leave.id}
-                                            className="px-2 py-1 rounded-md text-[10px] font-black text-white shadow-sm"
-                                            style={{ backgroundColor: leave.leave_type?.color || '#3b82f6' }}
-                                            title={leave.reason}
-                                        >
-                                            {leave.leave_type?.name} {leave.hours ? `${leave.hours}H` : ''}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    })}
-
-                    {/* Fill the rest of the grid */}
-                    {Array.from({ length: (7 - ((getDay(endOfMonth(currentDate)) + 6) % 7 + 1)) % 7 }).map((_, i) => (
-                        <div key={`pad-end-${i}`} className="min-h-[140px] bg-slate-50/20 border-b border-slate-100 last:border-r-0" />
+                                    </div>
+                                );
+                            })}
+                        </div>
                     ))}
                 </div>
             </div>
@@ -750,8 +780,8 @@ const AttendanceCalendarPage: React.FC = () => {
                                     <button
                                         onClick={() => setNewLogCheckType(CheckType.IN)}
                                         className={`py-3 px-4 rounded-xl text-sm font-black transition-all ${newLogCheckType === CheckType.IN
-                                                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100'
-                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100'
+                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                             }`}
                                     >
                                         上班
@@ -759,8 +789,8 @@ const AttendanceCalendarPage: React.FC = () => {
                                     <button
                                         onClick={() => setNewLogCheckType(CheckType.OUT)}
                                         className={`py-3 px-4 rounded-xl text-sm font-black transition-all ${newLogCheckType === CheckType.OUT
-                                                ? 'bg-orange-500 text-white shadow-md shadow-orange-100'
-                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            ? 'bg-orange-500 text-white shadow-md shadow-orange-100'
+                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                             }`}
                                     >
                                         下班

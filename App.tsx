@@ -25,6 +25,7 @@ const EmployeeDashboardPage = lazy(() => import('./pages/employee/EmployeeDashbo
 const EmployeeProfilePage = lazy(() => import('./pages/employee/EmployeeProfilePage'));
 const EmployeeRequestsPage = lazy(() => import('./pages/employee/EmployeeRequestsPage'));
 const EmployeeAttendancePage = lazy(() => import('./pages/employee/EmployeeAttendancePage'));
+const EmployeeCalendarPage = lazy(() => import('./pages/employee/EmployeeCalendarPage'));
 const EmployeeApprovalsPage = lazy(() => import('./pages/employee/EmployeeApprovalsPage'));
 
 const App: React.FC = () => {
@@ -60,6 +61,7 @@ const App: React.FC = () => {
                 <Route path="profile" element={<EmployeeProfilePage />} />
                 <Route path="requests" element={<EmployeeRequestsPage />} />
                 <Route path="attendance" element={<EmployeeAttendancePage />} />
+                <Route path="calendar" element={<EmployeeCalendarPage />} />
                 <Route path="approvals" element={<EmployeeApprovalsPage />} />
                 <Route path="makeup-approvals" element={<MakeupRequestsPage />} />
               </Route>

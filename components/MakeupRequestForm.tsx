@@ -5,13 +5,15 @@ interface MakeupRequestFormProps {
     employeeId: string;
     onClose: () => void;
     onSuccess: () => void;
+    initialDate?: string;
+    initialType?: 'IN' | 'OUT';
 }
 
-const MakeupRequestForm: React.FC<MakeupRequestFormProps> = ({ employeeId, onClose, onSuccess }) => {
+const MakeupRequestForm: React.FC<MakeupRequestFormProps> = ({ employeeId, onClose, onSuccess, initialDate, initialType }) => {
     const [formData, setFormData] = useState({
-        requestDate: '',
-        checkType: 'IN' as 'IN' | 'OUT',
-        requestTime: '',
+        requestDate: initialDate || '',
+        checkType: initialType || 'IN',
+        requestTime: '09:00',
         reason: ''
     });
     const [submitting, setSubmitting] = useState(false);
