@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Employee } from '../types';
+import { Employee, CheckType } from '../types';
 
 export interface DashboardStats {
     totalEmployees: number;
@@ -401,3 +401,30 @@ export const batchRejectMakeupRequests = async (
     }
 };
 
+/**
+ * 管理者直接新增打卡紀錄(用於補登漏卡)
+ */
+export const createAttendanceLog = async (
+    employeeId: string,
+    checkType: CheckType,
+    timestamp: string,
+    note?: string
+): Promise<{ success: boolean; error?: string }> => {
+    try {
+        const { error } = await supabase
+            .from('attendance_logs')
+            .insert([{
+                employee_id: employeeId,
+                check_type: checkType,
+                timestamp: timestamp,
+                is_makeup: true,
+                note: note || null
+            }]);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error creating attendance log:', error);
+        return { success: false, error: error.message };
+    }
+};

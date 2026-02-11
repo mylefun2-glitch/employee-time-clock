@@ -3,8 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, parseISO, addMonths, subMonths, startOfWeek } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X, CheckSquare, Square, Info, Search } from 'lucide-react';
-import { deleteAttendanceLog, deleteAttendanceLogs } from '../../services/admin';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X, CheckSquare, Square, Info, Search, Plus } from 'lucide-react';
+import { deleteAttendanceLog, deleteAttendanceLogs, createAttendanceLog } from '../../services/admin';
 import { Employee, CheckType } from '../../types';
 import { isNationalHoliday } from '../../lib/holidays';
 import { sortByNameStroke } from '../../lib/nameStrokeSort';
@@ -57,6 +57,14 @@ const AttendanceCalendarPage: React.FC = () => {
     const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
     const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
     const employeeDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Add Log State
+    const [isAddLogModalOpen, setIsAddLogModalOpen] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+    const [newLogCheckType, setNewLogCheckType] = useState<CheckType>(CheckType.IN);
+    const [newLogTime, setNewLogTime] = useState('09:00');
+    const [newLogNote, setNewLogNote] = useState('');
+    const [isSubmittingLog, setIsSubmittingLog] = useState(false);
 
     // 民國年度轉換
     const rocYear = currentDate.getFullYear() - 1911;
@@ -346,6 +354,48 @@ const AttendanceCalendarPage: React.FC = () => {
         setSelectedLogIds(newSelected);
     };
 
+    const handleDateClick = (day: Date, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSelectedDate(day);
+        setNewLogCheckType(CheckType.IN);
+        setNewLogTime('09:00');
+        setNewLogNote('');
+        setIsAddLogModalOpen(true);
+    };
+
+    const handleSubmitNewLog = async () => {
+        if (!selectedDate || !selectedEmployeeId) return;
+
+        setIsSubmittingLog(true);
+        try {
+            // 組合日期和時間
+            const [hours, minutes] = newLogTime.split(':');
+            const timestamp = new Date(selectedDate);
+            timestamp.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+            const result = await createAttendanceLog(
+                selectedEmployeeId,
+                newLogCheckType,
+                timestamp.toISOString(),
+                newLogNote || undefined
+            );
+
+            if (result.success) {
+                await fetchData();
+                setIsAddLogModalOpen(false);
+                setSelectedDate(null);
+                setNewLogNote('');
+            } else {
+                alert(`新增失敗: ${result.error || '未知錯誤'}`);
+            }
+        } catch (error) {
+            console.error('Error submitting new log:', error);
+            alert('系統錯誤');
+        } finally {
+            setIsSubmittingLog(false);
+        }
+    };
+
     return (
         <div className="space-y-6 print:space-y-4 print:p-0">
             {/* Header & Filters */}
@@ -505,7 +555,8 @@ const AttendanceCalendarPage: React.FC = () => {
                         return (
                             <div
                                 key={dateKey}
-                                className={`min-h-[140px] p-3 border-r border-b border-slate-100 flex flex-col group hover:bg-slate-50/50 transition-colors 
+                                onClick={(e) => handleDateClick(day, e)}
+                                className={`min-h-[140px] p-3 border-r border-b border-slate-100 flex flex-col group hover:bg-slate-50/50 transition-colors cursor-pointer relative
                                     ${holidayName ? 'bg-rose-50/30' : ''} 
                                     ${isSaturday && !holidayName ? 'bg-amber-50/30' : ''} 
                                     ${isSunday && !holidayName ? 'bg-slate-100/40' : ''} 
@@ -528,6 +579,13 @@ const AttendanceCalendarPage: React.FC = () => {
                                         )}
                                     </div>
                                     <div className="flex gap-2 items-center">
+                                        <button
+                                            onClick={(e) => handleDateClick(day, e)}
+                                            className="opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all text-blue-500 hover:bg-blue-50"
+                                            title="新增打卡紀錄"
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                        </button>
                                         {dayInfo.logs.length > 1 && (
                                             <button
                                                 onClick={(e) => selectAllLogsInDay(dayInfo.logs, e)}
@@ -643,6 +701,111 @@ const AttendanceCalendarPage: React.FC = () => {
                                 className="flex-1 py-5 text-sm font-black text-rose-500 hover:bg-rose-50 transition-colors"
                             >
                                 {isDeleting ? '處理中...' : '確定刪除'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Log Modal */}
+            {isAddLogModalOpen && selectedDate && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-100">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                                        <Plus className="h-5 w-5 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-slate-900">新增打卡紀錄</h3>
+                                        <p className="text-xs text-slate-500 font-medium">
+                                            {format(selectedDate, 'yyyy年MM月dd日', { locale: zhTW })}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setIsAddLogModalOpen(false)}
+                                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                                >
+                                    <X className="h-5 w-5 text-slate-400" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            {/* 員工資訊 */}
+                            <div className="bg-slate-50 rounded-xl p-4">
+                                <div className="text-xs font-bold text-slate-500 mb-1">員工</div>
+                                <div className="text-sm font-black text-slate-900">{selectedEmployee?.name}</div>
+                                {selectedEmployee?.department && (
+                                    <div className="text-xs text-slate-500 font-medium">{selectedEmployee.department}</div>
+                                )}
+                            </div>
+
+                            {/* 打卡類型 */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-2">打卡類型</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        onClick={() => setNewLogCheckType(CheckType.IN)}
+                                        className={`py-3 px-4 rounded-xl text-sm font-black transition-all ${newLogCheckType === CheckType.IN
+                                                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100'
+                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            }`}
+                                    >
+                                        上班
+                                    </button>
+                                    <button
+                                        onClick={() => setNewLogCheckType(CheckType.OUT)}
+                                        className={`py-3 px-4 rounded-xl text-sm font-black transition-all ${newLogCheckType === CheckType.OUT
+                                                ? 'bg-orange-500 text-white shadow-md shadow-orange-100'
+                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            }`}
+                                    >
+                                        下班
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* 時間 */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-2">時間</label>
+                                <input
+                                    type="time"
+                                    value={newLogTime}
+                                    onChange={(e) => setNewLogTime(e.target.value)}
+                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                />
+                            </div>
+
+                            {/* 備註 */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-2">備註 (選填)</label>
+                                <textarea
+                                    value={newLogNote}
+                                    onChange={(e) => setNewLogNote(e.target.value)}
+                                    placeholder="例如:補登漏卡"
+                                    rows={3}
+                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex border-t border-slate-100">
+                            <button
+                                onClick={() => setIsAddLogModalOpen(false)}
+                                disabled={isSubmittingLog}
+                                className="flex-1 py-5 text-sm font-black text-slate-400 hover:bg-slate-50 transition-colors border-r border-slate-100"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleSubmitNewLog}
+                                disabled={isSubmittingLog}
+                                className="flex-1 py-5 text-sm font-black text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                            >
+                                {isSubmittingLog ? '處理中...' : '確定新增'}
                             </button>
                         </div>
                     </div>
