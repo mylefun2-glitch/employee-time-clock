@@ -411,10 +411,7 @@ const EmployeeApprovalsPage: React.FC = () => {
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">結束日期</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">事由</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">附件</th>
-                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">審核狀態</th>
-                                    {filter === 'PENDING' && (
-                                        <th className="px-4 py-3 text-right text-xs font-black text-slate-500 uppercase tracking-wider">操作</th>
-                                    )}
+                                    <th className="px-4 py-3 text-xs font-black text-slate-500 uppercase tracking-wider text-right">審核</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -476,44 +473,45 @@ const EmployeeApprovalsPage: React.FC = () => {
                                                     <span className="text-xs text-slate-300">-</span>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-4">
-                                                {request.requires_chairman_approval ? (
-                                                    <div className="flex flex-col gap-1">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className={`w-2 h-2 rounded-full ${request.supervisor_approved_at ? 'bg-emerald-500' : 'bg-slate-300'
-                                                                }`}></span>
-                                                            <span className="text-xs font-bold text-slate-600">主管</span>
+                                            <td className="px-4 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-6">
+                                                    {/* 狀態顯示 (僅在需要理事長審核時顯示進度) */}
+                                                    {request.requires_chairman_approval && (
+                                                        <div className="flex flex-col items-end">
+                                                            <div className="flex flex-col gap-1">
+                                                                <div className="flex items-center gap-1.5 justify-end">
+                                                                    <span className={`w-2 h-2 rounded-full ${request.supervisor_approved_at ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                                                                    <span className="text-xs font-bold text-slate-600">主管</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1.5 justify-end">
+                                                                    <span className={`w-2 h-2 rounded-full ${request.chairman_approved_at ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                                                                    <span className="text-xs font-bold text-slate-600">理事長</span>
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className={`w-2 h-2 rounded-full ${request.chairman_approved_at ? 'bg-emerald-500' : 'bg-slate-300'
-                                                                }`}></span>
-                                                            <span className="text-xs font-bold text-slate-600">理事長</span>
+                                                    )}
+
+                                                    {/* 操作按鈕 (僅在 PENDING 且有權限時顯示) */}
+                                                    {filter === 'PENDING' && (
+                                                        <div className={`flex items-center gap-2 ${request.requires_chairman_approval ? 'border-l border-slate-100 pl-6' : ''}`}>
+                                                            <button
+                                                                onClick={() => handleReviewClick(request.id, 'reject')}
+                                                                disabled={isProcessing}
+                                                                className="px-4 py-2 bg-rose-50 text-rose-600 rounded-lg text-xs font-black hover:bg-rose-100 transition-all disabled:opacity-50"
+                                                            >
+                                                                拒絕
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleReviewClick(request.id, 'approve')}
+                                                                disabled={isProcessing}
+                                                                className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-black hover:bg-emerald-700 transition-all disabled:opacity-50 shadow-lg shadow-emerald-100"
+                                                            >
+                                                                {isProcessing ? '...' : '核准'}
+                                                            </button>
                                                         </div>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-xs font-bold text-slate-500">單層審核</span>
-                                                )}
+                                                    )}
+                                                </div>
                                             </td>
-                                            {filter === 'PENDING' && (
-                                                <td className="px-4 py-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        <button
-                                                            onClick={() => handleReviewClick(request.id, 'reject')}
-                                                            disabled={isProcessing}
-                                                            className="px-4 py-2 bg-rose-50 text-rose-600 rounded-lg text-xs font-black hover:bg-rose-100 transition-all disabled:opacity-50"
-                                                        >
-                                                            拒絕
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleReviewClick(request.id, 'approve')}
-                                                            disabled={isProcessing}
-                                                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-black hover:bg-emerald-700 transition-all disabled:opacity-50"
-                                                        >
-                                                            {isProcessing ? '...' : '核准'}
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            )}
                                         </tr>
                                     );
                                 })}
