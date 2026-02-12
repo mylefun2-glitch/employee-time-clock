@@ -4,6 +4,7 @@ import { requestService } from '../../services/requestService';
 import LeaveRequestForm from '../../components/LeaveRequestForm';
 import ModificationRequestForm from '../../components/ModificationRequestForm';
 import { LeaveRequest } from '../../types';
+import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 
 const EmployeeRequestsPage: React.FC = () => {
     const { employee } = useEmployee();
@@ -13,6 +14,17 @@ const EmployeeRequestsPage: React.FC = () => {
     const [showForm, setShowForm] = useState(false);
     const [showModificationForm, setShowModificationForm] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
+
+    // 欄位篩選狀態
+    const [columnFilters, setColumnFilters] = useState<{
+        leaveType: string[];
+        reason: string[];
+        deputy: string[];
+    }>({
+        leaveType: [],
+        reason: [],
+        deputy: []
+    });
 
     useEffect(() => {
         if (employee) {
@@ -63,7 +75,23 @@ const EmployeeRequestsPage: React.FC = () => {
         }
     };
 
-    const filteredRequests = requests.filter(req => filter === 'ALL' || req.status === filter);
+    const filteredRequests = requests
+        .filter(req => filter === 'ALL' || req.status === filter)
+        .filter(req => {
+            // 應用類型篩選
+            const leaveTypeMatch = columnFilters.leaveType.length === 0 ||
+                columnFilters.leaveType.includes(req.leave_type?.name || '差勤申請');
+
+            // 應用事由篩選
+            const reasonMatch = columnFilters.reason.length === 0 ||
+                columnFilters.reason.includes(req.reason || '-');
+
+            // 應用職代篩選
+            const deputyMatch = columnFilters.deputy.length === 0 ||
+                columnFilters.deputy.includes(req.deputy?.name || '未指定');
+
+            return leaveTypeMatch && reasonMatch && deputyMatch;
+        });
 
     const getCount = (status: 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED') => {
         if (status === 'ALL') return requests.length;
@@ -124,12 +152,30 @@ const EmployeeRequestsPage: React.FC = () => {
                         <table className="w-full">
                             <thead className="bg-slate-50 border-b border-slate-100">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">類型</th>
-                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">開始時間</th>
-                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">結束時間</th>
-                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">事由</th>
-                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">職代</th>
+                                    <TableHeaderFilter
+                                        columnKey="leaveType"
+                                        label="類型"
+                                        values={requests.map(r => r.leave_type?.name || '差勤申請')}
+                                        selectedValues={columnFilters.leaveType}
+                                        onChange={(values) => setColumnFilters({ ...columnFilters, leaveType: values })}
+                                    />
+                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">期間</th>
+                                    <TableHeaderFilter
+                                        columnKey="reason"
+                                        label="事由"
+                                        values={requests.map(r => r.reason || '-')}
+                                        selectedValues={columnFilters.reason}
+                                        onChange={(values) => setColumnFilters({ ...columnFilters, reason: values })}
+                                    />
+                                    <TableHeaderFilter
+                                        columnKey="deputy"
+                                        label="職代"
+                                        values={requests.map(r => r.deputy?.name || '未指定')}
+                                        selectedValues={columnFilters.deputy}
+                                        onChange={(values) => setColumnFilters({ ...columnFilters, deputy: values })}
+                                    />
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">狀態</th>
+                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">附件</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">申請時間</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">操作</th>
                                 </tr>
@@ -157,24 +203,26 @@ const EmployeeRequestsPage: React.FC = () => {
                                             </td>
                                             <td className="px-4 py-4">
                                                 <div className="text-sm font-mono text-slate-700">
-                                                    {new Date(request.start_date).toLocaleString('zh-TW', {
-                                                        year: 'numeric',
-                                                        month: '2-digit',
-                                                        day: '2-digit',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit'
-                                                    })}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-4">
-                                                <div className="text-sm font-mono text-slate-700">
-                                                    {new Date(request.end_date).toLocaleString('zh-TW', {
-                                                        year: 'numeric',
-                                                        month: '2-digit',
-                                                        day: '2-digit',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit'
-                                                    })}
+                                                    {(() => {
+                                                        const startDate = new Date(request.start_date);
+                                                        const endDate = new Date(request.end_date);
+                                                        const dateStr = startDate.toLocaleDateString('zh-TW', {
+                                                            year: 'numeric',
+                                                            month: '2-digit',
+                                                            day: '2-digit'
+                                                        });
+                                                        const startTime = startDate.toLocaleTimeString('zh-TW', {
+                                                            hour: '2-digit',
+                                                            minute: '2-digit',
+                                                            hour12: false
+                                                        });
+                                                        const endTime = endDate.toLocaleTimeString('zh-TW', {
+                                                            hour: '2-digit',
+                                                            minute: '2-digit',
+                                                            hour12: false
+                                                        });
+                                                        return `${dateStr} ${startTime}～${endTime}`;
+                                                    })()}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4 max-w-xs">
@@ -184,17 +232,7 @@ const EmployeeRequestsPage: React.FC = () => {
                                             </td>
                                             <td className="px-4 py-4">
                                                 {request.deputy ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
-                                                            <span className="text-purple-600 text-xs font-bold">
-                                                                {request.deputy.name.charAt(0)}
-                                                            </span>
-                                                        </div>
-                                                        <div>
-                                                            <div className="text-sm font-bold text-slate-900">{request.deputy.name}</div>
-                                                            <div className="text-xs text-slate-500">{request.deputy.department}</div>
-                                                        </div>
-                                                    </div>
+                                                    <div className="text-sm font-bold text-slate-900">{request.deputy.name}</div>
                                                 ) : (
                                                     <span className="text-xs text-slate-400">未指定</span>
                                                 )}
@@ -203,6 +241,22 @@ const EmployeeRequestsPage: React.FC = () => {
                                                 <span className={`px-3 py-1.5 text-xs font-black rounded-lg border inline-block ${status.class}`}>
                                                     {status.text}
                                                 </span>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                {request.attachment_url ? (
+                                                    <a
+                                                        href={request.attachment_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-700 font-bold text-xs"
+                                                        title={request.attachment_name || '查看附件'}
+                                                    >
+                                                        <span className="material-symbols-outlined text-sm">attach_file</span>
+                                                        查看
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-xs text-slate-300">-</span>
+                                                )}
                                             </td>
                                             <td className="px-4 py-4">
                                                 <div className="flex flex-col gap-1">

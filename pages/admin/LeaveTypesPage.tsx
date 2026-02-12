@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { leaveTypeService } from '../../services/leaveTypeService';
 import { LeaveType } from '../../types';
-import { Pencil, Power, Plus, X } from 'lucide-react';
+import { Pencil, Power, Plus, X, FilterX } from 'lucide-react';
+import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 
 const LeaveTypesPage: React.FC = () => {
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
@@ -14,6 +15,15 @@ const LeaveTypesPage: React.FC = () => {
         color: '#3B82F6',
         is_active: true,
         sort_order: 0
+    });
+
+    // 篩選狀態
+    const [filters, setFilters] = useState<{
+        name: string[];
+        status: boolean[];
+    }>({
+        name: [],
+        status: []
     });
 
     // 確認對話框狀態
@@ -111,6 +121,22 @@ const LeaveTypesPage: React.FC = () => {
         setShowForm(false);
     };
 
+    // 篩選邏輯
+    const filteredLeaveTypes = leaveTypes.filter(type => {
+        const nameMatch = filters.name.length === 0 || filters.name.includes(type.name);
+        const statusMatch = filters.status.length === 0 || filters.status.includes(type.is_active);
+        return nameMatch && statusMatch;
+    });
+
+    const hasActiveFilters = filters.name.length > 0 || filters.status.length > 0;
+
+    const clearAllFilters = () => {
+        setFilters({
+            name: [],
+            status: []
+        });
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -126,13 +152,24 @@ const LeaveTypesPage: React.FC = () => {
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">差勤類型管理</h1>
                     <p className="text-sm text-slate-500 font-medium mt-1">管理與設定員工可申請的各類差勤項目。</p>
                 </div>
-                <button
-                    onClick={() => setShowForm(true)}
-                    className="w-full lg:w-auto inline-flex items-center justify-center px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all gap-2 text-sm"
-                >
-                    <Plus className="h-5 w-5" />
-                    新增類型
-                </button>
+                <div className="flex gap-3">
+                    {hasActiveFilters && (
+                        <button
+                            onClick={clearAllFilters}
+                            className="inline-flex items-center justify-center px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all gap-2 text-sm"
+                        >
+                            <FilterX className="h-5 w-5" />
+                            清除篩選
+                        </button>
+                    )}
+                    <button
+                        onClick={() => setShowForm(true)}
+                        className="w-full lg:w-auto inline-flex items-center justify-center px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all gap-2 text-sm"
+                    >
+                        <Plus className="h-5 w-5" />
+                        新增類型
+                    </button>
+                </div>
             </div>
 
             {/* 差勤類型列表 */}
@@ -141,21 +178,34 @@ const LeaveTypesPage: React.FC = () => {
                     <table className="min-w-full divide-y divide-slate-100">
                         <thead className="bg-slate-50/50">
                             <tr>
-                                <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">類型名稱</th>
+                                <TableHeaderFilter
+                                    columnKey="name"
+                                    label="類型名稱"
+                                    values={leaveTypes.map(t => t.name)}
+                                    selectedValues={filters.name}
+                                    onChange={(values) => setFilters({ ...filters, name: values })}
+                                />
                                 <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">排序</th>
-                                <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">狀態</th>
+                                <TableHeaderFilter<boolean>
+                                    columnKey="status"
+                                    label="狀態"
+                                    values={[true, false]}
+                                    selectedValues={filters.status}
+                                    onChange={(values) => setFilters({ ...filters, status: values })}
+                                    valueFormatter={(v) => v ? '啟用中' : '已停用'}
+                                />
                                 <th className="px-6 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">操作</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-50">
-                            {leaveTypes.length === 0 ? (
+                            {filteredLeaveTypes.length === 0 ? (
                                 <tr>
                                     <td colSpan={4} className="px-6 py-20 text-center text-slate-400 font-black text-base">
-                                        目前沒有已設定的差勤類型
+                                        {leaveTypes.length === 0 ? '目前沒有已設定的差勤類型' : '沒有符合篩選條件的類型'}
                                     </td>
                                 </tr>
                             ) : (
-                                leaveTypes.map((type) => (
+                                filteredLeaveTypes.map((type) => (
                                     <tr key={type.id} className="hover:bg-slate-50/50 transition-colors">
                                         <td className="px-6 py-5 whitespace-nowrap">
                                             <div className="flex items-center gap-3">

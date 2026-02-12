@@ -6,6 +6,7 @@ import { Employee } from '../../types';
 import { createEmployee, updateEmployee, deleteEmployee } from '../../services/admin';
 import EmployeeModal from '../../components/admin/EmployeeModal';
 import { calculateSeniority, getSeniorityRange } from '../../lib/hrUtils';
+import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 
 interface ImportResult {
     success: number;
@@ -73,9 +74,23 @@ const EmployeesPage: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const navigate = useNavigate();
 
-    // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+
+    // 表格標題篩選狀態
+    const [columnFilters, setColumnFilters] = useState<{
+        name: string[];
+        gender: string[];
+        department: string[];
+        seniorityRange: string[];
+        status: boolean[];
+    }>({
+        name: [],
+        gender: [],
+        department: [],
+        seniorityRange: [],
+        status: []
+    });
 
     useEffect(() => {
         fetchEmployees();
@@ -265,13 +280,30 @@ const EmployeesPage: React.FC = () => {
 
     const filteredEmployees = employees
         .filter(emp => {
+            // 搜尋篩選
             const matchesSearch = (
                 emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 emp.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 emp.pin.includes(searchTerm)
             );
+            // 部門下拉篩選
             const matchesDept = selectedDept === 'ALL' || (emp.department || '未分配') === selectedDept;
-            return matchesSearch && matchesDept;
+
+            // 表格欄位篩選
+            const nameMatch = columnFilters.name.length === 0 || columnFilters.name.includes(emp.name);
+            const genderMatch = columnFilters.gender.length === 0 ||
+                columnFilters.gender.includes(emp.gender === 'MALE' ? '男' : emp.gender === 'FEMALE' ? '女' : emp.gender === 'OTHER' ? '其他' : '-');
+            const deptMatch = columnFilters.department.length === 0 ||
+                columnFilters.department.includes(emp.department || '未分配');
+            const seniority = emp.join_date ? calculateSeniority(emp.join_date) : 0;
+            const range = emp.join_date ? getSeniorityRange(seniority) : '未設定';
+            const seniorityMatch = columnFilters.seniorityRange.length === 0 ||
+                columnFilters.seniorityRange.includes(range);
+            const statusMatch = columnFilters.status.length === 0 ||
+                columnFilters.status.includes(emp.is_active);
+
+            return matchesSearch && matchesDept && nameMatch && genderMatch &&
+                deptMatch && seniorityMatch && statusMatch;
         })
         .sort((a, b) => {
             const direction = sortConfig.direction === 'asc' ? 1 : -1;
@@ -368,60 +400,58 @@ const EmployeesPage: React.FC = () => {
                     <table className="min-w-full divide-y divide-slate-100">
                         <thead className="bg-slate-50/50">
                             <tr>
-                                <th
-                                    className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-blue-600 transition-colors group"
-                                    onClick={() => handleSort('name')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        姓名 / 職務
-                                        {sortConfig.key === 'name' ? (
-                                            sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                                        ) : (
-                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-                                        )}
-                                    </div>
-                                </th>
-                                <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">性別</th>
-                                <th
-                                    className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-blue-600 transition-colors group"
-                                    onClick={() => handleSort('department')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        部門
-                                        {sortConfig.key === 'department' ? (
-                                            sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                                        ) : (
-                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-                                        )}
-                                    </div>
-                                </th>
-                                <th
-                                    className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-blue-600 transition-colors group"
-                                    onClick={() => handleSort('seniority')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        年資
-                                        {sortConfig.key === 'seniority' ? (
-                                            sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                                        ) : (
-                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-                                        )}
-                                    </div>
-                                </th>
+                                <TableHeaderFilter
+                                    columnKey="name"
+                                    label="姓名 / 職務"
+                                    values={employees.map(e => e.name)}
+                                    selectedValues={columnFilters.name}
+                                    onChange={(values) => setColumnFilters({ ...columnFilters, name: values })}
+                                    sortable={true}
+                                    sortConfig={sortConfig.key === 'name' ? sortConfig : null}
+                                    onSort={() => handleSort('name')}
+                                />
+                                <TableHeaderFilter
+                                    columnKey="gender"
+                                    label="性別"
+                                    values={employees.map(e => e.gender === 'MALE' ? '男' : e.gender === 'FEMALE' ? '女' : e.gender === 'OTHER' ? '其他' : '-')}
+                                    selectedValues={columnFilters.gender}
+                                    onChange={(values) => setColumnFilters({ ...columnFilters, gender: values })}
+                                />
+                                <TableHeaderFilter
+                                    columnKey="department"
+                                    label="部門"
+                                    values={employees.map(e => e.department || '未分配')}
+                                    selectedValues={columnFilters.department}
+                                    onChange={(values) => setColumnFilters({ ...columnFilters, department: values })}
+                                    sortable={true}
+                                    sortConfig={sortConfig.key === 'department' ? sortConfig : null}
+                                    onSort={() => handleSort('department')}
+                                />
+                                <TableHeaderFilter
+                                    columnKey="seniority"
+                                    label="年資"
+                                    values={employees.map(e => {
+                                        const seniority = e.join_date ? calculateSeniority(e.join_date) : 0;
+                                        return e.join_date ? getSeniorityRange(seniority) : '未設定';
+                                    })}
+                                    selectedValues={columnFilters.seniorityRange}
+                                    onChange={(values) => setColumnFilters({ ...columnFilters, seniorityRange: values })}
+                                    sortable={true}
+                                    sortConfig={sortConfig.key === 'seniority' ? sortConfig : null}
+                                    onSort={() => handleSort('seniority')}
+                                />
                                 <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">PIN 碼</th>
-                                <th
-                                    className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-blue-600 transition-colors group"
-                                    onClick={() => handleSort('is_active')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        狀態
-                                        {sortConfig.key === 'is_active' ? (
-                                            sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                                        ) : (
-                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-                                        )}
-                                    </div>
-                                </th>
+                                <TableHeaderFilter<boolean>
+                                    columnKey="is_active"
+                                    label="狀態"
+                                    values={[true, false]}
+                                    selectedValues={columnFilters.status}
+                                    onChange={(values) => setColumnFilters({ ...columnFilters, status: values })}
+                                    valueFormatter={(v) => v ? '在職' : '離職'}
+                                    sortable={true}
+                                    sortConfig={sortConfig.key === 'is_active' ? sortConfig : null}
+                                    onSort={() => handleSort('is_active')}
+                                />
                                 <th className="px-6 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">操作</th>
                             </tr>
                         </thead>

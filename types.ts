@@ -64,6 +64,13 @@ export interface LeaveRequest {
   is_modified?: boolean;             // 標記此申請是否已被變更
   modified_by_request_id?: string;   // 如果此申請已被變更,指向新申請的 ID
   modification_reason?: string;      // 變更原因
+
+  // 附件相關欄位
+  attachment_drive_id?: string;      // Google Drive 檔案 ID
+  attachment_name?: string;          // 原始檔案名稱
+  attachment_url?: string;           // 檔案預覽連結
+  attachment_expires_at?: string;    // 附件自動刪除時間
+
   original_request?: LeaveRequest;   // 包含原始申請資訊
   modified_request?: LeaveRequest;   // 包含變更後的申請資訊
 }

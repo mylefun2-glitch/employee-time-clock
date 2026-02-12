@@ -62,8 +62,8 @@ const AttendanceCalendarPage: React.FC = () => {
     const [isAddLogModalOpen, setIsAddLogModalOpen] = useState(false);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [newLogCheckType, setNewLogCheckType] = useState<CheckType>(CheckType.IN);
-    const [newLogTime, setNewLogTime] = useState('09:00');
-    const [newLogNote, setNewLogNote] = useState('');
+    const [newLogTime, setNewLogTime] = useState('08:00');
+    const [newLogNote, setNewLogNote] = useState('漏卡補登');
     const [isSubmittingLog, setIsSubmittingLog] = useState(false);
 
     // 民國年度轉換
@@ -388,8 +388,8 @@ const AttendanceCalendarPage: React.FC = () => {
         e.stopPropagation();
         setSelectedDate(day);
         setNewLogCheckType(CheckType.IN);
-        setNewLogTime('09:00');
-        setNewLogNote('');
+        setNewLogTime('08:00');
+        setNewLogNote('漏卡補登');
         setIsAddLogModalOpen(true);
     };
 
@@ -414,7 +414,7 @@ const AttendanceCalendarPage: React.FC = () => {
                 await fetchData();
                 setIsAddLogModalOpen(false);
                 setSelectedDate(null);
-                setNewLogNote('');
+                setNewLogNote('漏卡補登');
             } else {
                 alert(`新增失敗: ${result.error || '未知錯誤'}`);
             }
@@ -778,7 +778,10 @@ const AttendanceCalendarPage: React.FC = () => {
                                 <label className="block text-xs font-bold text-slate-700 mb-2">打卡類型</label>
                                 <div className="grid grid-cols-2 gap-2">
                                     <button
-                                        onClick={() => setNewLogCheckType(CheckType.IN)}
+                                        onClick={() => {
+                                            setNewLogCheckType(CheckType.IN);
+                                            setNewLogTime('08:00');
+                                        }}
                                         className={`py-3 px-4 rounded-xl text-sm font-black transition-all ${newLogCheckType === CheckType.IN
                                             ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100'
                                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -787,7 +790,10 @@ const AttendanceCalendarPage: React.FC = () => {
                                         上班
                                     </button>
                                     <button
-                                        onClick={() => setNewLogCheckType(CheckType.OUT)}
+                                        onClick={() => {
+                                            setNewLogCheckType(CheckType.OUT);
+                                            setNewLogTime('17:00');
+                                        }}
                                         className={`py-3 px-4 rounded-xl text-sm font-black transition-all ${newLogCheckType === CheckType.OUT
                                             ? 'bg-orange-500 text-white shadow-md shadow-orange-100'
                                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'

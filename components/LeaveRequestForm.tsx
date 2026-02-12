@@ -24,6 +24,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
     const [selectedCarId, setSelectedCarId] = useState<string>('');
     const [employees, setEmployees] = useState<any[]>([]);
     const [selectedDeputyId, setSelectedDeputyId] = useState<string>('');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
     useEffect(() => {
         loadLeaveTypes();
@@ -186,6 +188,23 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
         setError(null);
 
         try {
+            let attachmentInfo = {};
+
+            // 如果有選取檔案，先上傳
+            if (selectedFile) {
+                setUploadProgress(10); // 模擬進度開始
+                const { data: uploadData, error: uploadError } = await requestService.uploadAttachment(selectedFile);
+                if (uploadError) throw new Error(`附件上傳失敗: ${uploadError}`);
+
+                attachmentInfo = {
+                    attachment_drive_id: uploadData.driveId,
+                    attachment_name: selectedFile.name,
+                    attachment_url: uploadData.url,
+                    attachment_expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() // 3 個月後
+                };
+                setUploadProgress(100);
+            }
+
             await requestService.createRequest({
                 employee_id: employeeId,
                 type: 'LEAVE' as any,
@@ -195,13 +214,15 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                 reason,
                 hours: totalHours,
                 car_id: needCar ? selectedCarId : undefined,
-                deputy_id: selectedDeputyId || undefined
+                deputy_id: selectedDeputyId || undefined,
+                ...attachmentInfo
             });
             onSuccess();
         } catch (err: any) {
             setError(err.message || '提交失敗，請稍後再試');
         } finally {
             setIsSubmitting(false);
+            setUploadProgress(0);
         }
     };
 
@@ -364,11 +385,58 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                         expand_more
                                     </span>
                                 </div>
-                                {selectedDeputyId && (
-                                    <p className="text-xs text-slate-500 mt-2 ml-1">
-                                        已選擇 {employees.find(e => e.id === selectedDeputyId)?.name} 作為職務代理人
-                                    </p>
-                                )}
+                            </div>
+
+                            {/* 附件上傳 */}
+                            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
+                                <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3 ml-1 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-sm">attach_file</span>
+                                    附件 (選填，如：診斷證明、公文等)
+                                </label>
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-3">
+                                        <label className="flex-1">
+                                            <div className={`relative flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl cursor-pointer transition-all ${selectedFile ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500 bg-white dark:bg-slate-900'}`}>
+                                                <input
+                                                    type="file"
+                                                    className="hidden"
+                                                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                                    accept="image/*,.pdf,.doc,.docx"
+                                                />
+                                                <span className="material-symbols-outlined text-2xl text-slate-400 mb-1">
+                                                    {selectedFile ? 'check_circle' : 'cloud_upload'}
+                                                </span>
+                                                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                    {selectedFile ? selectedFile.name : '點擊或拖放檔案至此'}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400 mt-1">最大 10MB (PDF, JPG, DOC)</span>
+                                            </div>
+                                        </label>
+                                        {selectedFile && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedFile(null)}
+                                                className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                            >
+                                                <span className="material-symbols-outlined">delete_outline</span>
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {isSubmitting && uploadProgress > 0 && (
+                                        <div className="w-full bg-slate-200 rounded-full h-1 mt-2 overflow-hidden">
+                                            <div
+                                                className="bg-primary h-full transition-all duration-300"
+                                                style={{ width: `${uploadProgress}%` }}
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-start gap-2 text-[10px] text-slate-400 dark:text-slate-500 italic mt-1">
+                                        <span className="material-symbols-outlined text-xs leading-none">info</span>
+                                        附件將上傳至 Google 雲端空間，並於 3 個月後自動刪除。
+                                    </div>
+                                </div>
                             </div>
 
                             {/* 公務車借用區塊 */}
@@ -431,7 +499,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                     </form>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 

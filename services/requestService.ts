@@ -513,5 +513,33 @@ export const requestService = {
             console.error('Unexpected error fetching chairman pending requests:', err);
             return [];
         }
+    },
+
+    /**
+     * 上傳附件至 Google Drive (透過 Edge Function)
+     */
+    async uploadAttachment(file: File): Promise<{ data?: { driveId: string; url: string }; error?: string }> {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const { data, error } = await supabase.functions.invoke('upload-attachment', {
+                body: formData,
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                return { error: error.message };
+            }
+
+            return { data };
+        } catch (err: any) {
+            console.error('Unexpected error in uploadAttachment:', err);
+            // 列印詳細錯誤訊息，方便在 F12 控制台查看原因
+            if (err.message) console.error('Error message:', err.message);
+            if (err.stack) console.error('Error stack:', err.stack);
+
+            return { error: `連線至上傳服務失敗: ${err.message || '未知網路錯誤'}` };
+        }
     }
 };

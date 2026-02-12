@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getMakeupRequests, batchApproveMakeupRequests, batchRejectMakeupRequests, approveMakeupRequest, rejectMakeupRequest } from '../../services/admin';
 import { useEmployee } from '../../contexts/EmployeeContext';
 import { useAuth } from '../../contexts/AuthContext';
+import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 
 const MakeupRequestsPage: React.FC = () => {
     const { employee } = useEmployee();
@@ -45,11 +46,22 @@ const MakeupRequestsPage: React.FC = () => {
         errors: string[];
     }>({ show: false, total: 0, succeeded: 0, failed: 0, errors: [] });
 
+    // 表格標題篩選狀態
+    const [columnFilters, setColumnFilters] = useState<{
+        employee: string[];
+        department: string[];
+        checkType: string[];
+    }>({
+        employee: [],
+        department: [],
+        checkType: []
+    });
+
     const isAdminMode = !employee && !!user;
 
     useEffect(() => {
         fetchRequests();
-    }, [filter, employee, user]);
+    }, [filter, employee, user, columnFilters]);
 
     const fetchRequests = async () => {
         if (!employee && !user) {
@@ -61,7 +73,20 @@ const MakeupRequestsPage: React.FC = () => {
         try {
             const managerId = isAdminMode ? undefined : employee?.id;
             const data = await getMakeupRequests(filter, managerId);
-            setRequests(data || []);
+            const allRequests = data || [];
+
+            // 應用表格欄位篩選
+            const filtered = allRequests.filter((req: any) => {
+                const employeeMatch = columnFilters.employee.length === 0 ||
+                    columnFilters.employee.includes(req.employee?.name || '未知');
+                const deptMatch = columnFilters.department.length === 0 ||
+                    columnFilters.department.includes(req.employee?.department || '未分配');
+                const typeMatch = columnFilters.checkType.length === 0 ||
+                    columnFilters.checkType.includes(req.check_type === 'IN' ? '上班' : '下班');
+                return employeeMatch && deptMatch && typeMatch;
+            });
+
+            setRequests(filtered);
             setSelectedIds(new Set());
         } catch (error) {
             console.error('[MakeupRequestsPage] Error fetching requests:', error);
@@ -322,11 +347,29 @@ const MakeupRequestsPage: React.FC = () => {
                                     {filter === 'PENDING' && (
                                         <th className="px-4 py-3 text-left w-12"></th>
                                     )}
-                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">員工</th>
-                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">部門</th>
+                                    <TableHeaderFilter
+                                        columnKey="employee"
+                                        label="員工"
+                                        values={requests.map((r: any) => r.employee?.name || '未知')}
+                                        selectedValues={columnFilters.employee}
+                                        onChange={(values) => setColumnFilters({ ...columnFilters, employee: values })}
+                                    />
+                                    <TableHeaderFilter
+                                        columnKey="department"
+                                        label="部門"
+                                        values={requests.map((r: any) => r.employee?.department || '未分配')}
+                                        selectedValues={columnFilters.department}
+                                        onChange={(values) => setColumnFilters({ ...columnFilters, department: values })}
+                                    />
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">補登日期</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">時間</th>
-                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">類型</th>
+                                    <TableHeaderFilter
+                                        columnKey="checkType"
+                                        label="類型"
+                                        values={requests.map((r: any) => r.check_type === 'IN' ? '上班' : '下班')}
+                                        selectedValues={columnFilters.checkType}
+                                        onChange={(values) => setColumnFilters({ ...columnFilters, checkType: values })}
+                                    />
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">原因</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">狀態</th>
                                     {filter === 'PENDING' && (

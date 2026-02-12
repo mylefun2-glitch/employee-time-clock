@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { requestService } from '../../services/requestService';
 import { LeaveRequest, RequestStatus } from '../../types';
+import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 
 interface DepartmentStats {
     department: string;
@@ -13,6 +14,21 @@ const RequestsPage: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
     const [filterDepartment, setFilterDepartment] = useState<string>('ALL');
     const [departments, setDepartments] = useState<string[]>([]);
+
+    // 表格標題篩選狀態
+    const [columnFilters, setColumnFilters] = useState<{
+        employee: string[];
+        department: string[];
+        leaveType: string[];
+        status: RequestStatus[];
+        hasCar: string[];
+    }>({
+        employee: [],
+        department: [],
+        leaveType: [],
+        status: [],
+        hasCar: []
+    });
 
     useEffect(() => {
         loadRequests();
@@ -83,11 +99,26 @@ const RequestsPage: React.FC = () => {
         });
     };
 
-    // 雙重篩選：狀態 + 部門
+    // 雙重篩選：狀態 + 部門 + 表格欄位篩選
     const filteredRequests = requests.filter(req => {
+        // 快速篩選（現有的）
         const statusMatch = filterStatus === 'ALL' || req.status === filterStatus;
         const deptMatch = filterDepartment === 'ALL' || (req as any).employee?.department === filterDepartment;
-        return statusMatch && deptMatch;
+
+        // 表格欄位篩選
+        const employeeMatch = columnFilters.employee.length === 0 ||
+            columnFilters.employee.includes((req as any).employee_name || (req as any).employee?.name || '未知員工');
+        const deptColumnMatch = columnFilters.department.length === 0 ||
+            columnFilters.department.includes((req as any).employee?.department || '未分配');
+        const leaveTypeMatch = columnFilters.leaveType.length === 0 ||
+            columnFilters.leaveType.includes((req as any).leave_type?.name || '-');
+        const statusColumnMatch = columnFilters.status.length === 0 ||
+            columnFilters.status.includes(req.status);
+        const hasCarMatch = columnFilters.hasCar.length === 0 ||
+            columnFilters.hasCar.includes((req as any).car ? '有' : '無');
+
+        return statusMatch && deptMatch && employeeMatch && deptColumnMatch &&
+            leaveTypeMatch && statusColumnMatch && hasCarMatch;
     });
 
     // 計算各部門的申請數量
@@ -218,14 +249,53 @@ const RequestsPage: React.FC = () => {
                     <table className="min-w-full divide-y divide-slate-100">
                         <thead className="bg-slate-50/50">
                             <tr>
-                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">員工</th>
-                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">部門</th>
-                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">類型</th>
+                                <TableHeaderFilter
+                                    columnKey="employee"
+                                    label="員工"
+                                    values={requests.map((r: any) => r.employee_name || r.employee?.name || '未知員工')}
+                                    selectedValues={columnFilters.employee}
+                                    onChange={(values) => setColumnFilters({ ...columnFilters, employee: values })}
+                                />
+                                <TableHeaderFilter
+                                    columnKey="department"
+                                    label="部門"
+                                    values={requests.map((r: any) => r.employee?.department || '未分配')}
+                                    selectedValues={columnFilters.department}
+                                    onChange={(values) => setColumnFilters({ ...columnFilters, department: values })}
+                                />
+                                <TableHeaderFilter
+                                    columnKey="leaveType"
+                                    label="類型"
+                                    values={requests.map((r: any) => r.leave_type?.name || '-')}
+                                    selectedValues={columnFilters.leaveType}
+                                    onChange={(values) => setColumnFilters({ ...columnFilters, leaveType: values })}
+                                />
                                 <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">開始時間</th>
                                 <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">結束時間</th>
-                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">公務車</th>
+                                <TableHeaderFilter
+                                    columnKey="hasCar"
+                                    label="公務車"
+                                    values={requests.map((r: any) => r.car ? '有' : '無')}
+                                    selectedValues={columnFilters.hasCar}
+                                    onChange={(values) => setColumnFilters({ ...columnFilters, hasCar: values })}
+                                />
                                 <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">事由</th>
-                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">狀態</th>
+                                <TableHeaderFilter<RequestStatus>
+                                    columnKey="status"
+                                    label="狀態"
+                                    values={[RequestStatus.PENDING, RequestStatus.APPROVED, RequestStatus.REJECTED]}
+                                    selectedValues={columnFilters.status}
+                                    onChange={(values) => setColumnFilters({ ...columnFilters, status: values })}
+                                    valueFormatter={(v) => {
+                                        const labels = {
+                                            [RequestStatus.PENDING]: '待審核',
+                                            [RequestStatus.APPROVED]: '已核准',
+                                            [RequestStatus.REJECTED]: '已拒絕'
+                                        };
+                                        return labels[v] || v;
+                                    }}
+                                />
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">附件</th>
                                 <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">操作</th>
                             </tr>
                         </thead>
@@ -285,6 +355,22 @@ const RequestsPage: React.FC = () => {
                                                 <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusBadge.style}`}>
                                                     {statusBadge.label}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                {request.attachment_url ? (
+                                                    <a
+                                                        href={request.attachment_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-700 font-bold text-xs"
+                                                        title={request.attachment_name || '查看附件'}
+                                                    >
+                                                        <span className="material-symbols-outlined text-sm">attach_file</span>
+                                                        查看
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-slate-300">-</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                                                 {request.status === RequestStatus.PENDING && (

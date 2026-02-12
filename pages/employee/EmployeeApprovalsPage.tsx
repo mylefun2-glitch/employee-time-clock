@@ -3,6 +3,7 @@ import { useEmployee } from '../../contexts/EmployeeContext';
 import { getPendingApprovalsForSupervisor, getAllSubordinateRequests } from '../../services/supervisorService';
 import { requestService } from '../../services/requestService';
 import { RequestStatus } from '../../types';
+import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 
 const EmployeeApprovalsPage: React.FC = () => {
     const { employee } = useEmployee();
@@ -43,6 +44,17 @@ const EmployeeApprovalsPage: React.FC = () => {
         failed: number;
         errors: string[];
     }>({ show: false, total: 0, succeeded: 0, failed: 0, errors: [] });
+
+    // 表格標題篩選狀態
+    const [columnFilters, setColumnFilters] = useState<{
+        employee: string[];
+        department: string[];
+        leaveType: string[];
+    }>({
+        employee: [],
+        department: [],
+        leaveType: []
+    });
 
     useEffect(() => {
         if (employee && employee.is_supervisor) {
@@ -109,7 +121,18 @@ const EmployeeApprovalsPage: React.FC = () => {
     };
 
     // 批量審核相關函數
-    const filteredRequests = allRequests.filter(r => filter === 'ALL' || r.status === filter);
+    const filteredRequests = allRequests
+        .filter(r => filter === 'ALL' || r.status === filter)
+        .filter(r => {
+            // 應用表格欄位篩選
+            const employeeMatch = columnFilters.employee.length === 0 ||
+                columnFilters.employee.includes(r.employee?.name || '未知員工');
+            const deptMatch = columnFilters.department.length === 0 ||
+                columnFilters.department.includes(r.employee?.department || '未分配');
+            const leaveTypeMatch = columnFilters.leaveType.length === 0 ||
+                columnFilters.leaveType.includes(r.leave_type?.name || '請假');
+            return employeeMatch && deptMatch && leaveTypeMatch;
+        });
     const pendingRequests = allRequests.filter(r => r.status === 'PENDING');
 
     const toggleSelectAll = () => {
@@ -232,11 +255,26 @@ const EmployeeApprovalsPage: React.FC = () => {
                                             </p>
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">主管審核</p>
                                             <div className="flex items-center gap-1.5">
-                                                <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                                                <span className={`w-2 h-2 bg-emerald-500 rounded-full`}></span>
                                                 <span className="text-xs font-bold text-emerald-600">已核准</span>
                                             </div>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">附件</p>
+                                            {request.attachment_url ? (
+                                                <a
+                                                    href={request.attachment_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-1 text-blue-600 hover:text-blue-700 font-bold text-xs"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">attach_file</span>
+                                                    查看
+                                                </a>
+                                            ) : (
+                                                <span className="text-xs text-slate-300">-</span>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex gap-2 shrink-0">
@@ -348,12 +386,31 @@ const EmployeeApprovalsPage: React.FC = () => {
                                     {filter === 'PENDING' && (
                                         <th className="px-4 py-3 text-left w-12"></th>
                                     )}
-                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">員工</th>
-                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">部門</th>
-                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">假別</th>
+                                    <TableHeaderFilter
+                                        columnKey="employee"
+                                        label="員工"
+                                        values={allRequests.map(r => r.employee?.name || '未知員工')}
+                                        selectedValues={columnFilters.employee}
+                                        onChange={(values) => setColumnFilters({ ...columnFilters, employee: values })}
+                                    />
+                                    <TableHeaderFilter
+                                        columnKey="department"
+                                        label="部門"
+                                        values={allRequests.map(r => r.employee?.department || '未分配')}
+                                        selectedValues={columnFilters.department}
+                                        onChange={(values) => setColumnFilters({ ...columnFilters, department: values })}
+                                    />
+                                    <TableHeaderFilter
+                                        columnKey="leaveType"
+                                        label="假別"
+                                        values={allRequests.map(r => r.leave_type?.name || '請假')}
+                                        selectedValues={columnFilters.leaveType}
+                                        onChange={(values) => setColumnFilters({ ...columnFilters, leaveType: values })}
+                                    />
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">開始日期</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">結束日期</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">事由</th>
+                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">附件</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">審核狀態</th>
                                     {filter === 'PENDING' && (
                                         <th className="px-4 py-3 text-right text-xs font-black text-slate-500 uppercase tracking-wider">操作</th>
@@ -370,14 +427,16 @@ const EmployeeApprovalsPage: React.FC = () => {
                                             key={request.id}
                                             className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}
                                         >
-                                            <td className="px-4 py-4">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isSelected}
-                                                    onChange={() => toggleSelectItem(request.id)}
-                                                    className="w-5 h-5 rounded border-2 border-slate-300 checked:bg-blue-600 checked:border-blue-600 cursor-pointer transition-all"
-                                                />
-                                            </td>
+                                            {filter === 'PENDING' && (
+                                                <td className="px-4 py-4">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => toggleSelectItem(request.id)}
+                                                        className="w-5 h-5 rounded border-2 border-slate-300 checked:bg-blue-600 checked:border-blue-600 cursor-pointer transition-all"
+                                                    />
+                                                </td>
+                                            )}
                                             <td className="px-4 py-4">
                                                 <div className="font-bold text-slate-900">{request.employee?.name || '未知員工'}</div>
                                             </td>
@@ -401,6 +460,21 @@ const EmployeeApprovalsPage: React.FC = () => {
                                             </td>
                                             <td className="px-4 py-4 max-w-xs">
                                                 <div className="text-sm text-slate-600 truncate" title={request.reason}>{request.reason || '-'}</div>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                {request.attachment_url ? (
+                                                    <a
+                                                        href={request.attachment_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-700 font-bold text-xs"
+                                                    >
+                                                        <span className="material-symbols-outlined text-sm">attach_file</span>
+                                                        查看
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-xs text-slate-300">-</span>
+                                                )}
                                             </td>
                                             <td className="px-4 py-4">
                                                 {request.requires_chairman_approval ? (
