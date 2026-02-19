@@ -17,6 +17,7 @@ const RequestsPage = lazy(() => import('./pages/admin/RequestsPage'));
 const LeaveTypesPage = lazy(() => import('./pages/admin/LeaveTypesPage'));
 const CompanyManagementPage = lazy(() => import('./pages/admin/CompanyManagementPage'));
 const StatisticsPage = lazy(() => import('./pages/admin/StatisticsPage'));
+const AdminLeaveStatsPage = lazy(() => import('./pages/admin/AdminLeaveStatsPage'));
 const AttendanceCalendarPage = lazy(() => import('./pages/admin/AttendanceCalendarPage'));
 
 const EmployeeLayout = lazy(() => import('./layouts/EmployeeLayout'));
@@ -27,6 +28,7 @@ const EmployeeRequestsPage = lazy(() => import('./pages/employee/EmployeeRequest
 const EmployeeAttendancePage = lazy(() => import('./pages/employee/EmployeeAttendancePage'));
 const EmployeeCalendarPage = lazy(() => import('./pages/employee/EmployeeCalendarPage'));
 const EmployeeApprovalsPage = lazy(() => import('./pages/employee/EmployeeApprovalsPage'));
+const ManagerTeamLeavePage = lazy(() => import('./pages/employee/ManagerTeamLeavePage'));
 
 const App: React.FC = () => {
   return (
@@ -45,6 +47,7 @@ const App: React.FC = () => {
                 <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="employees" element={<EmployeesPage />} />
                 <Route path="stats" element={<StatisticsPage />} />
+                <Route path="leave-stats" element={<AdminLeaveStatsPage />} />
                 <Route path="attendance-calendar" element={<AttendanceCalendarPage />} />
                 <Route path="makeup-requests" element={<MakeupRequestsPage />} />
                 <Route path="requests" element={<RequestsPage />} />
@@ -63,8 +66,10 @@ const App: React.FC = () => {
                 <Route path="attendance" element={<EmployeeAttendancePage />} />
                 <Route path="calendar" element={<EmployeeCalendarPage />} />
                 <Route path="approvals" element={<EmployeeApprovalsPage />} />
+                <Route path="team-leaves" element={<ManagerTeamLeavePage />} />
                 <Route path="makeup-approvals" element={<MakeupRequestsPage />} />
               </Route>
+
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />

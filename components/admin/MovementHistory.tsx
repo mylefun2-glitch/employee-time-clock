@@ -89,6 +89,7 @@ const MovementHistory: React.FC<MovementHistoryProps> = ({ employeeId, isAdmin =
                                 type="date"
                                 value={effectiveDate}
                                 onChange={(e) => setEffectiveDate(e.target.value)}
+                                max="9999-12-31"
                                 className="w-full rounded-xl border-slate-200 text-xs p-2.5 focus:ring-blue-500"
                             />
                         </div>
@@ -149,7 +150,7 @@ const MovementHistory: React.FC<MovementHistoryProps> = ({ employeeId, isAdmin =
                                     <div className="flex items-center gap-3 text-xs font-bold text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
                                         <div className="flex-1 text-center line-through opacity-50">{m.old_value || 'N/A'}</div>
                                         <span className="material-symbols-outlined text-slate-300">arrow_forward</span>
-                                        <div className="flex-1 text-center text-blue-700">{m.newValue || m.new_value}</div>
+                                        <div className="flex-1 text-center text-blue-700">{m.new_value}</div>
                                     </div>
                                     {m.reason && (
                                         <p className="mt-2 text-[10px] font-medium text-slate-400 leading-relaxed italic border-t border-slate-50 pt-2">{m.reason}</p>

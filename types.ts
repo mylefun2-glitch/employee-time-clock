@@ -15,7 +15,8 @@ export enum RequestStatus {
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
-  WITHDRAWN = 'WITHDRAWN'  // 已撤回
+  WITHDRAWN = 'WITHDRAWN',  // 已撤回
+  WITHDRAW_PENDING = 'WITHDRAW_PENDING' // 撤回待審核
 }
 
 export enum RequestType {
@@ -64,12 +65,14 @@ export interface LeaveRequest {
   is_modified?: boolean;             // 標記此申請是否已被變更
   modified_by_request_id?: string;   // 如果此申請已被變更,指向新申請的 ID
   modification_reason?: string;      // 變更原因
+  manual_break_hours?: number;       // 新增：手動扣除的休息時數
 
   // 附件相關欄位
   attachment_drive_id?: string;      // Google Drive 檔案 ID
   attachment_name?: string;          // 原始檔案名稱
   attachment_url?: string;           // 檔案預覽連結
   attachment_expires_at?: string;    // 附件自動刪除時間
+  is_makeup_workday?: boolean;       // 是否為補行上班日
 
   original_request?: LeaveRequest;   // 包含原始申請資訊
   modified_request?: LeaveRequest;   // 包含變更後的申請資訊
@@ -108,6 +111,39 @@ export interface Employee {
   break2_end_time?: string;
   break3_start_time?: string;
   break3_end_time?: string;
+  rest_days?: number[]; // [0, 6] = 周日, 周六
+  salary_type?: 'MONTHLY' | 'HOURLY';
+  schedule_effective_date?: string;
+  standard_daily_hours?: number; // 新增：標準每日工時
+}
+
+export interface SenioritySuspension {
+  id: string;
+  employee_id: string;
+  start_date: string;
+  end_date: string;
+  reason?: string;
+  created_at: string;
+}
+
+export type SalaryType = 'MONTHLY' | 'HOURLY';
+
+export interface EmployeeSchedule {
+  id: string;
+  employee_id: string;
+  effective_date: string;
+  work_start_time: string;
+  work_end_time: string;
+  break_start_time: string;
+  break_end_time: string;
+  break2_start_time?: string;
+  break2_end_time?: string;
+  break3_start_time?: string;
+  break3_end_time?: string;
+  rest_days: number[];
+  salary_type: SalaryType;
+  standard_daily_hours?: number;
+  note?: string;
 }
 
 export interface EmployeeMovement {
@@ -131,4 +167,40 @@ export interface CompanyLocation {
   longitude: number;
   radius_meters: number;
   is_active: boolean;
+}
+
+export interface LeaveBalance {
+  annual: {
+    entitlement: number;
+    used: number;
+    cashout: number;
+    remaining: number;
+    periods: Array<{
+      label: string;
+      start_date: string;
+      end_date: string;
+      entitlement: number;
+      formula?: string;
+      date_formula?: string;
+      used: number;
+      cashout: number;
+      remaining: number;
+    }>;
+  };
+  compensatory: {
+    entitlement: number;
+    used: number;
+    cashout: number;
+    remaining: number;
+    periods: Array<{
+      label: string;
+      start_date: string;
+      end_date: string;
+      entitlement: number;
+      formula?: string;
+      used: number;
+      cashout: number;
+      remaining: number;
+    }>;
+  };
 }

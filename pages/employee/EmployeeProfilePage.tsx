@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useEmployee } from '../../contexts/EmployeeContext';
 import MovementHistory from '../../components/admin/MovementHistory';
+import ScheduleHistory from '../../components/admin/ScheduleHistory';
+import SenioritySuspensionList from '../../components/admin/SenioritySuspensionList';
 import { calculateAge, calculateSeniority } from '../../lib/hrUtils';
 
-type TabType = 'basic' | 'work' | 'emergency' | 'history';
+type TabType = 'basic' | 'work' | 'emergency' | 'schedule' | 'suspension' | 'history';
 
 const EmployeeProfilePage: React.FC = () => {
     const { employee } = useEmployee();
     const [activeTab, setActiveTab] = useState<TabType>('basic');
+
 
     if (!employee) return null;
 
@@ -18,10 +21,12 @@ const EmployeeProfilePage: React.FC = () => {
         { id: 'basic' as TabType, label: '基本資料', icon: 'person' },
         { id: 'work' as TabType, label: '職務資訊', icon: 'work' },
         { id: 'emergency' as TabType, label: '緊急聯絡', icon: 'contact_emergency' },
+        { id: 'schedule' as TabType, label: '班表紀錄', icon: 'calendar_month' },
+        { id: 'suspension' as TabType, label: '年資中斷', icon: 'pause_circle' },
         { id: 'history' as TabType, label: '異動歷史', icon: 'history' },
     ];
 
-    const InfoItem = ({ icon, label, value }: { icon: string; label: string; value: string }) => (
+    const InfoItem = ({ icon, label, value }: { icon: string; label: string; value: string | number }) => (
         <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all">
             <div className="flex items-center gap-3 mb-3">
                 <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 border border-blue-100">
@@ -34,6 +39,7 @@ const EmployeeProfilePage: React.FC = () => {
             </p>
         </div>
     );
+
 
     return (
         <div className="space-y-6">
@@ -80,8 +86,8 @@ const EmployeeProfilePage: React.FC = () => {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`flex items-center gap-2 px-6 py-4 font-bold text-sm transition-all border-b-2 whitespace-nowrap ${activeTab === tab.id
-                                    ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                                ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                                 }`}
                         >
                             <span className="material-symbols-outlined text-xl">{tab.icon}</span>
@@ -131,6 +137,7 @@ const EmployeeProfilePage: React.FC = () => {
                         </div>
                     )}
 
+
                     {/* 緊急聯絡 */}
                     {activeTab === 'emergency' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -149,7 +156,7 @@ const EmployeeProfilePage: React.FC = () => {
                                     </div>
                                     <div>
                                         <h4 className="font-black text-amber-900 mb-1">重要提醒</h4>
-                                        <p className="text-sm text-amber-700 leading-relaxed">
+                                        <p className="text-sm text-amber-700 leading-relaxed font-bold">
                                             請確保緊急聯絡資訊保持最新狀態。如有變更，請聯繫人事部門更新資料。
                                         </p>
                                     </div>
@@ -163,6 +170,22 @@ const EmployeeProfilePage: React.FC = () => {
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                             <h3 className="text-lg font-black text-slate-900 mb-6">職務異動歷史</h3>
                             <MovementHistory employeeId={employee.id} isAdmin={false} />
+                        </div>
+                    )}
+
+                    {/* 班表紀錄 */}
+                    {activeTab === 'schedule' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                            <h3 className="text-lg font-black text-slate-900 mb-6">歷史班表與薪資規格</h3>
+                            <ScheduleHistory employeeId={employee.id} isAdmin={false} />
+                        </div>
+                    )}
+
+                    {/* 年資中斷 */}
+                    {activeTab === 'suspension' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                            <h3 className="text-lg font-black text-slate-900 mb-6">年資中斷與留職停薪歷史</h3>
+                            <SenioritySuspensionList employeeId={employee.id} isAdmin={false} />
                         </div>
                     )}
                 </div>

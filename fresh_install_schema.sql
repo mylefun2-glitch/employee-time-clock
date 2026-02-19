@@ -88,9 +88,11 @@ CREATE TABLE leave_requests (
   start_date timestamp with time zone NOT NULL,
   end_date timestamp with time zone NOT NULL,
   reason text,
-  status text DEFAULT 'PENDING' NOT NULL CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+  status text DEFAULT 'PENDING' NOT NULL CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'WITHDRAWN')),
   approver_id uuid,
-  approved_at timestamp with time zone
+  approved_at timestamp with time zone,
+  hours numeric(10, 2),
+  CONSTRAINT check_leave_dates CHECK (end_date >= start_date)
 );
 
 -- 啟用 RLS

@@ -108,7 +108,7 @@ const EmployeeDashboardPage: React.FC = () => {
                 pendingApprovals
             });
 
-            setRecentRequests(leaveData || []);
+            setRecentRequests((leaveData || []).filter(r => r.status !== 'WITHDRAWN'));
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
         } finally {

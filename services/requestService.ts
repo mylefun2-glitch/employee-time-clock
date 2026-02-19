@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { LeaveRequest, RequestStatus } from '../types';
+import { calculateLeaveHours } from '../lib/leaveUtils';
 
 export const requestService = {
     async createRequest(request: Omit<LeaveRequest, 'id' | 'created_at' | 'status'> & { car_id?: string }): Promise<{ success: boolean; data?: any; error?: string }> {
@@ -23,7 +24,8 @@ export const requestService = {
                     {
                         ...request,
                         status: RequestStatus.PENDING,
-                        requires_chairman_approval: requiresChairmanApproval
+                        requires_chairman_approval: requiresChairmanApproval,
+                        is_makeup_workday: (request as any).is_makeup_workday || false
                     }
                 ])
                 .select()
@@ -41,17 +43,28 @@ export const requestService = {
         }
     },
 
-    async getEmployeeRequests(employeeId: string): Promise<LeaveRequest[]> {
+    async getEmployeeRequests(employeeId: string, year?: number): Promise<LeaveRequest[]> {
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('leave_requests')
                 .select(`
                     *,
                     leave_type:leave_types(*),
                     deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
                 `)
-                .eq('employee_id', employeeId)
-                .order('created_at', { ascending: false });
+                .eq('employee_id', employeeId);
+
+            if (year) {
+                const startDate = `${year}-01-01T00:00:00+08:00`;
+                const endDate = `${year}-12-31T23:59:59+08:00`;
+                query = query
+                    .gte('start_date', startDate)
+                    .lte('start_date', endDate);
+            }
+
+            const { data, error } = await query
+                .order('start_date', { ascending: false })
+                .limit(10000);
 
             if (error) {
                 console.error('Error fetching requests for employee:', employeeId, error);
@@ -78,7 +91,8 @@ export const requestService = {
                     employee:employees!leave_requests_employee_id_fkey(name, department),
                     deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
                 `)
-                .order('created_at', { ascending: false });
+                .order('created_at', { ascending: false })
+                .limit(5000); // 提升上限以應對大量歷史紀錄
 
             if (error) {
                 console.error('Error fetching all requests:', error);
@@ -109,7 +123,7 @@ export const requestService = {
             // 先獲取申請資訊，確認是否包含 car_id 和是否需要理事長審核
             const { data: requestData, error: fetchError } = await supabase
                 .from('leave_requests')
-                .select('car_id, requires_chairman_approval, supervisor_approved_at')
+                .select('car_id, requires_chairman_approval, supervisor_approved_at, status, modification_reason')
                 .eq('id', requestId)
                 .single();
 
@@ -131,16 +145,51 @@ export const requestService = {
 
             // 處理拒絕狀態：無論哪一層審核拒絕，都直接設為 REJECTED
             if (status === RequestStatus.REJECTED) {
-                updates.status = RequestStatus.REJECTED;
-                updates.approved_at = new Date().toISOString();
-                if (approverId) {
-                    updates.approver_id = approverId;
+                // 如果目前的狀態是撤回待審，拒絕動作代表「拒絕撤回」，應恢復原狀態
+                if (requestData?.status === RequestStatus.WITHDRAW_PENDING) {
+                    let originalStatus = RequestStatus.APPROVED; // 預設恢復為已核准
+                    if (requestData.modification_reason?.startsWith('PRE_WITHDRAW_STATUS:')) {
+                        const statusStr = requestData.modification_reason.split(':')[1];
+                        originalStatus = statusStr as RequestStatus;
+                    }
+                    updates.status = originalStatus;
+                    // 清除撤回標記
+                    updates.modification_reason = null;
+                } else {
+                    updates.status = RequestStatus.REJECTED;
+                    updates.approved_at = new Date().toISOString();
+                    if (approverId) {
+                        updates.approver_id = approverId;
+                    }
                 }
             }
             // 處理核准狀態
             else if (status === RequestStatus.APPROVED) {
+                // 如果目前的狀態是撤回待審，核准動作代表「核准撤回」
+                if (requestData?.status === RequestStatus.WITHDRAW_PENDING) {
+                    updates.status = RequestStatus.WITHDRAWN;
+                    updates.approved_at = new Date().toISOString();
+                    updates.approver_id = approverId;
+
+                    // 如果是撤回變更申請，需要恢復原申請的變更標記（與原 withdrawRequest 邏輯一致）
+                    const { data: reqWithOriginal } = await supabase
+                        .from('leave_requests')
+                        .select('original_request_id')
+                        .eq('id', requestId)
+                        .single();
+
+                    if (reqWithOriginal?.original_request_id) {
+                        await supabase
+                            .from('leave_requests')
+                            .update({
+                                is_modified: false,
+                                modified_by_request_id: null
+                            })
+                            .eq('id', reqWithOriginal.original_request_id);
+                    }
+                }
                 // 如果需要理事長審核
-                if (requestData?.requires_chairman_approval) {
+                else if (requestData?.requires_chairman_approval) {
                     // 理事長審核
                     if (isChairman) {
                         updates.status = RequestStatus.APPROVED;
@@ -269,6 +318,9 @@ export const requestService = {
             modification_reason: string;
             leave_type_id?: string;
             type: string;
+            hours?: number;
+            manual_break_hours?: number;
+            is_makeup_workday?: boolean;
         },
         employeeId: string
     ): Promise<{ success: boolean; data?: any; error?: string }> {
@@ -313,7 +365,11 @@ export const requestService = {
                     reason: modificationData.reason,
                     status: RequestStatus.PENDING,
                     original_request_id: originalRequestId,
-                    modification_reason: modificationData.modification_reason
+                    modification_reason: modificationData.modification_reason,
+                    hours: modificationData.hours,
+                    manual_break_hours: modificationData.manual_break_hours,
+                    is_makeup_workday: modificationData.is_makeup_workday || false,
+                    deputy_id: originalRequest.deputy_id
                 }])
                 .select()
                 .single();
@@ -440,15 +496,22 @@ export const requestService = {
                 return { success: false, error: '只有待審核或已核准的申請可以撤回' };
             }
 
-            // 3. 更新申請狀態為已撤回
+            // 3. 更新申請狀態為撤回待審
+            // 我們將原本的狀態存放在 modification_reason 欄位，格式為 "PRE_WITHDRAW_STATUS:[STATUS]"
+            // 這樣主管如果拒絕撤回，我們可以恢復原狀態
+            const preWithdrawStatus = `PRE_WITHDRAW_STATUS:${request.status}`;
+
             const { error: updateError } = await supabase
                 .from('leave_requests')
-                .update({ status: RequestStatus.WITHDRAWN })
+                .update({
+                    status: RequestStatus.WITHDRAW_PENDING,
+                    modification_reason: preWithdrawStatus
+                })
                 .eq('id', requestId);
 
             if (updateError) {
                 console.error('Error withdrawing request:', updateError);
-                return { success: false, error: '撤回失敗' };
+                return { success: false, error: '申請撤回失敗' };
             }
 
             // 4. 如果是變更申請,需要更新原申請的變更標記
@@ -540,6 +603,415 @@ export const requestService = {
             if (err.stack) console.error('Error stack:', err.stack);
 
             return { error: `連線至上傳服務失敗: ${err.message || '未知網路錯誤'}` };
+        }
+    },
+
+    /**
+     * 批量匯入請假紀錄
+     */
+    async importLeaveRequests(requests: any[]): Promise<{ success: boolean; succeeded: number; skipped: number; failed: number; errors: any[] }> {
+        try {
+            // 1. 獲取所有員工和請假類型以便查找
+            const { data: employees, error: empError } = await supabase.from('employees').select('id, name, pin, work_start_time, work_end_time, break_start_time, break2_start_time, break2_end_time, break3_start_time, break3_end_time');
+            if (empError) throw empError;
+
+            const { data: leaveTypes, error: ltError } = await supabase.from('leave_types').select('id, name, code');
+            if (ltError) throw ltError;
+
+            const leaveTypeMap = leaveTypes?.reduce((acc, type) => {
+                acc[type.name] = { id: type.id, code: type.code, name: type.name };
+                return acc;
+            }, {} as Record<string, { id: string; code: string; name: string }>) || {};
+
+            // 2. 準備要檢查重複的員工 ID 清單
+            const employeeIds = Array.from(new Set(
+                requests.map(req => employees?.find(e => e.pin === req.pin || e.name === req.name)?.id)
+                    .filter(id => !!id)
+            )) as string[];
+
+            // 3. 獲取現有的請假紀錄以便檢查重複
+            // 增加 limit 以確保能抓到足夠的歷史紀錄比對
+            const { data: existingRequests, error: exError } = await supabase
+                .from('leave_requests')
+                .select('employee_id, start_date, end_date, status')
+                .in('employee_id', employeeIds)
+                .order('start_date', { ascending: false })
+                .limit(2000);
+
+            if (exError) throw exError;
+
+            const results = {
+                success: true,
+                succeeded: 0,
+                skipped: 0,
+                failed: 0,
+                errors: [] as any[]
+            };
+
+            // 4. 獲取可能受影響的員工的所有歷史班表
+            const { data: historicalSchedules, error: schedError } = await supabase
+                .from('employee_schedules')
+                .select('*')
+                .in('employee_id', employeeIds)
+                .order('effective_date', { ascending: false });
+
+            if (schedError) {
+                console.warn('Could not fetch historical schedules for import, using current settings instead:', schedError);
+            }
+
+            const insertData: any[] = [];
+            // 用於追蹤本次匯入中已處理的記錄，防止 CSV 內部重複
+            const processedInThisBatch = new Set<string>();
+
+            for (let i = 0; i < requests.length; i++) {
+                const req = requests[i];
+                const lineNum = i + 2;
+
+                // 查找員工
+                const employee = employees?.find(e => e.pin === req.pin || e.name === req.name);
+                if (!employee) {
+                    results.failed++;
+                    results.errors.push({ line: lineNum, name: req.name, error: `找不到員工 (PIN: ${req.pin})` });
+                    continue;
+                }
+
+                // 查找請假類型
+                const leaveTypeInfo = leaveTypeMap[req.leave_type_name];
+                if (!leaveTypeInfo) {
+                    results.failed++;
+                    results.errors.push({ line: lineNum, name: req.name, error: `找不到請假類型: ${req.leave_type_name}` });
+                    continue;
+                }
+
+                // 解析日期並標準化為 ISO 字串（這會根據環境時區轉換為 UTC）
+                const startDate = new Date(req.start_date);
+                const endDate = new Date(req.end_date);
+
+                if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                    results.failed++;
+                    results.errors.push({ line: lineNum, name: req.name, error: `日期格式錯誤: ${req.start_date}` });
+                    continue;
+                }
+
+                const startIso = startDate.toISOString();
+                const endIso = endDate.toISOString();
+
+                // 檢查是否與本次批次中已有的記錄重複
+                const batchKey = `${employee.id}_${startIso}_${endIso}`;
+                if (processedInThisBatch.has(batchKey)) {
+                    results.skipped++;
+                    continue;
+                }
+
+                // 檢查是否已存在於資料庫中 (相同員工、相同開始與結束時間)
+                const isDuplicate = existingRequests?.some(er => {
+                    // 如果現有紀錄是已撤回，則不視為重複，允許重新匯入
+                    if (er.status === RequestStatus.WITHDRAWN) return false;
+
+                    const exStartIso = new Date(er.start_date).toISOString();
+                    const exEndIso = new Date(er.end_date).toISOString();
+                    return er.employee_id === employee.id &&
+                        exStartIso === startIso &&
+                        exEndIso === endIso;
+                });
+
+                if (isDuplicate) {
+                    results.skipped++;
+                    processedInThisBatch.add(batchKey); // 同時加入 batch 追蹤以免後續重複
+                    continue;
+                }
+
+                // 計算時數
+                let hours = req.hours;
+                if (!hours) {
+                    const isOvertime =
+                        leaveTypeInfo.code === 'OT' ||
+                        leaveTypeInfo.code === 'CO' ||
+                        leaveTypeInfo.name?.includes('加班');
+
+                    const empSchedules = (historicalSchedules || []).filter(s => s.employee_id === employee.id);
+                    hours = calculateLeaveHours(startDate, endDate, employee, isOvertime, true, empSchedules);
+                }
+
+                insertData.push({
+                    employee_id: employee.id,
+                    type: 'LEAVE',
+                    leave_type_id: leaveTypeInfo.id,
+                    start_date: startIso,
+                    end_date: endIso,
+                    reason: req.reason || '',
+                    status: RequestStatus.APPROVED,
+                    hours: hours,
+                    approved_at: new Date().toISOString()
+                });
+
+                processedInThisBatch.add(batchKey);
+            }
+
+            if (insertData.length > 0) {
+                const { error } = await supabase.from('leave_requests').insert(insertData);
+                if (error) {
+                    console.error('Error bulk inserting leave requests:', error);
+                    return { success: false, succeeded: 0, skipped: 0, failed: requests.length, errors: [{ line: 0, name: '系統', error: error.message }] };
+                }
+                results.succeeded = insertData.length;
+            }
+
+            return results;
+        } catch (err: any) {
+            console.error('Unexpected error in importLeaveRequests:', err);
+            return { success: false, succeeded: 0, skipped: 0, failed: requests.length, errors: [{ line: 0, name: '系統', error: err.message || '系統錯誤' }] };
+        }
+    }
+    ,
+
+    /**
+     * 批量撤回申請
+     */
+    async batchWithdrawRequests(requestIds: string[], employeeId: string): Promise<{
+        success: boolean;
+        total: number;
+        succeeded: number;
+        failed: number;
+        errors: string[];
+    }> {
+        try {
+            if (!requestIds || requestIds.length === 0) {
+                return {
+                    success: false,
+                    total: 0,
+                    succeeded: 0,
+                    failed: 0,
+                    errors: ['沒有提供任何申請 ID']
+                };
+            }
+
+            // 使用 Promise.allSettled 並行處理所有撤回
+            const results = await Promise.allSettled(
+                requestIds.map(id => this.withdrawRequest(id, employeeId))
+            );
+
+            // 統計結果
+            const succeeded = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+            const failed = results.length - succeeded;
+            const errors: string[] = [];
+
+            results.forEach((result, index) => {
+                if (result.status === 'rejected') {
+                    errors.push(`申請 ${requestIds[index].slice(0, 8)}: ${result.reason}`);
+                } else if (!result.value.success) {
+                    errors.push(`申請 ${requestIds[index].slice(0, 8)}: ${result.value.error || '未知錯誤'}`);
+                }
+            });
+
+            return {
+                success: failed === 0,
+                total: requestIds.length,
+                succeeded,
+                failed,
+                errors
+            };
+        } catch (err: any) {
+            console.error('Unexpected error in batch withdraw:', err);
+            return {
+                success: false,
+                total: requestIds.length,
+                succeeded: 0,
+                failed: requestIds.length,
+                errors: ['批量操作發生系統錯誤']
+            };
+        }
+    },
+
+    /**
+     * 取得特定日期範圍內的請假紀錄
+     */
+    async getLeaveRequestsByRange(employeeId: string, startDate: string, endDate: string, leaveType: string | string[]): Promise<LeaveRequest[]> {
+        try {
+            let query = supabase
+                .from('leave_requests')
+                .select(`
+                    *,
+                    leave_type:leave_types(*)
+                `)
+                .eq('employee_id', employeeId)
+                .eq('status', RequestStatus.APPROVED)
+                .eq('type', 'LEAVE')
+                .neq('is_modified', true) // 排除已被變更的舊紀錄
+                .gte('start_date', startDate)
+                .lt('start_date', endDate)
+                .order('start_date', { ascending: false });
+
+            if (leaveType) {
+                const codes = Array.isArray(leaveType) ? leaveType : [leaveType];
+
+                // First get the type ids for these codes
+                const { data: typeData } = await supabase
+                    .from('leave_types')
+                    .select('id')
+                    .in('code', codes);
+
+                if (typeData && typeData.length > 0) {
+                    const ids = typeData.map(t => t.id);
+                    query = query.in('leave_type_id', ids);
+                }
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+            return data || [];
+        } catch (err) {
+            console.error('Error fetching requests by range:', err);
+            return [];
+        }
+    },
+
+    /**
+     * 取得特定日期範圍內的額度調整紀錄 (包含折現)
+     */
+    async getAdjustmentsByRange(employeeId: string, startDate: string, endDate: string, leaveTypeCode?: string): Promise<any[]> {
+        try {
+            let query = supabase
+                .from('leave_balance_adjustments')
+                .select('*')
+                .eq('employee_id', employeeId)
+                .gte('created_at', startDate)
+                .lt('created_at', endDate)
+                .order('created_at', { ascending: false });
+
+            if (leaveTypeCode) {
+                query = query.eq('leave_type_code', leaveTypeCode);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+            return data || [];
+        } catch (err) {
+            console.error('Error fetching adjustments by range:', err);
+            return [];
+        }
+    },
+
+    /**
+     * 取得特定日期範圍內的加班紀錄
+     * 包含：加班登記 (OT)、加班折現 (CO)、加班折算補休 (ALC)
+     */
+    async getOvertimeRequestsByRange(employeeId: string, startDate: string, endDate: string): Promise<LeaveRequest[]> {
+        try {
+            // 先取得所有加班相關的請假類型
+            const { data: overtimeTypes, error: typeError } = await supabase
+                .from('leave_types')
+                .select('id')
+                .or('code.eq.OT,code.eq.CO,name.ilike.%加班%');
+
+            if (typeError) throw typeError;
+
+            if (!overtimeTypes || overtimeTypes.length === 0) {
+                return [];
+            }
+
+            const overtimeTypeIds = overtimeTypes.map(t => t.id);
+
+            // 查詢該員工在指定日期範圍內的加班紀錄
+            const { data, error } = await supabase
+                .from('leave_requests')
+                .select(`
+                    *,
+                    leave_type:leave_types(*)
+                `)
+                .eq('employee_id', employeeId)
+                .eq('status', RequestStatus.APPROVED)
+                .in('leave_type_id', overtimeTypeIds)
+                .neq('is_modified', true) // 排除已被變更的舊紀錄
+                .gte('start_date', startDate)
+                .lt('start_date', endDate)
+                .order('start_date', { ascending: false });
+
+            if (error) throw error;
+            return data || [];
+        } catch (err) {
+            console.error('Error fetching overtime requests by range:', err);
+            return [];
+        }
+    },
+
+    /**
+     * 永久刪除請假申請紀錄 (管理者用)
+     */
+    async deleteRequest(requestId: string): Promise<{ success: boolean; error?: string }> {
+        try {
+            const { data, error } = await supabase
+                .from('leave_requests')
+                .delete()
+                .eq('id', requestId)
+                .select('id');
+
+            if (error) throw error;
+            return { success: (data || []).length > 0 };
+        } catch (err: any) {
+            console.error('Error deleting request:', err);
+            return { success: false, error: err.message };
+        }
+    },
+
+    /**
+     * 批量永久刪除請假申請紀錄 (管理者用)
+     */
+    async batchDeleteRequests(requestIds: string[]): Promise<{
+        success: boolean;
+        succeeded: number;
+        failed: number;
+        errors: string[];
+    }> {
+        try {
+            const { data, error } = await supabase
+                .from('leave_requests')
+                .delete()
+                .in('id', requestIds)
+                .select('id');
+
+            if (error) throw error;
+
+            const succeeded = (data || []).length;
+            const failed = requestIds.length - succeeded;
+
+            return {
+                success: failed === 0,
+                succeeded,
+                failed,
+                errors: failed > 0 ? ['部分紀錄因外鍵約束或權限限制無法刪除'] : []
+            };
+        } catch (err: any) {
+            console.error('Error batch deleting requests:', err);
+            return {
+                success: false,
+                succeeded: 0,
+                failed: requestIds.length,
+                errors: [err.message]
+            };
+        }
+    },
+
+    /**
+     * 新增額度調整紀錄
+     */
+    async addLeaveAdjustment(data: {
+        employee_id: string;
+        leave_type_code: string;
+        adjustment_type: 'GRANT' | 'CASHOUT' | 'CORRECTION';
+        amount_hours: number;
+        reason?: string;
+    }): Promise<{ success: boolean; error?: string }> {
+        try {
+            const { error } = await supabase
+                .from('leave_balance_adjustments')
+                .insert([data]);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (err: any) {
+            console.error('Error adding leave adjustment:', err);
+            return { success: false, error: err.message };
         }
     }
 };

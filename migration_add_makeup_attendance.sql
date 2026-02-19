@@ -7,7 +7,7 @@ create table makeup_attendance_requests (
   check_type text not null check (check_type in ('IN', 'OUT')),
   request_time time not null,
   reason text not null,
-  status text default 'PENDING' not null check (status in ('PENDING', 'APPROVED', 'REJECTED')),
+  status text default 'PENDING' not null check (status in ('PENDING', 'APPROVED', 'REJECTED', 'WITHDRAWN')),
   reviewer_id uuid,
   reviewed_at timestamp with time zone,
   review_comment text

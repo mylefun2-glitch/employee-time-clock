@@ -41,6 +41,7 @@ const AdminLayout: React.FC = () => {
         { path: '/admin/dashboard', icon: 'dashboard', label: '儀表板' },
         { path: '/admin/employees', icon: 'groups', label: '員工管理' },
         { path: '/admin/stats', icon: 'bar_chart', label: '人事統計' },
+        { path: '/admin/leave-stats', icon: 'pie_chart', label: '差勤統計' },
         { path: '/admin/attendance-calendar', icon: 'calendar_month', label: '出勤月曆' },
         { path: '/admin/makeup-requests', label: '補登審核', icon: 'edit_calendar' },
         { path: '/admin/requests', label: '差勤/公務車', icon: 'fact_check' },
@@ -78,7 +79,7 @@ const AdminLayout: React.FC = () => {
 
                 {/* Sidebar Content */}
                 <aside className={`
-                    absolute left-0 top-0 bottom-0 bg-white border-r border-slate-200 flex flex-col transform transition-all duration-300 ease-in-out
+                    absolute left-0 top-0 bottom-0 bg-white border-r border-slate-200 flex flex-col transform transition-all duration-300 ease-in-out shrink-0
                     ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'}
                     ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}
                     lg:static
@@ -111,7 +112,7 @@ const AdminLayout: React.FC = () => {
                                 title={isCollapsed ? item.label : ''}
                             >
                                 <span className={`material-symbols-outlined text-xl ${isCollapsed ? 'text-2xl' : ''}`}>{item.icon}</span>
-                                {!isCollapsed && <span>{item.label}</span>}
+                                {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
                             </Link>
                         ))}
                     </nav>

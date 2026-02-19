@@ -5,16 +5,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
-interface EmployeeUser {
-    id: string;
-    name: string;
-    pin: string;
-    department: string;
-    position?: string;
-    email?: string;
-    manager_id?: string;
-    hire_date?: string;
-    is_supervisor: boolean; // 是否為主管
+import { Employee } from '../types';
+
+interface EmployeeUser extends Employee {
+    // 繼承 Employee 介面，如果 EmployeeContext 有額外欄位可以在此擴充
 }
 
 interface EmployeeContextType {

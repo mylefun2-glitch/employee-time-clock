@@ -19,7 +19,7 @@ const MakeupRequestsPage: React.FC = () => {
     // 對話框狀態
     const [reviewDialog, setReviewDialog] = useState<{
         show: boolean;
-        type: 'approve' | 'reject' | null;
+        type: 'approve' | 'reject' | 'review' | null;
         requestId: string | null;
         comment: string;
     }>({ show: false, type: null, requestId: null, comment: '' });
@@ -56,6 +56,10 @@ const MakeupRequestsPage: React.FC = () => {
         department: [],
         checkType: []
     });
+
+    // 批次模式狀態
+    const [isBatchMode, setIsBatchMode] = useState(false);
+    const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
 
     const isAdminMode = !employee && !!user;
 
@@ -104,11 +108,16 @@ const MakeupRequestsPage: React.FC = () => {
         setReviewDialog({ show: true, type: 'reject', requestId: id, comment: '' });
     };
 
-    const handleReviewConfirm = async () => {
+    const handleReview = (id: string) => {
+        setReviewDialog({ show: true, type: 'review', requestId: id, comment: '' });
+    };
+
+    const handleReviewConfirm = async (actionType?: 'approve' | 'reject') => {
         const activeReviewerId = employee?.id || user?.id;
         if (!activeReviewerId || !reviewDialog.requestId) return;
 
-        const { type, requestId, comment } = reviewDialog;
+        const type = actionType || (reviewDialog.type as 'approve' | 'reject');
+        const { requestId, comment } = reviewDialog;
 
         if (type === 'reject' && !comment.trim()) {
             setResultDialog({
@@ -161,7 +170,46 @@ const MakeupRequestsPage: React.FC = () => {
         } else {
             newSelected.add(id);
         }
-        setSelectedIds(newSelected);
+
+        const nextSelected = newSelected;
+        setSelectedIds(nextSelected);
+
+        // 如果沒有選中任何項目，退出批次模式
+        if (nextSelected.size === 0) {
+            setIsBatchMode(false);
+        }
+    };
+
+    // 長按與點擊處理邏輯
+    const handleTouchStart = (id: string, status: string) => {
+        if (status !== 'PENDING') return;
+
+        const timer = setTimeout(() => {
+            setIsBatchMode(true);
+            toggleSelectItem(id);
+            // 觸發震動回饋（如果支援）
+            if (window.navigator && window.navigator.vibrate) {
+                window.navigator.vibrate(50);
+            }
+        }, 600); // 600ms 定義為長按
+        setLongPressTimer(timer);
+    };
+
+    const handleTouchEnd = () => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            setLongPressTimer(null);
+        }
+    };
+
+    const handleRowClick = (id: string, status: string) => {
+        if (status !== 'PENDING') return;
+
+        if (isBatchMode) {
+            toggleSelectItem(id);
+        } else {
+            handleReview(id);
+        }
     };
 
     const handleBatchAction = (type: 'approve' | 'reject') => {
@@ -283,8 +331,8 @@ const MakeupRequestsPage: React.FC = () => {
             </div>
 
             {/* 批量操作工具列 */}
-            {pendingRequests.length > 0 && filter === 'PENDING' && (
-                <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+            {isBatchMode && pendingRequests.length > 0 && filter === 'PENDING' && (
+                <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center gap-4 animate-in slide-in-from-top-2 duration-300">
                     {/* 全選 Checkbox */}
                     <label className="flex items-center gap-3 cursor-pointer group">
                         <input
@@ -305,6 +353,18 @@ const MakeupRequestsPage: React.FC = () => {
                             <span className="text-sm font-black text-blue-700">已選擇 {selectedIds.size} 筆</span>
                         </div>
                     )}
+
+                    {/* 關閉批次模式按鈕 */}
+                    <button
+                        onClick={() => {
+                            setIsBatchMode(false);
+                            setSelectedIds(new Set());
+                        }}
+                        className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
+                        title="退出批量模式"
+                    >
+                        <span className="material-symbols-outlined">close</span>
+                    </button>
 
                     <div className="flex-1"></div>
 
@@ -344,8 +404,8 @@ const MakeupRequestsPage: React.FC = () => {
                         <table className="w-full">
                             <thead className="bg-slate-50 border-b border-slate-100">
                                 <tr>
-                                    {filter === 'PENDING' && (
-                                        <th className="px-4 py-3 text-left w-12"></th>
+                                    {isBatchMode && filter === 'PENDING' && (
+                                        <th className="px-4 py-3 text-left w-12 animate-in fade-in duration-300"></th>
                                     )}
                                     <TableHeaderFilter
                                         columnKey="employee"
@@ -372,9 +432,6 @@ const MakeupRequestsPage: React.FC = () => {
                                     />
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">原因</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">狀態</th>
-                                    {filter === 'PENDING' && (
-                                        <th className="px-4 py-3 text-right text-xs font-black text-slate-500 uppercase tracking-wider">操作</th>
-                                    )}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -388,10 +445,16 @@ const MakeupRequestsPage: React.FC = () => {
                                     return (
                                         <tr
                                             key={request.id}
-                                            className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}
+                                            onMouseDown={() => handleTouchStart(request.id, request.status)}
+                                            onMouseUp={handleTouchEnd}
+                                            onMouseLeave={handleTouchEnd}
+                                            onTouchStart={() => handleTouchStart(request.id, request.status)}
+                                            onTouchEnd={handleTouchEnd}
+                                            onClick={() => handleRowClick(request.id, request.status)}
+                                            className={`transition-colors cursor-pointer ${isSelected ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-slate-50'}`}
                                         >
-                                            {filter === 'PENDING' && (
-                                                <td className="px-4 py-4">
+                                            {isBatchMode && filter === 'PENDING' && (
+                                                <td className="px-4 py-4 animate-in fade-in duration-300" onClick={(e) => e.stopPropagation()}>
                                                     <input
                                                         type="checkbox"
                                                         checked={isSelected}
@@ -426,26 +489,6 @@ const MakeupRequestsPage: React.FC = () => {
                                                     {statusInfo.text}
                                                 </span>
                                             </td>
-                                            {filter === 'PENDING' && (
-                                                <td className="px-4 py-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        <button
-                                                            onClick={() => handleReject(request.id)}
-                                                            disabled={isProcessing}
-                                                            className="px-4 py-2 bg-rose-50 text-rose-600 rounded-lg text-xs font-black hover:bg-rose-100 transition-all disabled:opacity-50"
-                                                        >
-                                                            拒絕
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleApprove(request.id)}
-                                                            disabled={isProcessing}
-                                                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-black hover:bg-emerald-700 transition-all disabled:opacity-50"
-                                                        >
-                                                            {isProcessing ? '...' : '核准'}
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            )}
                                         </tr>
                                     );
                                 })}
@@ -457,19 +500,25 @@ const MakeupRequestsPage: React.FC = () => {
 
             {/* 單筆審核對話框 */}
             {reviewDialog.show && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-300">
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
+                    onClick={() => setReviewDialog({ show: false, type: null, requestId: null, comment: '' })}
+                >
+                    <div
+                        className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-300"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="text-center mb-8">
-                            <div className={`w-20 h-20 ${reviewDialog.type === 'approve' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} rounded-3xl flex items-center justify-center mx-auto mb-6`}>
+                            <div className={`w-20 h-20 ${reviewDialog.type === 'approve' ? 'bg-emerald-100 text-emerald-600' : reviewDialog.type === 'reject' ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'} rounded-3xl flex items-center justify-center mx-auto mb-6`}>
                                 <span className="material-symbols-outlined text-4xl">
-                                    {reviewDialog.type === 'approve' ? 'verified' : 'cancel'}
+                                    {reviewDialog.type === 'approve' ? 'verified' : reviewDialog.type === 'reject' ? 'cancel' : 'rate_review'}
                                 </span>
                             </div>
                             <h2 className="text-2xl font-black text-slate-900 mb-2">
-                                {reviewDialog.type === 'approve' ? '核准補登申請' : '拒絕補登申請'}
+                                {reviewDialog.type === 'approve' ? '核准補登申請' : reviewDialog.type === 'reject' ? '拒絕補登申請' : '審核補登申請'}
                             </h2>
                             <p className="text-slate-500 font-bold text-sm">
-                                {reviewDialog.type === 'approve' ? '核准後系統將自動建立打卡記錄' : '請說明拒絕該筆補登的原因'}
+                                {reviewDialog.type === 'approve' ? '核准後系統將自動建立打卡記錄' : reviewDialog.type === 'reject' ? '請說明拒絕該筆補登的原因' : '請核准或拒絕此筆補登申請'}
                             </p>
                         </div>
 
@@ -480,28 +529,43 @@ const MakeupRequestsPage: React.FC = () => {
                                     autoFocus
                                     value={reviewDialog.comment}
                                     onChange={(e) => setReviewDialog({ ...reviewDialog, comment: e.target.value })}
-                                    placeholder={reviewDialog.type === 'approve' ? '輸入核准備註（選填）...' : '請輸入拒絕原因（必填）...'}
+                                    placeholder={reviewDialog.type === 'approve' ? '輸入核准備註（選填）...' : reviewDialog.type === 'reject' ? '請輸入拒絕原因（必填）...' : '輸入審核備註（拒絕時請務必填寫原因）...'}
                                     rows={4}
                                     className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all resize-none font-bold text-slate-700 placeholder:text-slate-300"
                                 />
                             </div>
 
-                            <div className="flex gap-4">
-                                <button
-                                    onClick={() => setReviewDialog({ show: false, type: null, requestId: null, comment: '' })}
-                                    className="flex-1 px-6 py-4 bg-white text-slate-500 border border-slate-100 rounded-2xl font-black hover:bg-slate-50 transition-all"
-                                >
-                                    取消
-                                </button>
-                                <button
-                                    onClick={handleReviewConfirm}
-                                    className={`flex-1 px-6 py-4 rounded-2xl font-black text-white shadow-xl transition-all active:scale-95 ${reviewDialog.type === 'approve'
-                                        ? 'bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700'
-                                        : 'bg-rose-600 shadow-rose-100 hover:bg-rose-700'
-                                        }`}
-                                >
-                                    確定{reviewDialog.type === 'approve' ? '核准' : '拒絕'}
-                                </button>
+                            <div className="flex flex-col gap-3">
+                                {reviewDialog.type === 'review' ? (
+                                    <>
+                                        <div className="flex gap-4">
+                                            <button
+                                                onClick={() => handleReviewConfirm('reject')}
+                                                className="flex-1 px-6 py-4 bg-white text-rose-600 border-2 border-rose-100 rounded-2xl font-black hover:bg-rose-50 transition-all active:scale-95"
+                                            >
+                                                拒絕申請
+                                            </button>
+                                            <button
+                                                onClick={() => handleReviewConfirm('approve')}
+                                                className="flex-1 px-6 py-4 bg-emerald-600 shadow-lg shadow-emerald-100 text-white rounded-2xl font-black hover:bg-emerald-700 transition-all active:scale-95"
+                                            >
+                                                核准申請
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex gap-4">
+                                        <button
+                                            onClick={() => handleReviewConfirm()}
+                                            className={`flex-1 px-6 py-4 rounded-2xl font-black text-white shadow-xl transition-all active:scale-95 ${reviewDialog.type === 'approve'
+                                                ? 'bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700'
+                                                : 'bg-rose-600 shadow-rose-100 hover:bg-rose-700'
+                                                }`}
+                                        >
+                                            確定{reviewDialog.type === 'approve' ? '核准' : '拒絕'}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -510,8 +574,14 @@ const MakeupRequestsPage: React.FC = () => {
 
             {/* 批量操作確認對話框 */}
             {batchDialog.show && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-300">
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
+                    onClick={() => setBatchDialog({ show: false, type: null, comment: '' })}
+                >
+                    <div
+                        className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-300"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className={`w-20 h-20 ${batchDialog.type === 'approve' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} rounded-3xl flex items-center justify-center mx-auto mb-6`}>
                             <span className="material-symbols-outlined text-4xl">
                                 {batchDialog.type === 'approve' ? 'verified' : 'help'}
@@ -541,12 +611,6 @@ const MakeupRequestsPage: React.FC = () => {
 
                             <div className="flex gap-4">
                                 <button
-                                    onClick={() => setBatchDialog({ show: false, type: null, comment: '' })}
-                                    className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black transition-all hover:bg-slate-100"
-                                >
-                                    我再想想
-                                </button>
-                                <button
                                     onClick={handleBatchConfirm}
                                     className={`flex-1 py-4 rounded-2xl font-black text-white shadow-xl transition-all active:scale-95 ${batchDialog.type === 'approve'
                                         ? 'bg-emerald-600 shadow-emerald-100'
@@ -563,8 +627,14 @@ const MakeupRequestsPage: React.FC = () => {
 
             {/* 批量操作結果對話框 */}
             {batchResultDialog.show && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-300">
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
+                    onClick={() => setBatchResultDialog({ show: false, total: 0, succeeded: 0, failed: 0, errors: [] })}
+                >
+                    <div
+                        className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-300"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className={`w-20 h-20 ${batchResultDialog.failed === 0
                             ? 'bg-emerald-100 text-emerald-600'
                             : batchResultDialog.succeeded === 0
@@ -621,8 +691,14 @@ const MakeupRequestsPage: React.FC = () => {
 
             {/* 結果對話框 */}
             {resultDialog.show && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-sm w-full p-8 animate-in zoom-in-95 duration-300 text-center">
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
+                    onClick={() => setResultDialog({ show: false, success: false, message: '' })}
+                >
+                    <div
+                        className="bg-white rounded-[2.5rem] shadow-2xl max-w-sm w-full p-8 animate-in zoom-in-95 duration-300 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className={`w-20 h-20 ${resultDialog.success ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} rounded-3xl flex items-center justify-center mx-auto mb-6`}>
                             <span className="material-symbols-outlined text-4xl">
                                 {resultDialog.success ? 'check_circle' : 'error'}

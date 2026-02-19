@@ -28,6 +28,7 @@ const HOLIDAYS_DATA: Holiday[] = [
     { date: '2025-05-31', name: '端午節' },
     { date: '2025-10-06', name: '中秋節' },
     { date: '2025-10-10', name: '國慶日' },
+    { date: '2025-12-25', name: '行憲紀念日' },
 
     // 2026 年
     { date: '2026-01-01', name: '元旦' },

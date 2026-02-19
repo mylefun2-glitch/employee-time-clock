@@ -1,0 +1,205 @@
+import React, { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+import { getEmployeeLeaveBalances } from '../../services/employee';
+import { LeaveBalance, Employee } from '../../types';
+import { Search, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
+
+interface EmployeeLeaveStats extends Employee {
+    leaveBalance: LeaveBalance | null;
+}
+
+const AdminLeaveStatsPage: React.FC = () => {
+    const [employees, setEmployees] = useState<EmployeeLeaveStats[]>([]);
+    const [filteredEmployees, setFilteredEmployees] = useState<EmployeeLeaveStats[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [departmentFilter, setDepartmentFilter] = useState('ALL');
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    useEffect(() => {
+        filterData();
+    }, [searchTerm, departmentFilter, employees]);
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const { data: userData, error } = await supabase
+                .from('employees')
+                .select('*')
+                .eq('is_active', true)
+                .order('department', { ascending: true });
+
+            if (error) throw error;
+
+            if (userData) {
+                const statsPromises = userData.map(async (emp: any) => {
+                    const balance = await getEmployeeLeaveBalances(emp.id);
+                    return {
+                        ...emp,
+                        leaveBalance: balance
+                    };
+                });
+
+                const results = await Promise.all(statsPromises);
+                setEmployees(results);
+            }
+        } catch (error) {
+            console.error('Error fetching admin leave stats:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const filterData = () => {
+        let result = employees;
+
+        if (departmentFilter !== 'ALL') {
+            result = result.filter(e => (e.department || '未分配') === departmentFilter);
+        }
+
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            result = result.filter(e =>
+                e.name.toLowerCase().includes(term) ||
+                (e.pin && e.pin.includes(term))
+            );
+        }
+
+        setFilteredEmployees(result);
+    };
+
+    const handleExport = () => {
+        const dataToExport = filteredEmployees.map(e => ({
+            Department: e.department || '未分配',
+            Name: e.name,
+            Pin: e.pin,
+            Annual_Entitlement: e.leaveBalance ? e.leaveBalance.annual.entitlement : 0,
+            Annual_Used: e.leaveBalance?.annual.used || 0,
+            Annual_Cashout: e.leaveBalance?.annual.cashout || 0,
+            Annual_Remaining: e.leaveBalance?.annual.remaining || 0,
+            Compensatory_Total: e.leaveBalance?.compensatory.entitlement || 0,
+            Compensatory_Used: e.leaveBalance?.compensatory.used || 0,
+            Compensatory_Cashout: e.leaveBalance?.compensatory.cashout || 0,
+            Compensatory_Remaining: e.leaveBalance?.compensatory.remaining || 0,
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "LeaveStats");
+        XLSX.writeFile(wb, "LeaveStats.xlsx");
+    };
+
+    const departments = ['ALL', ...Array.from(new Set(employees.map(e => e.department || '未分配')))];
+
+    if (loading) return <div className="p-12 text-center text-slate-500 font-bold text-xl">數據加載中...</div>;
+
+    return (
+        <div className="space-y-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                <div>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">全會差勤額度統計</h1>
+                    <p className="mt-1 text-sm text-slate-500 font-medium">
+                        檢視所有員工的特休與補休使用狀況。
+                    </p>
+                </div>
+                <button
+                    onClick={handleExport}
+                    className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+                >
+                    <Download className="h-4 w-4 mr-2" />
+                    匯出 Excel
+                </button>
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-col md:flex-row gap-3 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm items-stretch md:items-center">
+                <div className="relative flex-1">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Search className="h-4 w-4 text-slate-400" />
+                    </div>
+                    <input
+                        type="text"
+                        className="block w-full pl-10 pr-4 py-2.5 border-slate-200 bg-slate-50/50 rounded-xl text-sm font-medium focus:ring-blue-500 focus:border-blue-500 border transition-all"
+                        placeholder="搜尋姓名或 PIN..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <select
+                    value={departmentFilter}
+                    onChange={(e) => setDepartmentFilter(e.target.value)}
+                    className="block w-full sm:w-40 pl-3 pr-10 py-2.5 border-slate-200 bg-slate-50/50 rounded-xl text-sm font-bold text-slate-700 focus:ring-blue-500 focus:border-blue-500 border transition-all"
+                >
+                    {departments.map(dept => (
+                        <option key={dept} value={dept}>{dept === 'ALL' ? '全部部門' : dept}</option>
+                    ))}
+                </select>
+            </div>
+
+            <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto custom-scrollbar">
+                    <table className="min-w-full divide-y divide-slate-100">
+                        <thead className="bg-slate-50/50">
+                            <tr>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">姓名</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">部門</th>
+                                <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest text-blue-600">特休總額</th>
+                                <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest text-blue-600">已用</th>
+                                <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest text-blue-600">剩餘</th>
+                                <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest text-purple-600 bg-slate-50">補休總額</th>
+                                <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest text-purple-600 bg-slate-50">已用</th>
+                                <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest text-purple-600 bg-slate-50">剩餘</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {filteredEmployees.length === 0 ? (
+                                <tr>
+                                    <td colSpan={8} className="px-6 py-12 text-center text-slate-400 font-bold">
+                                        無符合資料
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredEmployees.map((emp) => (
+                                    <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-900">
+                                            {emp.name}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-medium">
+                                            {emp.department || '-'}
+                                        </td>
+                                        {/* Special Leave */}
+                                        <td className="px-6 py-4 whitespace-nowrap text-center font-mono text-slate-600">
+                                            {emp.leaveBalance ? emp.leaveBalance.annual.entitlement : '-'}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center font-mono text-orange-600">
+                                            {emp.leaveBalance ? emp.leaveBalance.annual.used : '-'}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center font-mono font-bold text-emerald-600">
+                                            {emp.leaveBalance ? emp.leaveBalance.annual.remaining : '-'}
+                                        </td>
+                                        {/* Compensatory Leave */}
+                                        <td className="px-6 py-4 whitespace-nowrap text-center font-mono text-slate-600 bg-slate-50/30">
+                                            {emp.leaveBalance ? emp.leaveBalance.compensatory.entitlement : '-'}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center font-mono text-orange-600 bg-slate-50/30">
+                                            {emp.leaveBalance ? emp.leaveBalance.compensatory.used : '-'}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center font-mono font-bold text-purple-600 bg-slate-50/30">
+                                            {emp.leaveBalance ? emp.leaveBalance.compensatory.remaining : '-'}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default AdminLeaveStatsPage;

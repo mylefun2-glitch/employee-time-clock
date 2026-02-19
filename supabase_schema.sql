@@ -53,7 +53,7 @@ create table leave_requests (
   start_date timestamp with time zone not null,
   end_date timestamp with time zone not null,
   reason text,
-  status text default 'PENDING' not null check (status in ('PENDING', 'APPROVED', 'REJECTED')),
+  status text default 'PENDING' not null check (status in ('PENDING', 'APPROVED', 'REJECTED', 'WITHDRAWN')),
   approver_id uuid, -- Simplified: removed reference to employees(id)
   approved_at timestamp with time zone
 );

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { LeaveType } from '../types';
+import { LeaveType, Employee, EmployeeSchedule } from '../types';
+import { calculateLeaveHours, calculateLeaveHoursDetailed, isRestDay, validateOTHours, OTValidationResult, DetailedLeaveHours } from '../lib/leaveUtils';
 import { requestService } from '../services/requestService';
+import { getEmployeeSchedules } from '../services/admin';
 import { leaveTypeService } from '../services/leaveTypeService';
 import { getCars } from '../services/carService';
 
@@ -11,10 +13,14 @@ interface LeaveRequestFormProps {
 }
 
 const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose, onSuccess }) => {
+    const [employeeSchedule, setEmployeeSchedule] = useState<Partial<Employee>>({});
+    const [historicalSchedules, setHistoricalSchedules] = useState<EmployeeSchedule[]>([]);
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [selectedTypeId, setSelectedTypeId] = useState<string>('');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
+    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [startTime, setStartTime] = useState('09:00');
+    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [endTime, setEndTime] = useState('18:00');
     const [reason, setReason] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -26,6 +32,10 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
     const [selectedDeputyId, setSelectedDeputyId] = useState<string>('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [otValidation, setOtValidation] = useState<OTValidationResult | null>(null);
+    const [detailedHours, setDetailedHours] = useState<DetailedLeaveHours | null>(null);
+    const [manualBreakHours, setManualBreakHours] = useState<string>('0');
+    const [isMakeupWorkday, setIsMakeupWorkday] = useState(false);
 
     useEffect(() => {
         loadLeaveTypes();
@@ -49,10 +59,10 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
         try {
             const { supabase } = await import('../lib/supabase');
 
-            // 先取得當前員工的部門
+            // 先取得當前員工的部門與班表
             const { data: currentEmployee } = await supabase
                 .from('employees')
-                .select('department')
+                .select('department, work_start_time, work_end_time, break_start_time, break_end_time, break2_start_time, break2_end_time, break3_start_time, break3_end_time')
                 .eq('id', employeeId)
                 .single();
 
@@ -60,6 +70,11 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                 console.error('無法取得當前員工資訊');
                 return;
             }
+            setEmployeeSchedule(currentEmployee);
+
+            // 取得歷史班表紀錄
+            const schedules = await getEmployeeSchedules(employeeId);
+            setHistoricalSchedules(schedules);
 
             // 只載入相同部門的員工(排除自己)
             const { data } = await supabase
@@ -85,77 +100,92 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
         setIsLoading(false);
     };
 
-    // 計算總時數邏輯(只計算工作時間 08:00-17:00,扣除 12:00-13:00 午休)
+    // 計算總時數邏輯 (使用統一工具函數)
     const totalHours = useMemo(() => {
         if (!startDate || !endDate) return 0;
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        const selectedType = leaveTypes.find(t => t.id === selectedTypeId);
 
-        if (end <= start) return 0;
+        // 判斷是否為加班或折現類型：檢查代碼 (OT, CO, ALC) 或名稱包含「加班/折現」
+        const isOvertime =
+            selectedType?.code === 'OT' ||
+            selectedType?.code === 'CO' ||
+            selectedType?.code === 'ALC' ||
+            selectedType?.name?.includes('加班') ||
+            selectedType?.name?.includes('折現') ||
+            selectedType?.name?.includes('折算');
 
-        let totalMinutes = 0;
+        const startDateTimeStr = `${startDate}T${startTime}`;
+        const endDateTimeStr = `${endDate}T${endTime}`;
 
-        // 工作時間定義
-        const WORK_START_HOUR = 8;
-        const WORK_END_HOUR = 17;
-        const LUNCH_START_HOUR = 12;
-        const LUNCH_END_HOUR = 13;
+        console.log('LeaveRequestForm Calculation Start:', {
+            leaveTypeId: selectedTypeId,
+            leaveTypeName: selectedType?.name,
+            leaveTypeCode: selectedType?.code,
+            isOvertime,
+            startDateStr: startDateTimeStr,
+            endDateStr: endDateTimeStr
+        });
 
-        // 遍歷每一天
-        let currentDay = new Date(start);
-        currentDay.setHours(0, 0, 0, 0);
+        const manualBreak = parseFloat(manualBreakHours) || 0;
 
-        const endDay = new Date(end);
-        endDay.setHours(0, 0, 0, 0);
+        // 如果是加班類型，使用驗證函數
+        if (selectedType?.code === 'OT') {
+            const validation = validateOTHours(
+                new Date(startDateTimeStr),
+                new Date(endDateTimeStr),
+                employeeSchedule,
+                historicalSchedules,
+                manualBreak
+            );
+            setOtValidation(validation);
+            setDetailedHours({
+                totalHours: validation.adjustedHours || 0,
+                finalHours: validation.adjustedHours || 0,
+                rawHours: validation.originalHours || 0,
+                breakHours: (validation.breakDeducted || 0) + manualBreak
+            });
 
-        while (currentDay <= endDay) {
-            // 當天的工作時間範圍
-            const dayWorkStart = new Date(currentDay);
-            dayWorkStart.setHours(WORK_START_HOUR, 0, 0, 0);
-
-            const dayWorkEnd = new Date(currentDay);
-            dayWorkEnd.setHours(WORK_END_HOUR, 0, 0, 0);
-
-            // 計算當天實際的開始和結束時間(與申請時間取交集)
-            const actualStart = new Date(Math.max(start.getTime(), dayWorkStart.getTime()));
-            const actualEnd = new Date(Math.min(end.getTime(), dayWorkEnd.getTime()));
-
-            // 如果當天有工作時間
-            if (actualStart < actualEnd) {
-                // 計算當天的工作分鐘數
-                let dayMinutes = Math.floor((actualEnd.getTime() - actualStart.getTime()) / (1000 * 60));
-
-                // 扣除午休時間(如果跨過午休時段)
-                const lunchStart = new Date(currentDay);
-                lunchStart.setHours(LUNCH_START_HOUR, 0, 0, 0);
-
-                const lunchEnd = new Date(currentDay);
-                lunchEnd.setHours(LUNCH_END_HOUR, 0, 0, 0);
-
-                // 計算與午休時段的重疊
-                const lunchOverlapStart = new Date(Math.max(actualStart.getTime(), lunchStart.getTime()));
-                const lunchOverlapEnd = new Date(Math.min(actualEnd.getTime(), lunchEnd.getTime()));
-
-                if (lunchOverlapStart < lunchOverlapEnd) {
-                    const lunchMinutes = Math.floor((lunchOverlapEnd.getTime() - lunchOverlapStart.getTime()) / (1000 * 60));
-                    dayMinutes -= lunchMinutes;
-                }
-
-                totalMinutes += dayMinutes;
+            if (!validation.isValid) {
+                setError(validation.error || '加班時數驗證失敗');
+                return 0;
             }
 
-            // 移到下一天
-            currentDay.setDate(currentDay.getDate() + 1);
+            // 清除錯誤訊息
+            if (error && error.includes('加班')) {
+                setError(null);
+            }
+
+            console.log('OT Validation Result:', validation);
+            return validation.adjustedHours || 0;
+        } else {
+            // 非加班類型，清除 OT 驗證狀態
+            setOtValidation(null);
         }
 
-        return Math.max(0, totalMinutes / 60);
-    }, [startDate, endDate]);
+        const detailed = calculateLeaveHoursDetailed(
+            new Date(startDateTimeStr),
+            new Date(endDateTimeStr),
+            employeeSchedule,
+            isOvertime,
+            true,
+            historicalSchedules,
+            manualBreak,
+            isMakeupWorkday
+        );
+        setDetailedHours(detailed);
+
+        console.log('LeaveRequestForm Calculation End:', {
+            calculatedHours: detailed.finalHours
+        });
+
+        return detailed.finalHours;
+    }, [startDate, startTime, endDate, endTime, employeeSchedule, selectedTypeId, leaveTypes, historicalSchedules, manualBreakHours, isMakeupWorkday]);
 
     // 計算請假天數（用於判斷是否需要理事長審核）
     const totalDays = useMemo(() => {
-        if (!startDate || !endDate) return 0;
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        if (!startDate || !startTime || !endDate || !endTime) return 0;
+        const start = new Date(`${startDate}T${startTime}`);
+        const end = new Date(`${endDate}T${endTime}`);
 
         if (end <= start) return 0;
 
@@ -164,7 +194,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
         const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
         const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
         return Math.round((endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    }, [startDate, endDate]);
+    }, [startDate, startTime, endDate, endTime]);
 
     // 判斷是否需要理事長審核
     const requiresChairmanApproval = totalDays >= 3;
@@ -172,13 +202,26 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!selectedTypeId || !startDate || !endDate || !reason || !selectedDeputyId) {
-            setError('請填寫所有必填欄位(包含職務代理人)');
+        const selectedType = leaveTypes.find(t => t.id === selectedTypeId);
+        const isDeputyOptional =
+            selectedType?.code === 'OT' ||
+            selectedType?.code === 'CO' ||
+            selectedType?.code === 'ALC' ||
+            selectedType?.name?.includes('加班') ||
+            selectedType?.name?.includes('折現') ||
+            selectedType?.name?.includes('折算');
+
+        const startDateTimeStr = `${startDate}T${startTime}`;
+        const endDateTimeStr = `${endDate}T${endTime}`;
+
+        // 如果不是免填類型，則職代為必填
+        if (!selectedTypeId || !startDate || !startTime || !endDate || !endTime || !reason || (!isDeputyOptional && !selectedDeputyId)) {
+            setError(isDeputyOptional ? '請填寫所有必填欄位(除職務代理人外)' : '請填寫所有必填欄位(包含職務代理人)');
             return;
         }
 
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        const start = new Date(startDateTimeStr);
+        const end = new Date(endDateTimeStr);
         if (end <= start) {
             setError('結束時間必須晚於開始時間');
             return;
@@ -209,12 +252,14 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                 employee_id: employeeId,
                 type: 'LEAVE' as any,
                 leave_type_id: selectedTypeId,
-                start_date: new Date(startDate).toISOString(),
-                end_date: new Date(endDate).toISOString(),
+                start_date: new Date(startDateTimeStr).toISOString(),
+                end_date: new Date(endDateTimeStr).toISOString(),
                 reason,
                 hours: totalHours,
+                manual_break_hours: parseFloat(manualBreakHours) || 0,
                 car_id: needCar ? selectedCarId : undefined,
                 deputy_id: selectedDeputyId || undefined,
+                is_makeup_workday: isMakeupWorkday,
                 ...attachmentInfo
             });
             onSuccess();
@@ -287,39 +332,153 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
+                                <div className="space-y-4">
                                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">開始時間 <span className="text-rose-500">*</span></label>
-                                    <input
-                                        type="datetime-local"
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold"
-                                        required
-                                    />
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => {
+                                                const newDate = e.target.value;
+                                                setStartDate(newDate);
+                                                // 預設結束日期與開始日期相同
+                                                setEndDate(newDate);
+                                            }}
+                                            className="flex-[2] p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold"
+                                            max="9999-12-31"
+                                            required
+                                        />
+                                        <input
+                                            type="time"
+                                            value={startTime}
+                                            onChange={(e) => setStartTime(e.target.value)}
+                                            className="flex-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold"
+                                            required
+                                        />
+                                    </div>
                                 </div>
 
-                                <div>
+                                <div className="space-y-4">
                                     <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">結束時間 <span className="text-rose-500">*</span></label>
-                                    <input
-                                        type="datetime-local"
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold"
-                                        required
-                                    />
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className="flex-[2] p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold"
+                                            max="9999-12-31"
+                                            required
+                                        />
+                                        <input
+                                            type="time"
+                                            value={endTime}
+                                            onChange={(e) => setEndTime(e.target.value)}
+                                            className="flex-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold"
+                                            required
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
+                            {/* 例外情形：手動扣除休息時間 */}
+                            <div className="bg-amber-50/30 border border-amber-100 rounded-2xl p-4 animate-in fade-in slide-in-from-bottom-2">
+                                <label className="block text-[10px] font-black text-amber-600 uppercase tracking-[0.2em] mb-3 ml-1 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-sm">potted_plant</span>
+                                    例外情形 (手動扣除休息時數)
+                                </label>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex-1 relative">
+                                        <input
+                                            type="number"
+                                            step="0.5"
+                                            min="0"
+                                            value={manualBreakHours}
+                                            onChange={(e) => setManualBreakHours(e.target.value)}
+                                            className="w-full p-2.5 pl-10 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/50 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all font-bold tabular-nums"
+                                            placeholder="請輸入欲扣除的休息時數..."
+                                        />
+                                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-amber-400 pointer-events-none text-lg">
+                                            nest_clock_farsight_analog
+                                        </span>
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-amber-500 pointer-events-none uppercase">
+                                            小時
+                                        </span>
+                                    </div>
+                                    <p className="text-[10px] text-amber-500 font-medium max-w-[140px] leading-tight text-right">
+                                        若總時數中包含不計薪的休息片段，請在此輸入。
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* 補行上班日開關 */}
+                            <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100 text-white shrink-0">
+                                        <span className="material-symbols-outlined text-xl">work_history</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">特殊項目</p>
+                                        <p className="text-sm font-black text-indigo-900 mt-0.5">補行上班日</p>
+                                        <p className="text-[10px] text-indigo-500 mt-1">若申請日適逢補班日（如週末補班），請開啟此開關。</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsMakeupWorkday(!isMakeupWorkday)}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isMakeupWorkday ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isMakeupWorkday ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+
+                            {/* OT 規則說明 */}
+                            {leaveTypes.find(t => t.id === selectedTypeId)?.code === 'OT' && (
+                                <div className="bg-blue-50/50 border border-blue-200 rounded-2xl p-4 animate-in fade-in slide-in-from-bottom-2">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-100 text-white shrink-0">
+                                            <span className="material-symbols-outlined text-xl">info</span>
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2">加班時數規則</p>
+                                            <ul className="space-y-1.5 text-xs text-blue-900">
+                                                <li className="flex items-start gap-2">
+                                                    <span className="text-blue-500 shrink-0">•</span>
+                                                    <span><span className="font-black">平日加班</span>：最多 4 小時</span>
+                                                </li>
+                                                <li className="flex items-start gap-2">
+                                                    <span className="text-blue-500 shrink-0">•</span>
+                                                    <span><span className="font-black">休息日加班</span>：最多 12 小時</span>
+                                                </li>
+                                                <li className="flex items-start gap-2">
+                                                    <span className="text-blue-500 shrink-0">•</span>
+                                                    <span>連續工作超過 4 小時，<span className="font-black">自動扣除 0.5 小時休息時間</span></span>
+                                                </li>
+                                                <li className="flex items-start gap-2">
+                                                    <span className="text-blue-500 shrink-0">•</span>
+                                                    <span><span className="font-black">國定假日加班</span>：不論工時統一以 <span className="font-black">8 小時計</span></span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* 時數顯示區 */}
                             {startDate && endDate && totalHours > 0 && (
-                                <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2">
+                                <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 flex flex-wrap items-center justify-between animate-in fade-in slide-in-from-bottom-2">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-100 text-white">
                                             <span className="material-symbols-outlined text-xl">schedule</span>
                                         </div>
                                         <div>
                                             <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">預計總時數</p>
-                                            <p className="text-sm font-black text-blue-900 mt-0.5">已扣除午休 (12:00-13:00)</p>
+                                            <p className="text-sm font-black text-blue-900 mt-0.5">
+                                                {detailedHours && detailedHours.breakHours > 0 ? (
+                                                    `原始 ${detailedHours.rawHours} 小時，扣除休息 ${detailedHours.breakHours} 小時`
+                                                ) : (
+                                                    '已依據班表扣除休息時間'
+                                                )}
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="text-2xl font-black text-blue-600 tabular-nums">
@@ -360,14 +519,23 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                             {/* 職代選擇 */}
                             <div>
                                 <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">
-                                    職務代理人 <span className="text-rose-500">*</span>
+                                    職務代理人 {(() => {
+                                        const selectedType = leaveTypes.find(t => t.id === selectedTypeId);
+                                        const isDeputyOptional =
+                                            selectedType?.code === 'OT' ||
+                                            selectedType?.code === 'CO' ||
+                                            selectedType?.code === 'ALC' ||
+                                            selectedType?.name?.includes('加班') ||
+                                            selectedType?.name?.includes('折現') ||
+                                            selectedType?.name?.includes('折算');
+                                        return !isDeputyOptional && <span className="text-rose-500">*</span>;
+                                    })()}
                                 </label>
                                 <div className="relative">
                                     <select
                                         value={selectedDeputyId}
                                         onChange={(e) => setSelectedDeputyId(e.target.value)}
                                         className="w-full p-3 pl-10 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold appearance-none cursor-pointer"
-                                        required
                                     >
                                         <option value="">請選擇職務代理人</option>
                                         {employees.map((emp) => (

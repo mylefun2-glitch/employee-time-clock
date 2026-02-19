@@ -4,10 +4,10 @@ import { supabase } from '../../lib/supabase';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, parseISO, addMonths, subMonths, startOfWeek } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X, CheckSquare, Square, Info, Search, Plus } from 'lucide-react';
-import { deleteAttendanceLog, deleteAttendanceLogs, createAttendanceLog } from '../../services/admin';
-import { Employee, CheckType } from '../../types';
-import { isNationalHoliday } from '../../lib/holidays';
 import { sortByNameStroke } from '../../lib/nameStrokeSort';
+import { deleteAttendanceLog, deleteAttendanceLogs, createAttendanceLog, importAttendanceLogs, getEmployeeSchedules } from '../../services/admin';
+import { Employee, CheckType, EmployeeSchedule } from '../../types';
+import { isNationalHoliday } from '../../lib/holidays';
 
 interface AttendanceLog {
     id: string;
@@ -45,6 +45,7 @@ const AttendanceCalendarPage: React.FC = () => {
 
     const [logs, setLogs] = useState<AttendanceLog[]>([]);
     const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+    const [historicalSchedules, setHistoricalSchedules] = useState<EmployeeSchedule[]>([]);
     const [loading, setLoading] = useState(false);
 
     // Deletion State
@@ -52,11 +53,13 @@ const AttendanceCalendarPage: React.FC = () => {
     const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
     const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
     const [isDeleting, setIsDeleting] = useState(false);
+    const [importing, setImporting] = useState(false);
 
     // Employee Search State
     const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
     const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
     const employeeDropdownRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Add Log State
     const [isAddLogModalOpen, setIsAddLogModalOpen] = useState(false);
@@ -127,11 +130,150 @@ const AttendanceCalendarPage: React.FC = () => {
 
             setLogs(logsData || []);
             setLeaves(leavesData || []);
+
+            // Fetch historical schedules
+            const schedules = await getEmployeeSchedules(selectedEmployeeId);
+            setHistoricalSchedules(schedules);
         } catch (err) {
             console.error('Error fetching calendar data:', err);
         } finally {
             setLoading(false);
         }
+    };
+
+    // 健壯的 CSV 解析器
+    const parseCSV = (text: string) => {
+        const rows: string[][] = [];
+        let currentRow: string[] = [];
+        let currentField = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            const nextChar = text[i + 1];
+
+            if (inQuotes) {
+                if (char === '"') {
+                    if (nextChar === '"') {
+                        currentField += '"';
+                        i++;
+                    } else {
+                        inQuotes = false;
+                    }
+                } else {
+                    currentField += char;
+                }
+            } else {
+                if (char === '"') {
+                    inQuotes = true;
+                } else if (char === ',') {
+                    currentRow.push(currentField.trim());
+                    currentField = '';
+                } else if (char === '\r' || char === '\n') {
+                    currentRow.push(currentField.trim());
+                    if (currentRow.length > 0 && currentRow.some(f => f !== '')) {
+                        rows.push(currentRow);
+                    }
+                    currentRow = [];
+                    currentField = '';
+                    if (char === '\r' && nextChar === '\n') i++;
+                } else {
+                    currentField += char;
+                }
+            }
+        }
+
+        if (currentField || currentRow.length > 0) {
+            currentRow.push(currentField.trim());
+            rows.push(currentRow);
+        }
+
+        return rows;
+    };
+
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (!file.name.endsWith('.csv')) {
+            alert('請選擇 CSV 檔案');
+            return;
+        }
+
+        setImporting(true);
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const text = e.target?.result as string;
+                const rows = parseCSV(text);
+
+                if (rows.length <= 1) {
+                    alert('檔案中沒有資料');
+                    return;
+                }
+
+                // 標題 mapping: 姓名,PIN碼,打卡類型,日期,時間,備註
+                const importLogs = [];
+                for (let i = 1; i < rows.length; i++) {
+                    const [name, pin, check_type, date, time, note] = rows[i];
+                    if ((!name && !pin) || !check_type || !date || !time) {
+                        continue;
+                    }
+
+                    importLogs.push({
+                        name,
+                        pin,
+                        check_type, // 'IN' 或 'OUT'
+                        date,       // YYYY-MM-DD
+                        time,       // HH:mm
+                        note
+                    });
+                }
+
+                if (importLogs.length === 0) {
+                    alert('找不到有效的打卡紀錄');
+                    return;
+                }
+
+                const res = await importAttendanceLogs(importLogs);
+                if (res.success) {
+                    let msg = `匯入完成！成功：${res.succeeded} 筆`;
+                    if (res.skipped > 0) msg += `，跳過重複：${res.skipped} 筆`;
+                    if (res.failed > 0) msg += `，失敗：${res.failed} 筆`;
+
+                    if (res.errors.length > 0) {
+                        msg += `\n\n失敗原因：\n` + res.errors.map(err => `第 ${err.line} 行: ${err.error}`).join('\n');
+                    }
+                    alert(msg);
+                    fetchData();
+                } else {
+                    alert(`匯入失敗：${res.errors[0]?.error || '未知錯誤'}`);
+                }
+            } catch (error: any) {
+                alert(`匯入執行錯誤：${error.message}`);
+            } finally {
+                setImporting(false);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            }
+        };
+        reader.readAsText(file, 'UTF-8');
+    };
+
+    const handleDownloadTemplate = () => {
+        const headers = ['姓名', 'PIN碼', '打卡類型(IN/OUT)', '日期(YYYY-MM-DD)', '時間(HH:mm)', '備註'];
+        const example = ['王小明', '123456', 'IN', format(new Date(), 'yyyy-MM-dd'), '08:00', '補登'];
+        const csvContent = [headers, example].map(r => r.join(',')).join('\n');
+
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', '出勤打卡匯入範本.csv');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const weeks = useMemo(() => {
@@ -198,20 +340,42 @@ const AttendanceCalendarPage: React.FC = () => {
                 if (checkInLog && checkOutLog) {
                     const employee = employees.find(e => e.id === selectedEmployeeId);
 
-                    // 1. Get schedule times (prioritize individual settings)
-                    const scheduleStart = employee?.work_start_time || '08:00';
-                    const scheduleEnd = employee?.work_end_time || '17:00';
-                    const breakStart = employee?.break_start_time || '12:00';
-                    const breakEnd = employee?.break_end_time || '13:00';
+                    // 取得當天有效的班表
+                    const getEffectiveSchedule = () => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        const schedule = historicalSchedules
+                            .filter(s => s.effective_date <= dateStr)
+                            .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
+
+                        if (schedule) return schedule;
+                        return {
+                            work_start_time: employee?.work_start_time || '08:00',
+                            work_end_time: employee?.work_end_time || '17:00',
+                            break_start_time: employee?.break_start_time || '12:00',
+                            break_end_time: employee?.break_end_time || '13:00',
+                            break2_start_time: employee?.break2_start_time,
+                            break2_end_time: employee?.break2_end_time,
+                            break3_start_time: employee?.break3_start_time,
+                            break3_end_time: employee?.break3_end_time,
+                            rest_days: employee?.rest_days || [0, 6]
+                        };
+                    };
+
+                    const schedule = getEffectiveSchedule();
+
+                    // 1. Get schedule times
+                    const scheduleStart = schedule.work_start_time;
+                    const scheduleEnd = schedule.work_end_time;
+                    const breakStart = schedule.break_start_time;
+                    const breakEnd = schedule.break_end_time;
 
                     const actualIn = new Date(checkInLog.timestamp);
                     const actualOut = new Date(checkOutLog.timestamp);
 
-                    // Utility to create a Date object for a specific time on the day
                     const getDayTime = (timeStr: string) => {
-                        const [hours, minutes] = timeStr.split(':').map(Number);
+                        const [h, m] = timeStr.split(':').map(Number);
                         const d = new Date(actualIn);
-                        d.setHours(hours, minutes, 0, 0);
+                        d.setHours(h, m, 0, 0);
                         return d;
                     };
 
@@ -238,8 +402,8 @@ const AttendanceCalendarPage: React.FC = () => {
                     // 4. Precise break deduction (Support multiple breaks)
                     const breaks = [
                         { start: breakStart, end: breakEnd },
-                        { start: employee?.break2_start_time, end: employee?.break2_end_time },
-                        { start: employee?.break3_start_time, end: employee?.break3_end_time }
+                        { start: schedule.break2_start_time, end: schedule.break2_end_time },
+                        { start: schedule.break3_start_time, end: schedule.break3_end_time }
                     ].filter(b => b.start && b.end);
 
                     let totalBreakOverlapMs = 0;
@@ -262,7 +426,7 @@ const AttendanceCalendarPage: React.FC = () => {
         });
 
         return data;
-    }, [days, logs, leaves]);
+    }, [days, logs, leaves, historicalSchedules]);
 
     const departments = useMemo(() => {
         const deps = Array.from(new Set(employees.map(emp => emp.department))).sort();
@@ -554,6 +718,25 @@ const AttendanceCalendarPage: React.FC = () => {
                             <Download className="h-3.5 w-3.5 mr-1" />
                             PDF
                         </button>
+
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={handleImportClick}
+                                disabled={importing}
+                                className={`inline-flex items-center px-3 py-2 ${importing ? 'bg-slate-400' : 'bg-emerald-600 hover:bg-emerald-700'} text-white rounded-xl text-xs font-black transition-all shadow-md shadow-emerald-100 whitespace-nowrap`}
+                            >
+                                <Plus className="h-3.5 w-3.5 mr-1" />
+                                {importing ? '處理中...' : '匯入打卡'}
+                            </button>
+                            <button
+                                onClick={handleDownloadTemplate}
+                                className="p-2 bg-white text-emerald-600 border border-emerald-100 rounded-xl hover:bg-emerald-50 transition-all shadow-sm"
+                                title="下載匯入範本"
+                            >
+                                <Download className="h-4 w-4" />
+                            </button>
+                            <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileChange} className="hidden" />
+                        </div>
                     </div>
                 </div>
             </div>

@@ -113,7 +113,16 @@ const CarRequestForm: React.FC<CarRequestFormProps> = ({ employeeId, onClose, on
                                     required
                                     type="date"
                                     value={formData.start_date}
-                                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                                    onChange={(e) => {
+                                        const newDate = e.target.value;
+                                        setFormData({
+                                            ...formData,
+                                            start_date: newDate,
+                                            // 預設結束日期與開始日期相同
+                                            end_date: newDate
+                                        });
+                                    }}
+                                    max="9999-12-31"
                                     className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
                                 />
                             </div>
@@ -138,6 +147,7 @@ const CarRequestForm: React.FC<CarRequestFormProps> = ({ employeeId, onClose, on
                                     type="date"
                                     value={formData.end_date}
                                     onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                                    max="9999-12-31"
                                     className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
                                 />
                             </div>

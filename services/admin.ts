@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Employee, CheckType } from '../types';
+import { Employee, CheckType, EmployeeSchedule } from '../types';
 
 export interface DashboardStats {
     totalEmployees: number;
@@ -67,15 +67,17 @@ export const getRecentActivity = async () => {
 
 export const createEmployee = async (data: Partial<Employee>) => {
     try {
-        const { error } = await supabase
+        const { data: createdData, error } = await supabase
             .from('employees')
             .insert([{
                 ...data,
                 is_active: true
-            }]);
+            }])
+            .select()
+            .single();
 
         if (error) throw error;
-        return { success: true };
+        return { success: true, data: createdData };
     } catch (error: any) {
         return { success: false, error: error.message };
     }
@@ -89,6 +91,62 @@ export const updateEmployee = async (id: string, updates: Partial<Employee>) => 
             .eq('id', id);
 
         if (error) throw error;
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * 獲取員工班表紀錄
+ */
+export const getEmployeeSchedules = async (employeeId: string): Promise<EmployeeSchedule[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('employee_schedules')
+            .select('*')
+            .eq('employee_id', employeeId)
+            .order('effective_date', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        console.error('Error fetching employee schedules:', error);
+        return [];
+    }
+};
+
+/**
+ * 新增/更新員工班表設定
+ */
+export const addEmployeeSchedule = async (data: Partial<EmployeeSchedule>) => {
+    try {
+        const { error } = await supabase
+            .from('employee_schedules')
+            .upsert([data]);
+
+        if (error) throw error;
+
+        // 同步更新員工主表的「當前」設定（可選，為了向後相容）
+        if (data.employee_id) {
+            await supabase
+                .from('employees')
+                .update({
+                    work_start_time: data.work_start_time,
+                    work_end_time: data.work_end_time,
+                    break_start_time: data.break_start_time,
+                    break_end_time: data.break_end_time,
+                    break2_start_time: data.break2_start_time,
+                    break2_end_time: data.break2_end_time,
+                    break3_start_time: data.break3_start_time,
+                    break3_end_time: data.break3_end_time,
+                    rest_days: data.rest_days,
+                    salary_type: data.salary_type,
+                    standard_daily_hours: data.standard_daily_hours
+                })
+                .eq('id', data.employee_id);
+        }
+
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -426,5 +484,123 @@ export const createAttendanceLog = async (
     } catch (error: any) {
         console.error('Error creating attendance log:', error);
         return { success: false, error: error.message };
+    }
+};
+
+/**
+ * 批量匯入打卡紀錄
+ */
+export const importAttendanceLogs = async (logs: any[]): Promise<{ success: boolean; succeeded: number; skipped: number; failed: number; errors: any[] }> => {
+    try {
+        // 1. 獲取所有員工以便查找
+        const { data: employees, error: empError } = await supabase
+            .from('employees')
+            .select('id, name, pin')
+            .eq('is_active', true);
+
+        if (empError) throw empError;
+
+        const results = {
+            success: true,
+            succeeded: 0,
+            skipped: 0,
+            failed: 0,
+            errors: [] as any[]
+        };
+
+        const insertData: any[] = [];
+        const processedInThisBatch = new Set<string>();
+
+        // 2. 獲取可能受影響的員工的所有打卡記錄，用於檢查重複
+        const employeeIds = Array.from(new Set(
+            logs.map(log => employees?.find(e => e.pin === log.pin || e.name === log.name)?.id)
+                .filter(id => !!id)
+        )) as string[];
+
+        let existingLogs: any[] = [];
+        if (employeeIds.length > 0) {
+            const { data, error: exError } = await supabase
+                .from('attendance_logs')
+                .select('employee_id, check_type, timestamp')
+                .in('employee_id', employeeIds)
+                .limit(10000);
+
+            if (exError) throw exError;
+            existingLogs = data || [];
+        }
+
+        for (let i = 0; i < logs.length; i++) {
+            const log = logs[i];
+            const lineNum = i + 2;
+
+            const employee = employees?.find(e => e.pin === log.pin || e.name === log.name);
+            if (!employee) {
+                results.failed++;
+                results.errors.push({ line: lineNum, name: log.name || log.pin || '未知', error: `找不到員工 (PIN/姓名: ${log.pin || log.name})` });
+                continue;
+            }
+
+            // 解析日期時間
+            let timestamp: Date;
+            if (log.date && log.time) {
+                // 如果 CSV 拆分了日期和時間
+                timestamp = new Date(`${log.date} ${log.time}`);
+            } else {
+                timestamp = new Date(log.timestamp);
+            }
+
+            if (isNaN(timestamp.getTime())) {
+                results.failed++;
+                results.errors.push({ line: lineNum, name: employee.name, error: `日期時間格式錯誤: ${log.timestamp || (log.date + ' ' + log.time)}` });
+                continue;
+            }
+
+            const isoTimestamp = timestamp.toISOString();
+            const checkType = (log.check_type === 'IN' || log.check_type === 'OUT') ? log.check_type : (log.check_type?.toUpperCase().includes('上') ? 'IN' : 'OUT');
+
+            const batchKey = `${employee.id}_${checkType}_${isoTimestamp}`;
+
+            if (processedInThisBatch.has(batchKey)) {
+                results.skipped++;
+                continue;
+            }
+
+            // 檢查重複
+            const isDuplicate = existingLogs.some(el =>
+                el.employee_id === employee.id &&
+                el.check_type === checkType &&
+                new Date(el.timestamp).toISOString() === isoTimestamp
+            );
+
+            if (isDuplicate) {
+                results.skipped++;
+                processedInThisBatch.add(batchKey);
+                continue;
+            }
+
+            insertData.push({
+                employee_id: employee.id,
+                check_type: checkType,
+                timestamp: isoTimestamp,
+                is_makeup: true,
+                note: log.note || '批次匯入'
+            });
+
+            processedInThisBatch.add(batchKey);
+        }
+
+        if (insertData.length > 0) {
+            const { error } = await supabase.from('attendance_logs').insert(insertData);
+            if (error) {
+                console.error('Error bulk inserting attendance logs:', error);
+                return { success: false, succeeded: 0, skipped: 0, failed: logs.length, errors: [{ line: 0, name: '系統', error: error.message }] };
+            }
+            results.succeeded = insertData.length;
+        }
+
+        return results;
+    } catch (err: any) {
+        console.error('Unexpected error in importAttendanceLogs:', err);
+        return { success: false, succeeded: 0, skipped: 0, failed: logs.length, errors: [{ line: 0, name: '系統', error: err.message || '系統錯誤' }] };
     }
 };

@@ -99,6 +99,7 @@ const MakeupRequestForm: React.FC<MakeupRequestFormProps> = ({ employeeId, onClo
                                 required
                                 value={formData.requestDate}
                                 onChange={(e) => setFormData({ ...formData, requestDate: e.target.value })}
+                                max="9999-12-31"
                                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
                             />
                         </div>

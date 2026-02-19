@@ -43,3 +43,31 @@ export const getSeniorityRange = (years: number): string => {
     if (years >= 10) return '10年以上';
     return '未知';
 };
+
+export const formatDateTimeRange = (startDateStr: string | Date, endDateStr: string | Date): string => {
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+
+    const formatDate = (date: Date) => {
+        return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+    };
+
+    const formatTime = (date: Date) => {
+        const hours = date.getHours();
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        const period = hours < 12 ? '上午' : '下午';
+        const displayHours = (hours % 12 || 12).toString().padStart(2, '0');
+        return `${period}${displayHours}:${minutes}`;
+    };
+
+    const startDay = formatDate(start);
+    const endDay = formatDate(end);
+    const startTime = formatTime(start);
+    const endTime = formatTime(end);
+
+    if (startDay === endDay) {
+        return `${startDay}${startTime}～${endTime}`;
+    } else {
+        return `${startDay}${startTime}～${endDay} ${endTime}`;
+    }
+};

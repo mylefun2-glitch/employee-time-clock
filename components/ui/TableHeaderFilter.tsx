@@ -30,6 +30,8 @@ export function TableHeaderFilter<T = string>({
     const [searchTerm, setSearchTerm] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
+    const [dropdownSide, setDropdownSide] = useState<'left' | 'right'>('left');
+    const [dropdownVertical, setDropdownVertical] = useState<'top' | 'bottom'>('top');
 
     // 點擊外部關閉下拉選單
     useEffect(() => {
@@ -46,6 +48,27 @@ export function TableHeaderFilter<T = string>({
 
         if (isOpen) {
             document.addEventListener('mousedown', handleClickOutside);
+
+            // 智慧定位邏輯
+            if (buttonRef.current) {
+                const rect = buttonRef.current.getBoundingClientRect();
+                const vWidth = window.innerWidth;
+                const vHeight = window.innerHeight;
+
+                // 檢查右側空間 (w-64 = 256px)
+                if (rect.left + 260 > vWidth) {
+                    setDropdownSide('right');
+                } else {
+                    setDropdownSide('left');
+                }
+
+                // 檢查下方空間 (max-h-80 = 320px + header/footer ~ 400px)
+                if (rect.bottom + 400 > vHeight && rect.top > 400) {
+                    setDropdownVertical('bottom');
+                } else {
+                    setDropdownVertical('top');
+                }
+            }
         }
 
         return () => {
@@ -60,27 +83,32 @@ export function TableHeaderFilter<T = string>({
         }
     }, [isOpen]);
 
-    const uniqueValues = Array.from(new Set(values)).sort((a, b) => {
-        const strA = valueFormatter(a);
-        const strB = valueFormatter(b);
+    const uniqueValues = Array.from(new Set(values.map(v => {
+        const formatted = valueFormatter(v);
+        return typeof formatted === 'string' ? formatted.trim() : formatted;
+    }))).sort((a, b) => {
+        const strA = String(a);
+        const strB = String(b);
         return strA.localeCompare(strB);
     });
 
     const filteredValues = uniqueValues.filter(value =>
-        valueFormatter(value).toLowerCase().includes(searchTerm.toLowerCase())
+        String(value).toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const isAllSelected = selectedValues.length === 0 || selectedValues.length === uniqueValues.length;
-    const hasActiveFilter = selectedValues.length > 0 && selectedValues.length < uniqueValues.length;
+    const isAllSelected = selectedValues.length === 0;
+    const hasActiveFilter = selectedValues.length > 0;
 
-    const handleToggleValue = (value: T) => {
-        const isSelected = selectedValues.includes(value);
+    const handleToggleValue = (value: any) => {
+        const valueStr = String(value);
+        const isSelected = selectedValues.some(v => String(v).trim() === valueStr);
+
         if (isSelected) {
-            const newValues = selectedValues.filter(v => v !== value);
-            onChange(newValues.length === uniqueValues.length ? [] : newValues);
+            const newValues = selectedValues.filter(v => String(v).trim() !== valueStr);
+            onChange(newValues as unknown as T[]);
         } else {
             const newValues = [...selectedValues, value];
-            onChange(newValues.length === uniqueValues.length ? [] : newValues);
+            onChange((newValues.length === uniqueValues.length ? [] : newValues) as unknown as T[]);
         }
     };
 
@@ -95,7 +123,7 @@ export function TableHeaderFilter<T = string>({
     const isSorted = sortConfig?.key === columnKey;
 
     return (
-        <th className={`px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest ${className}`}>
+        <th className={`px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest ${className}`}>
             <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1 flex-1">
                     {label}
@@ -124,14 +152,14 @@ export function TableHeaderFilter<T = string>({
                         ref={buttonRef}
                         onClick={() => setIsOpen(!isOpen)}
                         className={`p-1 rounded-lg transition-all ${hasActiveFilter
-                                ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
-                                : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
+                            ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
+                            : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
                             }`}
                         title="篩選"
                     >
-                        <Filter className="h-3.5 w-3.5" />
+                        <Filter className="h-4 w-4" />
                         {hasActiveFilter && (
-                            <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full"></span>
+                            <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
                         )}
                     </button>
 
@@ -139,7 +167,9 @@ export function TableHeaderFilter<T = string>({
                     {isOpen && (
                         <div
                             ref={dropdownRef}
-                            className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
+                            className={`absolute z-[100] w-64 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 ${dropdownVertical === 'top' ? 'top-full mt-2' : 'bottom-full mb-2'
+                                } ${dropdownSide === 'left' ? 'left-0' : 'right-0'
+                                }`}
                         >
                             {/* 標題與操作 */}
                             <div className="p-4 border-b border-slate-100 bg-slate-50/50">
@@ -153,16 +183,16 @@ export function TableHeaderFilter<T = string>({
                                     </button>
                                 </div>
 
-                                {/* 搜尋框（當選項超過 10 個時顯示） */}
-                                {uniqueValues.length > 10 && (
+                                {/* 搜尋框（當選項超過 8 個時顯示） */}
+                                {uniqueValues.length > 8 && (
                                     <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                                         <input
                                             type="text"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                             placeholder="搜尋..."
-                                            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
+                                            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300"
                                         />
                                     </div>
                                 )}
@@ -175,40 +205,41 @@ export function TableHeaderFilter<T = string>({
                                     className="w-full px-3 py-2 text-left text-sm font-bold text-blue-600 hover:bg-blue-50 rounded-lg transition-all flex items-center gap-2"
                                 >
                                     <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${isAllSelected
-                                            ? 'bg-blue-600 border-blue-600'
-                                            : 'border-slate-300'
+                                        ? 'bg-blue-600 border-blue-600'
+                                        : 'border-slate-300'
                                         }`}>
                                         {isAllSelected && <Check className="h-3 w-3 text-white" />}
                                     </div>
-                                    {isAllSelected ? '全部' : '全選'}
+                                    <span className="font-black">{isAllSelected ? '全部' : '全選 / 清除'}</span>
                                 </button>
                             </div>
 
                             {/* 選項列表 */}
-                            <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                            <div className="max-h-80 overflow-y-auto custom-scrollbar">
                                 {filteredValues.length === 0 ? (
-                                    <div className="p-4 text-center text-sm text-slate-400">
+                                    <div className="p-8 text-center text-sm text-slate-400 font-bold italic">
                                         沒有符合的選項
                                     </div>
                                 ) : (
                                     <div className="p-2">
                                         {filteredValues.map((value, index) => {
-                                            const isSelected = selectedValues.length === 0 || selectedValues.includes(value);
-                                            const displayValue = valueFormatter(value);
+                                            const valueStr = String(value);
+                                            const isSelected = selectedValues.some(v => String(v).trim() === valueStr);
 
                                             return (
                                                 <button
                                                     key={index}
                                                     onClick={() => handleToggleValue(value)}
-                                                    className="w-full px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-all flex items-center gap-2"
+                                                    className={`w-full px-3 py-2 text-left text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${isSelected ? 'text-blue-700 bg-blue-50/50' : 'text-slate-600 hover:bg-slate-50'
+                                                        }`}
                                                 >
-                                                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${isSelected
-                                                            ? 'bg-blue-600 border-blue-600'
-                                                            : 'border-slate-300'
+                                                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all shrink-0 ${isSelected
+                                                        ? 'bg-blue-600 border-blue-600'
+                                                        : 'border-slate-300'
                                                         }`}>
                                                         {isSelected && <Check className="h-3 w-3 text-white" />}
                                                     </div>
-                                                    <span className="flex-1 truncate">{displayValue}</span>
+                                                    <span className="flex-1 truncate font-bold">{valueStr}</span>
                                                 </button>
                                             );
                                         })}
@@ -219,15 +250,15 @@ export function TableHeaderFilter<T = string>({
                             {/* 底部統計 */}
                             {hasActiveFilter && (
                                 <div className="p-3 border-t border-slate-100 bg-slate-50/50">
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="text-slate-500 font-medium">
-                                            已選擇 {selectedValues.length} / {uniqueValues.length}
+                                    <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest px-1">
+                                        <span className="text-slate-400">
+                                            已選擇 {selectedValues.length} 項
                                         </span>
                                         <button
                                             onClick={handleClearAll}
-                                            className="text-blue-600 font-bold hover:text-blue-700 transition-colors"
+                                            className="text-rose-600 hover:text-rose-700 transition-colors"
                                         >
-                                            清除篩選
+                                            重設
                                         </button>
                                     </div>
                                 </div>

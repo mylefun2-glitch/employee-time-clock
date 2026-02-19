@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 import { Employee } from '../../types';
+import ScheduleHistory from './ScheduleHistory';
 import MovementHistory from './MovementHistory';
+import SenioritySuspensionList from './SenioritySuspensionList';
+import { RotateCw } from 'lucide-react';
 
 interface EmployeeModalProps {
     isOpen: boolean;
@@ -41,10 +44,14 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
     const [break2EndTime, setBreak2EndTime] = useState('');
     const [break3StartTime, setBreak3StartTime] = useState('');
     const [break3EndTime, setBreak3EndTime] = useState('');
+    const [restDays, setRestDays] = useState<number[]>([0, 6]); // 預設週休二日
+    const [salaryType, setSalaryType] = useState<'MONTHLY' | 'HOURLY'>('MONTHLY');
+    const [scheduleEffectiveDate, setScheduleEffectiveDate] = useState(new Date().toISOString().split('T')[0]);
+    const [standardDailyHours, setStandardDailyHours] = useState(8.0);
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'work' | 'history'>('basic');
+    const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'work' | 'schedule' | 'seniority' | 'history'>('basic');
 
     useEffect(() => {
         if (employee && isOpen) {
@@ -74,6 +81,9 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             setBreak2EndTime(employee.break2_end_time || '');
             setBreak3StartTime(employee.break3_start_time || '');
             setBreak3EndTime(employee.break3_end_time || '');
+            setRestDays(employee.rest_days || [0, 6]);
+            setSalaryType(employee.salary_type || 'MONTHLY');
+            setStandardDailyHours(employee.standard_daily_hours || 8.0);
         } else if (!employee && isOpen) {
             setName('');
             setUsername('');
@@ -93,6 +103,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             setInsuranceStartDate('');
             setInsuranceEndDate('');
             setJoinDate(new Date().toISOString().split('T')[0]);
+            setStandardDailyHours(8.0);
             setActiveTab('basic');
         }
         setError(null);
@@ -139,7 +150,11 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                 break2_start_time: break2StartTime || null,
                 break2_end_time: break2EndTime || null,
                 break3_start_time: break3StartTime || null,
-                break3_end_time: break3EndTime || null
+                break3_end_time: break3EndTime || null,
+                rest_days: restDays,
+                salary_type: salaryType,
+                schedule_effective_date: scheduleEffectiveDate,
+                standard_daily_hours: standardDailyHours
             });
             onClose();
         } catch (err: any) {
@@ -156,26 +171,26 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             title={employee ? '編輯員工資料' : '新增員工資料'}
             maxWidth="max-w-2xl"
         >
-            <div className="flex border-b border-slate-100 mb-6 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                {(['basic', 'personal', 'work', 'history'] as const).map((tab) => {
-                    if (tab === 'history' && !employee) return null;
+            <div className="flex border-b border-slate-100 mb-6 overflow-x-auto whitespace-nowrap no-scrollbar -mx-6 px-6 pt-2 min-h-[48px]">
+                {(['basic', 'personal', 'work', 'schedule', 'seniority', 'history'] as const).map((tab) => {
+                    if ((tab === 'history' || tab === 'schedule' || tab === 'seniority') && !employee) return null;
                     return (
                         <button
                             key={tab}
                             type="button"
                             onClick={() => setActiveTab(tab)}
-                            className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${activeTab === tab
+                            className={`px-6 py-3 text-sm font-bold transition-all border-b-2 flex-shrink-0 relative z-10 -mb-px ${activeTab === tab
                                 ? 'border-blue-600 text-blue-600'
                                 : 'border-transparent text-slate-400 hover:text-slate-600'
                                 }`}
                         >
-                            {tab === 'basic' ? '基本' : tab === 'personal' ? '個人與緊急' : tab === 'work' ? '職務保險' : '異動紀錄'}
+                            {tab === 'basic' ? '基本' : tab === 'personal' ? '個人與緊急' : tab === 'work' ? '職務保險' : tab === 'schedule' ? '班表紀錄' : tab === 'seniority' ? '年資中斷' : '異動紀錄'}
                         </button>
                     );
                 })}
             </div>
 
-            {activeTab !== 'history' ? (
+            {activeTab !== 'history' && activeTab !== 'schedule' && activeTab !== 'seniority' ? (
                 <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
                     <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 mb-6">
                         {error && (
@@ -275,6 +290,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                                         type="date"
                                         value={birthDate}
                                         onChange={(e) => setBirthDate(e.target.value)}
+                                        max="9999-12-31"
                                         className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
                                     />
                                 </div>
@@ -346,6 +362,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                                         type="date"
                                         value={joinDate}
                                         onChange={(e) => setJoinDate(e.target.value)}
+                                        max="9999-12-31"
                                         className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
                                     />
                                 </div>
@@ -355,6 +372,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                                         type="date"
                                         value={insuranceStartDate}
                                         onChange={(e) => setInsuranceStartDate(e.target.value)}
+                                        max="9999-12-31"
                                         className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
                                     />
                                 </div>
@@ -364,90 +382,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                                         type="date"
                                         value={insuranceEndDate}
                                         onChange={(e) => setInsuranceEndDate(e.target.value)}
-                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                    />
-                                </div>
-
-                                <div className="sm:col-span-2 mt-4 pt-4 border-t border-slate-100">
-                                    <h4 className="text-sm font-bold text-slate-900 mb-4">出勤時間設定 (預設 08:00-17:00 / 12:00-13:00)</h4>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">上班時間</label>
-                                    <input
-                                        type="time"
-                                        value={workStartTime}
-                                        onChange={(e) => setWorkStartTime(e.target.value)}
-                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">下班時間</label>
-                                    <input
-                                        type="time"
-                                        value={workEndTime}
-                                        onChange={(e) => setWorkEndTime(e.target.value)}
-                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">休息開始</label>
-                                    <input
-                                        type="time"
-                                        value={breakStartTime}
-                                        onChange={(e) => setBreakStartTime(e.target.value)}
-                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">休息結束</label>
-                                    <input
-                                        type="time"
-                                        value={breakEndTime}
-                                        onChange={(e) => setBreakEndTime(e.target.value)}
-                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                    />
-                                </div>
-
-                                <div className="sm:col-span-2 mt-4 pt-4 border-t border-slate-100">
-                                    <h4 className="text-sm font-bold text-slate-900 mb-4">第二組休息時段 (選填)</h4>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">休息開始2</label>
-                                    <input
-                                        type="time"
-                                        value={break2StartTime}
-                                        onChange={(e) => setBreak2StartTime(e.target.value)}
-                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">休息結束2</label>
-                                    <input
-                                        type="time"
-                                        value={break2EndTime}
-                                        onChange={(e) => setBreak2EndTime(e.target.value)}
-                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                    />
-                                </div>
-
-                                <div className="sm:col-span-2 mt-4 pt-4 border-t border-slate-100">
-                                    <h4 className="text-sm font-bold text-slate-900 mb-4">第三組休息時段 (選填)</h4>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">休息開始3</label>
-                                    <input
-                                        type="time"
-                                        value={break3StartTime}
-                                        onChange={(e) => setBreak3StartTime(e.target.value)}
-                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">休息結束3</label>
-                                    <input
-                                        type="time"
-                                        value={break3EndTime}
-                                        onChange={(e) => setBreak3EndTime(e.target.value)}
+                                        max="9999-12-31"
                                         className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
                                     />
                                 </div>
@@ -488,9 +423,17 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                         </button>
                     </div>
                 </form>
+            ) : activeTab === 'schedule' ? (
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar pb-6">
+                    <ScheduleHistory employeeId={employee!.id} />
+                </div>
+            ) : activeTab === 'seniority' ? (
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar pb-6">
+                    <SenioritySuspensionList employeeId={employee!.id} />
+                </div>
             ) : (
-                <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                    <MovementHistory employeeId={employee?.id || ''} isAdmin={true} />
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar pb-6">
+                    <MovementHistory employeeId={employee!.id} isAdmin={true} />
                 </div>
             )}
         </Modal>

@@ -1,12 +1,19 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useEmployee } from '../../contexts/EmployeeContext';
 import { supabase } from '../../lib/supabase';
-import MakeupRequestForm from '../../components/MakeupRequestForm';
-import { getEmployeeMakeupRequests } from '../../services/employee';
-import { usePullToRefresh } from '../../hooks/usePullToRefresh';
+import { getEmployeeMakeupRequests, getEmployeeLeaveBalances } from '../../services/employee';
 import { getSubordinates } from '../../services/supervisorService';
+import { usePullToRefresh } from '../../hooks/usePullToRefresh';
+import MakeupRequestForm from '../../components/MakeupRequestForm';
+import { requestService } from '../../services/requestService';
+import { LeaveBalance, LeaveRequest, RequestStatus } from '../../types';
+import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
+import { useMemo } from 'react';
+import { Employee } from '../../types';
+import ModificationRequestForm from '../../components/ModificationRequestForm';
+import { formatDateTimeRange } from '../../lib/hrUtils';
 
-type TabType = 'overview' | 'records' | 'makeup';
+type TabType = 'overview' | 'records' | 'makeup' | 'leave';
 
 const EmployeeAttendancePage: React.FC = () => {
     const { employee } = useEmployee();
@@ -25,12 +32,191 @@ const EmployeeAttendancePage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<TabType>('overview');
     const [subordinates, setSubordinates] = useState<any[]>([]);
     const [viewingEmployeeId, setViewingEmployeeId] = useState<string | null>(employee?.id || null);
+    const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
+
+    // --- Leave Balance States ---
+    const [leaveBalance, setLeaveBalance] = useState<LeaveBalance | null>(null);
+    const [selectedPeriod, setSelectedPeriod] = useState<any | null>(null);
+    const [periodRecords, setPeriodRecords] = useState<{ requests: LeaveRequest[], adjustments: any[], overtimeRecords: LeaveRequest[] }>({ requests: [], adjustments: [], overtimeRecords: [] });
+    const [loadingRecords, setLoadingRecords] = useState(false);
+    const [actionMenuRecord, setActionMenuRecord] = useState<LeaveRequest | null>(null);
+    const [showActionMenu, setShowActionMenu] = useState(false);
+    const [withdrawingRecord, setWithdrawingRecord] = useState<LeaveRequest | null>(null);
+    const [modifyingRecord, setModifyingRecord] = useState<LeaveRequest | null>(null);
+    const [isWithdrawing, setIsWithdrawing] = useState(false);
+
+    // --- Anniversary Table Filtering & Sorting States ---
+    const [columnFilters, setColumnFilters] = useState<{
+        milestone: string[];
+    }>({
+        milestone: []
+    });
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({
+        key: 'start_date',
+        direction: 'desc'
+    });
+
+    // --- Compensatory Table Filtering & Sorting States ---
+    const [compColumnFilters, setCompColumnFilters] = useState<{
+        milestone: string[];
+    }>({
+        milestone: []
+    });
+    const [compSortConfig, setCompSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({
+        key: 'start_date',
+        direction: 'desc'
+    });
+
+    const handleSort = (key: string) => {
+        setSortConfig(prev => {
+            if (prev?.key === key) {
+                return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+            }
+            return { key, direction: 'desc' };
+        });
+    };
+
+    const handleCompSort = (key: string) => {
+        setCompSortConfig(prev => {
+            if (prev?.key === key) {
+                return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+            }
+            return { key, direction: 'desc' };
+        });
+    };
+
+    const filteredAndSortedCompPeriods = useMemo(() => {
+        if (!leaveBalance?.compensatory?.periods) return [];
+
+        let result = [...leaveBalance.compensatory.periods];
+
+        if (compColumnFilters.milestone.length > 0) {
+            result = result.filter(p =>
+                compColumnFilters.milestone.map(v => v.trim()).includes(p.label.trim())
+            );
+        }
+
+        if (compSortConfig) {
+            result.sort((a: any, b: any) => {
+                const aValue = a[compSortConfig.key];
+                const bValue = b[compSortConfig.key];
+
+                if (typeof aValue === 'number' && typeof bValue === 'number') {
+                    return compSortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
+                }
+
+                const strA = String(aValue || '');
+                const strB = String(bValue || '');
+                return compSortConfig.direction === 'asc'
+                    ? strA.localeCompare(strB, 'zh-TW')
+                    : strB.localeCompare(strA, 'zh-TW');
+            });
+        }
+
+        return result;
+    }, [leaveBalance, compColumnFilters, compSortConfig]);
+
+    const filteredAndSortedPeriods = useMemo(() => {
+        if (!leaveBalance?.annual?.periods) return [];
+
+        let result = [...leaveBalance.annual.periods];
+
+        // 應用里程碑篩選
+        if (columnFilters.milestone.length > 0) {
+            result = result.filter(p =>
+                columnFilters.milestone.map(v => v.trim()).includes(p.label.trim())
+            );
+        }
+
+        // 應用排序
+        if (sortConfig) {
+            result.sort((a: any, b: any) => {
+                const aValue = a[sortConfig.key];
+                const bValue = b[sortConfig.key];
+
+                if (typeof aValue === 'number' && typeof bValue === 'number') {
+                    return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
+                }
+
+                const strA = String(aValue || '');
+                const strB = String(bValue || '');
+                return sortConfig.direction === 'asc'
+                    ? strA.localeCompare(strB, 'zh-TW')
+                    : strB.localeCompare(strA, 'zh-TW');
+            });
+        }
+
+        return result;
+    }, [leaveBalance, columnFilters, sortConfig]);
 
     useEffect(() => {
         if (employee?.id && !viewingEmployeeId) {
             setViewingEmployeeId(employee.id);
         }
     }, [employee?.id, viewingEmployeeId]);
+
+    // Fetch leave balance and employee data when viewingEmployeeId changes
+    useEffect(() => {
+        const targetId = viewingEmployeeId === 'all' ? employee?.id : viewingEmployeeId;
+        if (targetId) {
+            getEmployeeLeaveBalances(targetId).then(setLeaveBalance);
+            // Fetch viewing employee details to get standard_daily_hours
+            supabase.from('employees').select('*').eq('id', targetId).single().then(({ data }) => {
+                if (data) setViewingEmployee(data);
+            });
+        }
+    }, [viewingEmployeeId, employee?.id]);
+
+    const fetchPeriodDetails = async (period: any, leaveType: 'ANNUAL' | 'COMPENSATORY' = 'ANNUAL') => {
+        const targetId = viewingEmployeeId === 'all' ? employee?.id : viewingEmployeeId;
+        if (!targetId) return;
+        setSelectedPeriod({ ...period, leaveType }); // Store leaveType in selectedPeriod for title display
+        setLoadingRecords(true);
+        try {
+            const codes = leaveType === 'COMPENSATORY' ? ['COMPENSATORY', 'TOIL'] : [leaveType];
+            const promises: Promise<any>[] = [
+                requestService.getLeaveRequestsByRange(targetId, period.start_date, period.end_date, codes),
+                requestService.getAdjustmentsByRange(targetId, period.start_date, period.end_date, leaveType)
+            ];
+
+            // 如果是補休,額外查詢加班紀錄
+            if (leaveType === 'COMPENSATORY') {
+                promises.push(requestService.getOvertimeRequestsByRange(targetId, period.start_date, period.end_date));
+            }
+
+            const results = await Promise.all(promises);
+            const [requests, adjustments, overtimeRecords = []] = results;
+
+            setPeriodRecords({ requests, adjustments, overtimeRecords });
+        } catch (error) {
+            console.error('Error fetching period details:', error);
+        } finally {
+            setLoadingRecords(false);
+        }
+    };
+
+    const handleWithdraw = async () => {
+        if (!employee || !withdrawingRecord) return;
+        setIsWithdrawing(true);
+        try {
+            const result = await requestService.withdrawRequest(withdrawingRecord.id, employee.id);
+            if (result.success) {
+                setWithdrawingRecord(null);
+                // Refresh data
+                if (selectedPeriod) {
+                    fetchPeriodDetails(selectedPeriod, selectedPeriod.leaveType);
+                }
+                getEmployeeLeaveBalances(viewingEmployeeId === 'all' ? (employee?.id || '') : viewingEmployeeId!).then(setLeaveBalance);
+            } else {
+                alert('撤回失敗：' + (result.error || '未知錯誤'));
+            }
+        } catch (error) {
+            console.error('Error withdrawing request:', error);
+            alert('系統錯誤，請稍後再試');
+        } finally {
+            setIsWithdrawing(false);
+        }
+    };
 
     const fetchSubordinates = useCallback(async () => {
         if (!employee?.is_supervisor) return;
@@ -226,8 +412,64 @@ const EmployeeAttendancePage: React.FC = () => {
     const tabs = [
         { id: 'overview' as TabType, label: '統計概覽', icon: 'analytics' },
         { id: 'records' as TabType, label: '詳細記錄', icon: 'list_alt' },
+        { id: 'leave' as TabType, label: '差勤額度', icon: 'event_available' },
         { id: 'makeup' as TabType, label: '補登記錄', icon: 'edit_calendar', badge: makeupRequests.length },
     ];
+
+    const LeaveCard = ({ title, entitlement, used, remaining, cashout = 0, unit = '小時' }: { title: string, entitlement: number, used: number, remaining: number, cashout?: number, unit?: string }) => {
+        // 補休卡片使用特殊格式：只顯示時數、折算、剩餘
+        const isCompensatory = title === '補休';
+
+        return (
+            <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                <h4 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-blue-600">event_note</span>
+                    {title}
+                </h4>
+                {isCompensatory ? (
+                    // 補休卡片：顯示時數、已使用、折算、剩餘
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div className="text-center p-3 bg-slate-50 rounded-xl">
+                            <div className="text-xs text-slate-500 font-bold mb-1">時數</div>
+                            <div className="text-xl font-black text-slate-900">{entitlement} <span className="text-xs text-slate-400">{unit}</span></div>
+                        </div>
+                        <div className="text-center p-3 bg-orange-50 rounded-xl">
+                            <div className="text-xs text-orange-600 font-bold mb-1">已使用</div>
+                            <div className="text-xl font-black text-orange-700">{used} <span className="text-xs text-orange-400">{unit}</span></div>
+                        </div>
+                        <div className="text-center p-3 bg-rose-50 rounded-xl">
+                            <div className="text-xs text-rose-600 font-bold mb-1">折算</div>
+                            <div className="text-xl font-black text-rose-700">{cashout} <span className="text-xs text-rose-400">{unit}</span></div>
+                        </div>
+                        <div className="text-center p-3 bg-emerald-50 rounded-xl">
+                            <div className="text-xs text-emerald-600 font-bold mb-1">剩餘</div>
+                            <div className="text-xl font-black text-emerald-700">{remaining} <span className="text-xs text-emerald-400">{unit}</span></div>
+                        </div>
+                    </div>
+                ) : (
+                    // 特別休假卡片：顯示總額度、已使用、折現、剩餘
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div className="text-center p-3 bg-slate-50 rounded-xl">
+                            <div className="text-xs text-slate-500 font-bold mb-1">總額度</div>
+                            <div className="text-xl font-black text-slate-900">{entitlement} <span className="text-xs text-slate-400">{unit}</span></div>
+                        </div>
+                        <div className="text-center p-3 bg-orange-50 rounded-xl">
+                            <div className="text-xs text-orange-600 font-bold mb-1">已使用</div>
+                            <div className="text-xl font-black text-orange-700">{used} <span className="text-xs text-orange-400">{unit}</span></div>
+                        </div>
+                        <div className="text-center p-3 bg-rose-50 rounded-xl">
+                            <div className="text-xs text-rose-600 font-bold mb-1">折現</div>
+                            <div className="text-xl font-black text-rose-700">{cashout} <span className="text-xs text-rose-400">{unit}</span></div>
+                        </div>
+                        <div className="text-center p-3 bg-emerald-50 rounded-xl">
+                            <div className="text-xs text-emerald-600 font-bold mb-1">剩餘</div>
+                            <div className="text-xl font-black text-emerald-700">{remaining} <span className="text-xs text-emerald-400">{unit}</span></div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     return (
         <div className="space-y-6 relative">
@@ -488,6 +730,326 @@ const EmployeeAttendancePage: React.FC = () => {
                         </div>
                     )}
 
+                    {/* 差勤額度 */}
+                    {activeTab === 'leave' && (
+                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-black text-slate-900">特休與補休額度總覽</h3>
+                                <div className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full uppercase tracking-widest">
+                                    Base Date: {new Date().toLocaleDateString()}
+                                </div>
+                            </div>
+
+                            {leaveBalance ? (
+                                <div className="space-y-8">
+                                    {/* Summary Cards */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <LeaveCard
+                                            title="特別休假"
+                                            entitlement={leaveBalance.annual.entitlement}
+                                            used={leaveBalance.annual.used}
+                                            cashout={leaveBalance.annual.cashout}
+                                            remaining={leaveBalance.annual.remaining}
+                                        />
+                                        <LeaveCard
+                                            title="補休"
+                                            entitlement={leaveBalance.compensatory.entitlement}
+                                            used={leaveBalance.compensatory.used}
+                                            cashout={leaveBalance.compensatory.cashout}
+                                            remaining={leaveBalance.compensatory.remaining}
+                                        />
+                                    </div>
+
+
+                                    {/* Balance Adjustment Tool has been moved to Admin Employee Management */}
+
+                                    {/* Anniversary Breakdown List */}
+                                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mb-8">
+                                        <div className="bg-slate-50/50 px-8 py-5 border-b border-slate-100 flex items-center gap-3">
+                                            <span className="material-symbols-outlined text-blue-600 text-2xl">list_alt</span>
+                                            <h4 className="font-black text-slate-900 text-lg">特休年資明細</h4>
+                                        </div>
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full divide-y divide-slate-100">
+                                                <thead className="bg-slate-50/30">
+                                                    <tr>
+                                                        <TableHeaderFilter
+                                                            columnKey="label"
+                                                            label="里程碑"
+                                                            values={leaveBalance.annual?.periods?.map(p => p.label) || []}
+                                                            selectedValues={columnFilters.milestone}
+                                                            onChange={(vals) => setColumnFilters({ ...columnFilters, milestone: vals })}
+                                                            sortable
+                                                            sortConfig={sortConfig}
+                                                            onSort={() => handleSort('label')}
+                                                            className="px-8 py-5"
+                                                        />
+                                                        <TableHeaderFilter
+                                                            columnKey="start_date"
+                                                            label="有效期間"
+                                                            values={[]}
+                                                            selectedValues={[]}
+                                                            onChange={() => { }}
+                                                            sortable
+                                                            sortConfig={sortConfig}
+                                                            onSort={() => handleSort('start_date')}
+                                                            className="px-8 py-5"
+                                                        />
+                                                        <TableHeaderFilter
+                                                            columnKey="entitlement"
+                                                            label="應得時數"
+                                                            values={[]}
+                                                            selectedValues={[]}
+                                                            onChange={() => { }}
+                                                            sortable
+                                                            sortConfig={sortConfig}
+                                                            onSort={() => handleSort('entitlement')}
+                                                            className="px-8 py-5"
+                                                        />
+                                                        <TableHeaderFilter
+                                                            columnKey="used"
+                                                            label="已用"
+                                                            values={[]}
+                                                            selectedValues={[]}
+                                                            onChange={() => { }}
+                                                            sortable
+                                                            sortConfig={sortConfig}
+                                                            onSort={() => handleSort('used')}
+                                                            className="px-8 py-5"
+                                                        />
+                                                        <TableHeaderFilter
+                                                            columnKey="cashout"
+                                                            label="折現"
+                                                            values={[]}
+                                                            selectedValues={[]}
+                                                            onChange={() => { }}
+                                                            sortable
+                                                            sortConfig={sortConfig}
+                                                            onSort={() => handleSort('cashout')}
+                                                            className="px-8 py-5"
+                                                        />
+                                                        <TableHeaderFilter
+                                                            columnKey="remaining"
+                                                            label="剩餘"
+                                                            values={[]}
+                                                            selectedValues={[]}
+                                                            onChange={() => { }}
+                                                            sortable
+                                                            sortConfig={sortConfig}
+                                                            onSort={() => handleSort('remaining')}
+                                                            className="px-8 py-5 text-emerald-600"
+                                                        />
+                                                        <th className="px-8 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">操作</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-50">
+                                                    {filteredAndSortedPeriods.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={7} className="px-8 py-12 text-center text-slate-400 font-bold italic">
+                                                                {columnFilters.milestone.length > 0 ? '沒有符合篩選條件的資料' : '尚無年資里程碑資料'}
+                                                            </td>
+                                                        </tr>
+                                                    ) : (
+                                                        filteredAndSortedPeriods.map((period, idx) => (
+                                                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                                                                <td className="px-8 py-5 whitespace-nowrap">
+                                                                    <span className="font-black text-slate-900">{period.label}</span>
+                                                                </td>
+                                                                <td className="px-8 py-5 whitespace-nowrap">
+                                                                    <div className="text-sm text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-lg inline-block">
+                                                                        {period.start_date} <span className="text-slate-300 mx-1">~</span> {period.end_date}
+                                                                    </div>
+                                                                    {period.date_formula && (
+                                                                        <div className="text-[10px] text-slate-400 font-bold mt-1 ml-1 opacity-70 italic">
+                                                                            {period.date_formula}
+                                                                        </div>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-slate-600">
+                                                                    <div className="font-mono font-black text-slate-600 leading-none">{period.entitlement}</div>
+                                                                    {period.formula && (
+                                                                        <div className="text-[10px] text-slate-400 font-bold mt-1 opacity-70">
+                                                                            {period.formula}
+                                                                        </div>
+                                                                    )}
+
+                                                                </td>
+                                                                <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-orange-600">
+                                                                    {period.used}
+                                                                </td>
+                                                                <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-rose-600">
+                                                                    {period.cashout}
+                                                                </td>
+                                                                <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-emerald-600">
+                                                                    {period.remaining}
+                                                                </td>
+                                                                <td className="px-8 py-5 whitespace-nowrap text-right">
+                                                                    <button
+                                                                        onClick={() => fetchPeriodDetails(period, 'ANNUAL')}
+                                                                        className="inline-flex items-center gap-2 text-xs font-black text-blue-600 hover:text-white hover:bg-blue-600 px-4 py-2 rounded-xl transition-all border border-blue-100 group-hover:border-blue-600 shadow-sm"
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-sm">history</span>
+                                                                        查看詳細
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* Compensatory Breakdown List */}
+                                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                                        <div className="bg-slate-50/50 px-8 py-5 border-b border-slate-100 flex items-center gap-3">
+                                            <span className="material-symbols-outlined text-orange-600 text-2xl">list_alt</span>
+                                            <h4 className="font-black text-slate-900 text-lg">補休年度明細</h4>
+                                        </div>
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full divide-y divide-slate-100">
+                                                <thead className="bg-slate-50/30">
+                                                    <tr>
+                                                        <TableHeaderFilter
+                                                            columnKey="label"
+                                                            label="年度"
+                                                            values={leaveBalance.compensatory?.periods?.map(p => p.label) || []}
+                                                            selectedValues={compColumnFilters.milestone}
+                                                            onChange={(vals) => setCompColumnFilters({ ...compColumnFilters, milestone: vals })}
+                                                            sortable
+                                                            sortConfig={compSortConfig}
+                                                            onSort={() => handleCompSort('label')}
+                                                            className="px-8 py-5"
+                                                        />
+                                                        <TableHeaderFilter
+                                                            columnKey="start_date"
+                                                            label="有效期間"
+                                                            values={[]}
+                                                            selectedValues={[]}
+                                                            onChange={() => { }}
+                                                            sortable
+                                                            sortConfig={compSortConfig}
+                                                            onSort={() => handleCompSort('start_date')}
+                                                            className="px-8 py-5"
+                                                        />
+                                                        <TableHeaderFilter
+                                                            columnKey="entitlement"
+                                                            label="合計生成"
+                                                            values={[]}
+                                                            selectedValues={[]}
+                                                            onChange={() => { }}
+                                                            sortable
+                                                            sortConfig={compSortConfig}
+                                                            onSort={() => handleCompSort('entitlement')}
+                                                            className="px-8 py-5"
+                                                        />
+                                                        <TableHeaderFilter
+                                                            columnKey="used"
+                                                            label="合計已用"
+                                                            values={[]}
+                                                            selectedValues={[]}
+                                                            onChange={() => { }}
+                                                            sortable
+                                                            sortConfig={compSortConfig}
+                                                            onSort={() => handleCompSort('used')}
+                                                            className="px-8 py-5"
+                                                        />
+                                                        <TableHeaderFilter
+                                                            columnKey="cashout"
+                                                            label="折算"
+                                                            values={[]}
+                                                            selectedValues={[]}
+                                                            onChange={() => { }}
+                                                            sortable
+                                                            sortConfig={compSortConfig}
+                                                            onSort={() => handleCompSort('cashout')}
+                                                            className="px-8 py-5"
+                                                        />
+                                                        <TableHeaderFilter
+                                                            columnKey="remaining"
+                                                            label="剩餘"
+                                                            values={[]}
+                                                            selectedValues={[]}
+                                                            onChange={() => { }}
+                                                            sortable
+                                                            sortConfig={compSortConfig}
+                                                            onSort={() => handleCompSort('remaining')}
+                                                            className="px-8 py-5 text-emerald-600"
+                                                        />
+                                                        <th className="px-8 py-5 text-right text-xs font-black text-slate-400 uppercase tracking-widest">操作</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-50">
+                                                    {filteredAndSortedCompPeriods.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={7} className="px-8 py-12 text-center text-slate-400 font-bold italic">
+                                                                {compColumnFilters.milestone.length > 0 ? '沒有符合篩選條件的資料' : '尚無補休年度資料'}
+                                                            </td>
+                                                        </tr>
+                                                    ) : (
+                                                        filteredAndSortedCompPeriods.map((period, idx) => (
+                                                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                                                                <td className="px-8 py-5 whitespace-nowrap">
+                                                                    <span className="font-black text-slate-900">{period.label}</span>
+                                                                </td>
+                                                                <td className="px-8 py-5 whitespace-nowrap">
+                                                                    <div className="text-sm text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-lg inline-block">
+                                                                        {period.start_date} <span className="text-slate-300 mx-1">~</span> {period.end_date}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-slate-600">
+                                                                    <div className="font-mono font-black text-slate-600 leading-none">{period.entitlement}</div>
+                                                                    {period.formula && (
+                                                                        <div className="text-[10px] text-slate-400 font-bold mt-1 opacity-70">
+                                                                            {period.formula}
+                                                                        </div>
+                                                                    )}
+
+                                                                </td>
+                                                                <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-orange-600">
+                                                                    {period.used}
+                                                                </td>
+                                                                <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-rose-600">
+                                                                    {period.cashout}
+                                                                </td>
+                                                                <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-emerald-600">
+                                                                    {period.remaining}
+                                                                </td>
+                                                                <td className="px-8 py-5 whitespace-nowrap text-right">
+                                                                    <button
+                                                                        onClick={() => fetchPeriodDetails(period, 'COMPENSATORY')}
+                                                                        className="inline-flex items-center gap-2 text-xs font-black text-blue-600 hover:text-white hover:bg-blue-600 px-4 py-2 rounded-xl transition-all border border-blue-100 group-hover:border-blue-600 shadow-sm"
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-sm">history</span>
+                                                                        查看詳細
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center py-12 text-slate-400">
+                                    載入中...
+                                </div>
+                            )}
+                            <div className="bg-blue-50 p-6 rounded-3xl text-sm text-blue-800 border border-blue-100">
+                                <p className="font-black mb-2 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-base">info</span>
+                                    計薪與特休核給說明：
+                                </p>
+                                <ul className="list-disc list-inside space-y-2 font-bold ml-1 opacity-80">
+                                    <li>特休額度依據勞基法週年制計算，系統會自動在每個年資里程碑抵達時核給。</li>
+                                    <li>「期間」代表該里程碑核給時數的有效使用限制（通常為一年）。</li>
+                                    <li>點擊「查看詳細」可展開檢視該時段內所有的請假申請紀錄與折現異動。</li>
+                                </ul>
+                            </div>
+                        </div>
+                    )}
                     {/* 補登記錄 */}
                     {activeTab === 'makeup' && (
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -590,6 +1152,261 @@ const EmployeeAttendancePage: React.FC = () => {
                     onSuccess={() => {
                         setShowMakeupForm(false);
                         fetchAttendance();
+                    }}
+                />
+            )}
+
+            {/* Leave Details Modal */}
+            {selectedPeriod && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedPeriod(null)}></div>
+                    <div className="relative bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-300">
+                        {/* Modal Header */}
+                        <div className="bg-slate-50 px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                            <div>
+                                <h3 className="text-xl font-black text-slate-900">{selectedPeriod.label} {selectedPeriod.leaveType === 'COMPENSATORY' ? '補休明細' : '特休明細'}</h3>
+                                <p className="text-xs text-slate-500 font-bold mt-1">期間：{selectedPeriod.start_date} ~ {selectedPeriod.end_date}</p>
+                            </div>
+                            <button onClick={() => setSelectedPeriod(null)} className="w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-slate-200 text-slate-400 transition-all">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                            {loadingRecords ? (
+                                <div className="text-center py-12 text-slate-400 font-bold">載入中...</div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {/* Requests */}
+                                    <div>
+                                        <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-orange-500 text-lg">event</span>
+                                            請假紀錄
+                                        </h4>
+                                        {periodRecords.requests.length === 0 ? (
+                                            <p className="text-slate-400 font-bold italic text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-sm">此期間尚無請假紀錄</p>
+                                        ) : (
+                                            <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-100">
+                                                <div className="divide-y divide-slate-100">
+                                                    {periodRecords.requests.map((req) => (
+                                                        <div key={req.id} className="flex items-center justify-between p-4 hover:bg-slate-100/50 transition-colors cursor-pointer group/item" onClick={() => {
+                                                            setActionMenuRecord(req);
+                                                            setShowActionMenu(true);
+                                                        }}>
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center group-hover/item:bg-orange-200 transition-colors">
+                                                                    <span className="material-symbols-outlined text-orange-600 text-xl">event_available</span>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="font-black text-slate-900">{req.leave_type?.name || '特休'}</div>
+                                                                    <div className="text-xs text-slate-500 font-bold">
+                                                                        {new Date(req.start_date).toLocaleDateString('zh-TW')} {new Date(req.start_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="font-mono font-black text-orange-600">
+                                                                    -{req.hours} 小時
+                                                                </div>
+                                                                {req.reason && <div className="text-[10px] text-slate-400 font-bold truncate max-w-[150px]">{req.reason}</div>}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Adjustments (Cashout) */}
+                                    <div>
+                                        <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-rose-500 text-lg">payments</span>
+                                            折現/額度調整
+                                        </h4>
+                                        {periodRecords.adjustments.length === 0 ? (
+                                            <p className="text-slate-400 font-bold italic text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-sm">此期間尚無折現或調整紀錄</p>
+                                        ) : (
+                                            <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-100">
+                                                <div className="divide-y divide-slate-100">
+                                                    {periodRecords.adjustments.map((adj) => (
+                                                        <div key={adj.id} className="flex items-center justify-between p-4 hover:bg-slate-100/50 transition-colors">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${adj.adjustment_type === 'CASHOUT' ? 'bg-rose-100' : 'bg-blue-100'}`}>
+                                                                    <span className={`material-symbols-outlined text-xl ${adj.adjustment_type === 'CASHOUT' ? 'text-rose-600' : 'text-blue-600'}`}>
+                                                                        {adj.adjustment_type === 'CASHOUT' ? 'payments' : adj.adjustment_type === 'GRANT' ? 'add_circle' : 'edit_calendar'}
+                                                                    </span>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="font-black text-slate-900">
+                                                                        {adj.adjustment_type === 'CASHOUT' ? '額度折現' : adj.adjustment_type === 'GRANT' ? '額度核給' : '額度修正'}
+                                                                    </div>
+                                                                    <div className="text-xs text-slate-500 font-bold">
+                                                                        {new Date(adj.created_at).toLocaleDateString('zh-TW')} {new Date(adj.created_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className={`font-mono font-black ${adj.adjustment_type === 'CASHOUT' ? 'text-rose-600' : 'text-blue-600'}`}>
+                                                                    {adj.adjustment_type === 'CASHOUT' ? '-' : '+'}{adj.amount_hours} 小時
+                                                                </div>
+                                                                {adj.reason && <div className="text-[10px] text-slate-400 font-bold truncate max-w-[150px]">{adj.reason}</div>}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Overtime Records (僅補休明細顯示) */}
+                                    {selectedPeriod.leaveType === 'COMPENSATORY' && (
+                                        <div>
+                                            <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                <span className="material-symbols-outlined text-blue-500 text-lg">schedule</span>
+                                                加班紀錄
+                                            </h4>
+                                            {periodRecords.overtimeRecords.length === 0 ? (
+                                                <p className="text-slate-400 font-bold italic text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-sm">此期間尚無加班紀錄</p>
+                                            ) : (
+                                                <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-100">
+                                                    <div className="divide-y divide-slate-100">
+                                                        {periodRecords.overtimeRecords.map((req) => (
+                                                            <div key={req.id} className="flex items-center justify-between p-4 hover:bg-slate-100/50 transition-colors cursor-pointer group/item" onClick={() => {
+                                                                setActionMenuRecord(req);
+                                                                setShowActionMenu(true);
+                                                            }}>
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center group-hover/item:bg-blue-200 transition-colors">
+                                                                        <span className="material-symbols-outlined text-blue-600 text-xl">schedule</span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="font-black text-slate-900">{req.leave_type?.name || '加班'}</div>
+                                                                        <div className="text-xs text-slate-500 font-bold">
+                                                                            {new Date(req.start_date).toLocaleDateString('zh-TW')} {new Date(req.start_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                                                                            {' ~ '}
+                                                                            {new Date(req.end_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <div className="font-mono font-black text-blue-600">
+                                                                        +{req.hours} 小時
+                                                                    </div>
+                                                                    {req.reason && <div className="text-[10px] text-slate-400 font-bold truncate max-w-[150px]">{req.reason}</div>}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Action Menu Modal */}
+            {showActionMenu && actionMenuRecord && (
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4 animate-in fade-in duration-300"
+                    onClick={() => setShowActionMenu(false)}
+                >
+                    <div
+                        className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm p-8 animate-in zoom-in-95 duration-300 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* 紀錄資訊 */}
+                        <div className="mb-8 items-center flex flex-col">
+                            <div className="w-20 h-20 bg-blue-50 rounded-3xl flex items-center justify-center text-blue-600 border border-blue-100 mb-6 font-light">
+                                <span className="material-symbols-outlined text-4xl">fact_check</span>
+                            </div>
+                            <h2 className="text-2xl font-black text-slate-900 mb-2">紀錄操作</h2>
+                            <div className="flex flex-col gap-2 items-center">
+                                <span className="font-bold text-blue-600 bg-blue-50 px-4 py-1 rounded-full text-xs">
+                                    {actionMenuRecord.leave_type?.name || '差勤紀錄'}
+                                </span>
+                                <div className="text-xs text-slate-500 font-medium bg-slate-50 px-4 py-2 rounded-full mt-1">
+                                    {formatDateTimeRange(actionMenuRecord.start_date, actionMenuRecord.end_date)}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 操作按鈕 */}
+                        <div className="flex flex-col gap-4">
+                            <button
+                                onClick={() => {
+                                    setModifyingRecord(actionMenuRecord);
+                                    setShowActionMenu(false);
+                                }}
+                                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black shadow-lg shadow-slate-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-lg">edit</span>
+                                申請變更
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setWithdrawingRecord(actionMenuRecord);
+                                    setShowActionMenu(false);
+                                }}
+                                className="w-full py-4 bg-white text-rose-600 border-2 border-rose-200 rounded-2xl font-black hover:bg-rose-50 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-lg">undo</span>
+                                撤回紀錄
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Withdraw Confirmation Dialog */}
+            {withdrawingRecord && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[120] p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-sm w-full p-8 animate-in zoom-in-95 duration-300 text-center">
+                        <div className="w-20 h-20 bg-rose-100 text-rose-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                            <span className="material-symbols-outlined text-4xl">help</span>
+                        </div>
+                        <h2 className="text-2xl font-black text-slate-900 mb-2">確認撤回？</h2>
+                        <p className="text-slate-500 font-bold mb-8 px-4">
+                            您確定要撤回此紀錄嗎？撤回後額度將會重新計算。
+                        </p>
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => setWithdrawingRecord(null)}
+                                className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black transition-all hover:bg-slate-100"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleWithdraw}
+                                disabled={isWithdrawing}
+                                className="flex-1 py-4 rounded-2xl font-black text-white bg-rose-600 shadow-xl shadow-rose-100 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                {isWithdrawing ? '處理中...' : '確定撤回'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modification Form Modal */}
+            {modifyingRecord && employee && (
+                <ModificationRequestForm
+                    originalRequest={modifyingRecord}
+                    employeeId={employee.id}
+                    onClose={() => setModifyingRecord(null)}
+                    onSuccess={() => {
+                        setModifyingRecord(null);
+                        if (selectedPeriod) {
+                            fetchPeriodDetails(selectedPeriod, selectedPeriod.leaveType);
+                        }
+                        const targetId = viewingEmployeeId === 'all' ? (employee?.id || '') : viewingEmployeeId;
+                        if (targetId) {
+                            getEmployeeLeaveBalances(targetId).then(setLeaveBalance);
+                        }
                     }}
                 />
             )}

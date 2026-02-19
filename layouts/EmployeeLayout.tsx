@@ -39,6 +39,7 @@ const EmployeeLayout: React.FC = () => {
     // 主管額外選單 - 顯示請假審核
     if (employee.is_supervisor) {
         navItems.push({ path: '/employee/approvals', icon: 'rule', label: '請假審核' });
+        navItems.push({ path: '/employee/team-leaves', icon: 'group', label: '團隊差勤' });
     }
 
     // 所有員工都可以看到補登審核（如果有下屬的話，會在頁面內判斷）
@@ -47,7 +48,7 @@ const EmployeeLayout: React.FC = () => {
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col sm:flex-row">
             {/* Sidebar (桌面版) */}
-            <aside className={`hidden sm:flex bg-white border-r border-slate-200 flex-col fixed inset-y-0 shadow-sm transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-56'}`}>
+            <aside className={`hidden sm:flex bg-white border-r border-slate-200 flex-col fixed inset-y-0 left-0 shadow-sm transition-all duration-300 z-50 ${isCollapsed ? 'w-20' : 'w-64'}`}>
                 {/* Toggle Button */}
                 <button
                     onClick={() => setIsCollapsed(!isCollapsed)}
@@ -61,7 +62,7 @@ const EmployeeLayout: React.FC = () => {
 
                 <div className={`p-4 border-b border-slate-100 flex flex-col items-center gap-2 ${isCollapsed ? 'px-2' : ''}`}>
                     <img src="/logo.jpg" alt="Logo" className={`object-contain transition-all ${isCollapsed ? 'h-10 w-10' : 'h-14 w-auto'}`} />
-                    {!isCollapsed && <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">員工服務平台</span>}
+                    {!isCollapsed && <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">員工服務平台</span>}
                 </div>
 
                 <div className={`border-b border-slate-100 transition-all ${isCollapsed ? 'p-3' : 'p-6'}`}>
@@ -73,8 +74,8 @@ const EmployeeLayout: React.FC = () => {
                         </div>
                         {!isCollapsed && (
                             <div className="overflow-hidden">
-                                <h1 className="text-sm font-bold text-slate-900 truncate">{employee.name}</h1>
-                                <p className="text-xs text-slate-500 truncate">{employee.department}</p>
+                                <h1 className="text-sm font-bold text-slate-900 truncate whitespace-nowrap">{employee.name}</h1>
+                                <p className="text-xs text-slate-500 truncate whitespace-nowrap">{employee.department}</p>
                             </div>
                         )}
                     </div>
@@ -93,7 +94,7 @@ const EmployeeLayout: React.FC = () => {
                             title={isCollapsed ? item.label : ''}
                         >
                             <span className="material-symbols-outlined">{item.icon}</span>
-                            {!isCollapsed && item.label}
+                            {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
                         </Link>
                     ))}
                 </nav>
@@ -139,7 +140,7 @@ const EmployeeLayout: React.FC = () => {
             </header>
 
             {/* 主要內容 */}
-            <main className={`flex-1 pb-20 sm:pb-0 min-h-screen transition-all duration-300 ${isCollapsed ? 'sm:ml-20' : 'sm:ml-56'}`}>
+            <main className={`flex-1 pb-20 sm:pb-0 min-h-screen transition-all duration-300 ${isCollapsed ? 'sm:ml-20' : 'sm:ml-64'}`}>
                 <div className="p-6 lg:p-8 max-w-7xl mx-auto">
                     <Outlet />
                 </div>

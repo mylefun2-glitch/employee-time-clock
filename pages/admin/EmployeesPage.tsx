@@ -3,7 +3,7 @@ import { Plus, Pencil, Trash2, Search, Upload, Download, Filter, ArrowUpDown, Ch
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Employee } from '../../types';
-import { createEmployee, updateEmployee, deleteEmployee } from '../../services/admin';
+import { createEmployee, updateEmployee, deleteEmployee, addEmployeeSchedule } from '../../services/admin';
 import EmployeeModal from '../../components/admin/EmployeeModal';
 import { calculateSeniority, getSeniorityRange } from '../../lib/hrUtils';
 import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
@@ -131,16 +131,68 @@ const EmployeesPage: React.FC = () => {
         if (result.success) {
             fetchEmployees();
         } else {
-            alert(`操作失敗: ${result.error}`);
+            alert(`操作失敗: ${result.error} `);
         }
     };
 
     const handleSubmit = async (data: Partial<Employee>) => {
         let result;
+        const {
+            schedule_effective_date,
+            work_start_time,
+            work_end_time,
+            break_start_time,
+            break_end_time,
+            break2_start_time,
+            break2_end_time,
+            break3_start_time,
+            break3_end_time,
+            rest_days,
+            salary_type,
+            standard_daily_hours,
+            ...basicInfo
+        } = data;
+
         if (editingEmployee) {
-            result = await updateEmployee(editingEmployee.id, data);
+            result = await updateEmployee(editingEmployee.id, basicInfo);
+            if (result.success && schedule_effective_date) {
+                // 記錄班表異動
+                await addEmployeeSchedule({
+                    employee_id: editingEmployee.id,
+                    effective_date: schedule_effective_date,
+                    work_start_time,
+                    work_end_time,
+                    break_start_time,
+                    break_end_time,
+                    break2_start_time,
+                    break2_end_time,
+                    break3_start_time,
+                    break3_end_time,
+                    rest_days,
+                    salary_type,
+                    standard_daily_hours
+                } as any);
+            }
         } else {
             result = await createEmployee(data);
+            if (result.success && result.data) {
+                // 新增員工時，同步建立第一筆歷史班表紀錄
+                await addEmployeeSchedule({
+                    employee_id: result.data.id,
+                    effective_date: data.schedule_effective_date || result.data.join_date || new Date().toISOString().split('T')[0],
+                    work_start_time,
+                    work_end_time,
+                    break_start_time,
+                    break_end_time,
+                    break2_start_time,
+                    break2_end_time,
+                    break3_start_time,
+                    break3_end_time,
+                    rest_days,
+                    salary_type,
+                    standard_daily_hours
+                } as any);
+            }
         }
 
         if (!result.success) {
@@ -233,13 +285,13 @@ const EmployeesPage: React.FC = () => {
 
                 let resultMsg = `匯入完成！\n成功：${success} 筆\n失敗：${failed} 筆`;
                 if (errors.length > 0) {
-                    resultMsg += `\n\n失敗詳情：\n` + errors.map(e => `第 ${e.line} 行 (${e.name}): ${e.error}`).join('\n');
+                    resultMsg += `\n\n失敗詳情：\n` + errors.map(e => `第 ${e.line} 行(${e.name}): ${e.error} `).join('\n');
                 }
 
                 alert(resultMsg);
                 fetchEmployees();
             } catch (error: any) {
-                alert(`匯入執行錯誤：${error.message}`);
+                alert(`匯入執行錯誤：${error.message} `);
             } finally {
                 setImporting(false);
                 if (fileInputRef.current) fileInputRef.current.value = '';
@@ -264,7 +316,7 @@ const EmployeesPage: React.FC = () => {
             '2023-01-01', ''
         ].join(',');
 
-        const template = `${headers}\n${example}`;
+        const template = `${headers} \n${example} `;
         const blob = new Blob(['\uFEFF' + template], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -289,12 +341,17 @@ const EmployeesPage: React.FC = () => {
             // 部門下拉篩選
             const matchesDept = selectedDept === 'ALL' || (emp.department || '未分配') === selectedDept;
 
-            // 表格欄位篩選
-            const nameMatch = columnFilters.name.length === 0 || columnFilters.name.includes(emp.name);
+            // 表格欄位篩選 (加上 trim 確保比對精確)
+            const empName = emp.name.trim();
+            const empDept = (emp.department || '未分配').trim();
+            const empGender = (emp.gender === 'MALE' ? '男' : emp.gender === 'FEMALE' ? '女' : emp.gender === 'OTHER' ? '其他' : '-').trim();
+
+            const nameMatch = columnFilters.name.length === 0 ||
+                columnFilters.name.map(v => v.trim()).includes(empName);
             const genderMatch = columnFilters.gender.length === 0 ||
-                columnFilters.gender.includes(emp.gender === 'MALE' ? '男' : emp.gender === 'FEMALE' ? '女' : emp.gender === 'OTHER' ? '其他' : '-');
+                columnFilters.gender.map(v => v.trim()).includes(empGender);
             const deptMatch = columnFilters.department.length === 0 ||
-                columnFilters.department.includes(emp.department || '未分配');
+                columnFilters.department.map(v => v.trim()).includes(empDept);
             const seniority = emp.join_date ? calculateSeniority(emp.join_date) : 0;
             const range = emp.join_date ? getSeniorityRange(seniority) : '未設定';
             const seniorityMatch = columnFilters.seniorityRange.length === 0 ||
@@ -395,7 +452,7 @@ const EmployeesPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm relative">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="min-w-full divide-y divide-slate-100">
                         <thead className="bg-slate-50/50">
@@ -487,17 +544,17 @@ const EmployeesPage: React.FC = () => {
                                             *****{person.pin.slice(-1)}
                                         </td>
                                         <td className="px-6 py-5 whitespace-nowrap">
-                                            <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider border ${person.is_active
+                                            <span className={`inline - flex px - 3 py - 1 rounded - lg text - xs font - black uppercase tracking - wider border ${person.is_active
                                                 ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                                                 : 'bg-rose-50 text-rose-600 border-rose-100'
-                                                }`}>
+                                                } `}>
                                                 {person.is_active ? '在職' : '離職'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-5 whitespace-nowrap text-right">
                                             <div className="flex justify-end gap-3">
                                                 <button
-                                                    onClick={() => navigate(`/admin/attendance-calendar?employeeId=${person.id}`)}
+                                                    onClick={() => navigate(`/ admin / attendance - calendar ? employeeId = ${person.id} `)}
                                                     className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all border border-transparent hover:border-emerald-100"
                                                     title="查看出勤月曆"
                                                 >

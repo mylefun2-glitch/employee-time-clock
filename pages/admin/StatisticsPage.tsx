@@ -33,16 +33,98 @@ const COLORS = [
     '#06b6d4', // cyan
 ];
 
+const MultiSelectDropdown: React.FC<{
+    label: string;
+    icon: React.ReactNode;
+    options: { value: string; label: string }[];
+    selected: string[];
+    onChange: (values: string[]) => void;
+}> = ({ label, icon, options, selected, onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    const toggleOption = (val: string) => {
+        if (val === 'ALL') {
+            onChange(['ALL']);
+        } else {
+            let newSelected = selected.filter(v => v !== 'ALL');
+            if (newSelected.includes(val)) {
+                newSelected = newSelected.filter(v => v !== val);
+                if (newSelected.length === 0) newSelected = ['ALL'];
+            } else {
+                newSelected = [...newSelected, val];
+            }
+            onChange(newSelected);
+        }
+    };
+
+    const displayLabel = selected.includes('ALL')
+        ? '全部'
+        : selected.length > 1
+            ? `已選 ${selected.length} 項`
+            : options.find(o => o.value === selected[0])?.label || selected[0];
+
+    return (
+        <div className="relative group min-w-[200px] flex-1">
+            <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">
+                {icon}
+                {label}
+            </div>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 hover:border-slate-300 transition-all shadow-sm group-hover:shadow-md"
+            >
+                <span className="truncate">{displayLabel}</span>
+                <span className={`material-symbols-outlined text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+                    expand_more
+                </span>
+            </button>
+
+            {isOpen && (
+                <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl z-20 max-h-60 overflow-y-auto scrollbar-hide py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                        {options.map((opt) => (
+                            <div
+                                key={opt.value}
+                                onClick={() => toggleOption(opt.value)}
+                                className="px-4 py-2.5 hover:bg-slate-50 flex items-center gap-3 cursor-pointer group/item"
+                            >
+                                <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${selected.includes(opt.value)
+                                    ? 'bg-slate-900 border-slate-900 text-white'
+                                    : 'border-slate-200 group-hover/item:border-slate-400'
+                                    }`}>
+                                    {selected.includes(opt.value) && (
+                                        <span className="material-symbols-outlined text-xs font-black">check</span>
+                                    )}
+                                </div>
+                                <span className={`text-sm font-bold transition-colors ${selected.includes(opt.value) ? 'text-slate-900' : 'text-slate-500'
+                                    }`}>
+                                    {opt.label}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
+
 const StatisticsPage: React.FC = () => {
+
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeIndex, setActiveIndex] = useState(0);
 
     // 複合篩選狀態
-    const [filters, setFilters] = useState({
-        department: 'ALL',
-        position: 'ALL',
-        gender: 'ALL'
+    const [filters, setFilters] = useState<{
+        department: string[];
+        position: string[];
+        gender: string[];
+    }>({
+        department: ['ALL'],
+        position: ['ALL'],
+        gender: ['ALL']
     });
 
     useEffect(() => {
@@ -67,14 +149,14 @@ const StatisticsPage: React.FC = () => {
 
     const getStats = (): DeptStats => {
         const filtered = employees.filter(e => {
-            const matchesDept = filters.department === 'ALL' || (e.department || '未分配') === filters.department;
-            const matchesPos = filters.position === 'ALL' || (e.position || '未設定') === filters.position;
-            const matchesGender = filters.gender === 'ALL' || (e.gender === filters.gender);
+            const matchesDept = filters.department.includes('ALL') || filters.department.includes(e.department || '未分配');
+            const matchesPos = filters.position.includes('ALL') || filters.position.includes(e.position || '未設定');
+            const matchesGender = filters.gender.includes('ALL') || filters.gender.includes(e.gender || 'OTHER');
             return matchesDept && matchesPos && matchesGender;
         });
 
         const stats: DeptStats = {
-            name: filters.department,
+            name: filters.department.length === 1 ? filters.department[0] : '多重選取',
             total: filtered.length,
             gender: { male: 0, female: 0, other: 0 },
             ageRanges: { '35歲以下': 0, '35歲～44歲': 0, '45歲～64歲': 0, '65歲以上': 0, '未知': 0 },
@@ -180,73 +262,35 @@ const StatisticsPage: React.FC = () => {
             </div>
 
             {/* 篩選工具列 */}
-            <div className="space-y-4">
+            <div className="bg-slate-50/50 p-6 rounded-[2.5rem] border border-slate-100 flex flex-col md:flex-row items-center gap-6">
                 {/* 部門篩選 */}
-                <div>
-                    <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
-                        <Filter className="h-4 w-4" />
-                        部門篩選
-                    </div>
-                    <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                        {departments.map((dept) => (
-                            <button
-                                key={dept}
-                                onClick={() => setFilters(prev => ({ ...prev, department: dept }))}
-                                className={`px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${filters.department === dept
-                                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
-                                    : 'bg-white text-slate-500 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
-                                    }`}
-                            >
-                                {dept === 'ALL' ? '全部部門' : dept}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                <MultiSelectDropdown
+                    label="部門篩選"
+                    icon={<Filter className="h-4 w-4" />}
+                    options={departments.map(d => ({ value: d, label: d === 'ALL' ? '全部部門' : d }))}
+                    selected={filters.department}
+                    onChange={(vals) => setFilters(prev => ({ ...prev, department: vals }))}
+                />
 
                 {/* 職務篩選 */}
-                <div>
-                    <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
-                        <Users className="h-4 w-4" />
-                        職務篩選
-                    </div>
-                    <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                        {positions.map((pos) => (
-                            <button
-                                key={pos}
-                                onClick={() => setFilters(prev => ({ ...prev, position: pos }))}
-                                className={`px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${filters.position === pos
-                                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
-                                    : 'bg-white text-slate-500 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
-                                    }`}
-                            >
-                                {pos === 'ALL' ? '全部職務' : pos}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                <MultiSelectDropdown
+                    label="職務篩選"
+                    icon={<Users className="h-4 w-4" />}
+                    options={positions.map(p => ({ value: p, label: p === 'ALL' ? '全部職務' : p }))}
+                    selected={filters.position}
+                    onChange={(vals) => setFilters(prev => ({ ...prev, position: vals }))}
+                />
 
                 {/* 性別篩選 */}
-                <div>
-                    <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
-                        <UserCheck className="h-4 w-4" />
-                        性別篩選
-                    </div>
-                    <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                        {genders.map((g) => (
-                            <button
-                                key={g.value}
-                                onClick={() => setFilters(prev => ({ ...prev, gender: g.value }))}
-                                className={`px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${filters.gender === g.value
-                                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
-                                    : 'bg-white text-slate-500 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
-                                    }`}
-                            >
-                                {g.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                <MultiSelectDropdown
+                    label="性別篩選"
+                    icon={<UserCheck className="h-4 w-4" />}
+                    options={genders}
+                    selected={filters.gender}
+                    onChange={(vals) => setFilters(prev => ({ ...prev, gender: vals }))}
+                />
             </div>
+
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* 總計與狀態卡片 */}
