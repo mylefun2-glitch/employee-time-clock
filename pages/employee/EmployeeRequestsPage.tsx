@@ -212,9 +212,11 @@ const EmployeeRequestsPage: React.FC = () => {
     };
 
     const filteredRequests = requests
-        .filter(req => req.status !== 'WITHDRAWN' && !req.is_modified)
         .filter(req => {
             // 基礎狀態過濾
+            if (filter === 'PENDING') {
+                return req.status === 'PENDING' || req.status === 'WITHDRAW_PENDING';
+            }
             if (filter !== 'ALL' && req.status !== filter) return false;
 
             // 年度過濾保險 (解決 API 可能撈到跨時區鄰近數據的問題)
@@ -245,9 +247,11 @@ const EmployeeRequestsPage: React.FC = () => {
         });
 
     const getCount = (status: 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED') => {
-        const validRequests = requests.filter(r => r.status !== 'WITHDRAWN' && !r.is_modified);
-        if (status === 'ALL') return validRequests.length;
-        return validRequests.filter(r => r.status === status).length;
+        if (status === 'ALL') return requests.length;
+        if (status === 'PENDING') {
+            return requests.filter(r => r.status === 'PENDING' || r.status === 'WITHDRAW_PENDING').length;
+        }
+        return requests.filter(r => r.status === status).length;
     };
 
     const hasAnyColumnFilter = Object.values(columnFilters).some(v => v.length > 0);

@@ -52,7 +52,9 @@ export const requestService = {
                     leave_type:leave_types(*),
                     deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
                 `)
-                .eq('employee_id', employeeId);
+                .eq('employee_id', employeeId)
+                .neq('status', RequestStatus.WITHDRAWN)
+                .or('is_modified.is.null,is_modified.eq.false');
 
             if (year) {
                 const startDate = `${year}-01-01T00:00:00+08:00`;

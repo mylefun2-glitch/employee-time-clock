@@ -136,7 +136,7 @@ BEGIN
     FROM intersect_periods WHERE e >= s;
 
     IF weighted_avg_hours IS NULL OR weighted_avg_hours <= 0 THEN
-        SELECT standard_daily_hours INTO weighted_avg_hours FROM employee_schedules WHERE employee_id = target_employee_id ORDER BY ABS(EXTRACT(EPOCH FROM (effective_date - earning_start_date))) ASC LIMIT 1;
+        SELECT standard_daily_hours INTO weighted_avg_hours FROM employee_schedules WHERE employee_id = target_employee_id ORDER BY ABS(effective_date - earning_start_date) ASC LIMIT 1;
     END IF;
     RETURN COALESCE(weighted_avg_hours, default_hours);
 END;

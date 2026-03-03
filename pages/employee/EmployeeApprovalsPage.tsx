@@ -145,8 +145,7 @@ const EmployeeApprovalsPage: React.FC = () => {
     const filteredRequests = activeRequests
         .filter(r => {
             if (filter === 'ALL') {
-                // 在「全部」標籤下，不顯示「撤回待審」，因為通常「全部」是指核准或拒絕的歷史
-                return r.status !== RequestStatus.WITHDRAW_PENDING;
+                return r.status === RequestStatus.APPROVED || r.status === RequestStatus.REJECTED;
             }
             if (filter === 'PENDING') {
                 return r.status === 'PENDING' || r.status === 'WITHDRAW_PENDING';
@@ -368,10 +367,10 @@ const EmployeeApprovalsPage: React.FC = () => {
                             : 'bg-slate-100 text-slate-500'
                             }`}>
                             {status === 'ALL'
-                                ? allRequests.filter(r => r.status !== RequestStatus.WITHDRAWN && r.status !== RequestStatus.WITHDRAW_PENDING && !r.is_modified).length
+                                ? activeRequests.filter(r => r.status === RequestStatus.APPROVED || r.status === RequestStatus.REJECTED).length
                                 : status === 'PENDING'
-                                    ? allRequests.filter(r => (r.status === 'PENDING' || r.status === 'WITHDRAW_PENDING') && !r.is_modified).length
-                                    : allRequests.filter(r => r.status === status && !r.is_modified).length}
+                                    ? activeRequests.filter(r => r.status === 'PENDING' || r.status === 'WITHDRAW_PENDING').length
+                                    : activeRequests.filter(r => r.status === status).length}
                         </span>
                     </button>
                 ))}
