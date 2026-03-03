@@ -153,6 +153,72 @@ export const addEmployeeSchedule = async (data: Partial<EmployeeSchedule>) => {
     }
 };
 
+/**
+ * 刪除員工班表紀錄，並同步更新主表設定
+ */
+export const deleteEmployeeSchedule = async (id: string, employeeId: string) => {
+    try {
+        // 1. 刪除班表歷史紀錄
+        const { error: deleteError } = await supabase
+            .from('employee_schedules')
+            .delete()
+            .eq('id', id);
+
+        if (deleteError) throw deleteError;
+
+        // 2. 找出剩餘的最新的有效紀錄
+        const { data: latestSchedule, error: fetchError } = await supabase
+            .from('employee_schedules')
+            .select('*')
+            .eq('employee_id', employeeId)
+            .order('effective_date', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (fetchError) throw fetchError;
+
+        // 3. 同步回員工主表 (若無紀錄則恢復預設)
+        const updates = latestSchedule ? {
+            work_start_time: latestSchedule.work_start_time,
+            work_end_time: latestSchedule.work_end_time,
+            break_start_time: latestSchedule.break_start_time,
+            break_end_time: latestSchedule.break_end_time,
+            break2_start_time: latestSchedule.break2_start_time,
+            break2_end_time: latestSchedule.break2_end_time,
+            break3_start_time: latestSchedule.break3_start_time,
+            break3_end_time: latestSchedule.break3_end_time,
+            rest_days: latestSchedule.rest_days,
+            salary_type: latestSchedule.salary_type,
+            standard_daily_hours: latestSchedule.standard_daily_hours
+        } : {
+            work_start_time: '08:00',
+            work_end_time: '17:00',
+            break_start_time: '12:00',
+            break_end_time: '13:00',
+            break2_start_time: null,
+            break2_end_time: null,
+            break3_start_time: null,
+            break3_end_time: null,
+            rest_days: [0, 6],
+            salary_type: 'MONTHLY',
+            standard_daily_hours: 8.0
+        };
+
+        const { error: updateError } = await supabase
+            .from('employees')
+            .update(updates)
+            .eq('id', employeeId);
+
+        if (updateError) throw updateError;
+
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error deleting employee schedule:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+
 export const deleteEmployee = async (id: string) => {
     try {
         // 使用軟刪除：將 is_active 設為 false，而非真正刪除記錄

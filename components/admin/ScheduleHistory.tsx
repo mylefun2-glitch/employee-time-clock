@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getEmployeeSchedules, addEmployeeSchedule } from '../../services/admin';
+import { getEmployeeSchedules, addEmployeeSchedule, deleteEmployeeSchedule } from '../../services/admin';
 import { EmployeeSchedule } from '../../types';
 import { Trash2, History, Plus, AlertCircle, X, Check, RotateCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -43,12 +43,9 @@ const ScheduleHistory: React.FC<ScheduleHistoryProps> = ({ employeeId, isAdmin =
         if (!confirm('確定要刪除此班表紀錄嗎？這可能會影響過去或未來的時數計算。')) return;
 
         try {
-            const { error } = await supabase
-                .from('employee_schedules')
-                .delete()
-                .eq('id', id);
+            const res = await deleteEmployeeSchedule(id, employeeId);
 
-            if (error) throw error;
+            if (!res.success) throw new Error(res.error);
             fetchSchedules();
         } catch (error: any) {
             alert('刪除失敗：' + error.message);
