@@ -299,17 +299,21 @@ const RequestsPage: React.FC = () => {
                 // 標題 mapping: 姓名,PIN碼,請假類型,開始時間,結束時間,事由
                 const importRequests = [];
                 for (let i = 1; i < rows.length; i++) {
-                    const [name, pin, leave_type_name, start_date, end_date, reason] = rows[i];
+                    const [name, pin, leave_type_name, start_date, end_date, reason, hours, manual_break_hours, is_makeup_workday] = rows[i];
                     if (!name || !pin || !leave_type_name || !start_date || !end_date) {
                         continue;
                     }
+
                     importRequests.push({
                         name,
                         pin,
                         leave_type_name,
                         start_date,
                         end_date,
-                        reason
+                        reason,
+                        hours: hours ? parseFloat(hours) : undefined,
+                        manual_break_hours: manual_break_hours ? parseFloat(manual_break_hours) : undefined,
+                        is_makeup_workday: is_makeup_workday === '是' || is_makeup_workday === 'yes' || is_makeup_workday === 'true'
                     });
                 }
 
@@ -338,8 +342,8 @@ const RequestsPage: React.FC = () => {
     };
 
     const handleDownloadTemplate = () => {
-        const headers = ['姓名', 'PIN碼', '請假類型(例如:事假、特休)', '開始時間(YYYY-MM-DD HH:mm)', '結束時間(YYYY-MM-DD HH:mm)', '事由'].join(',');
-        const example = ['王小明', '123456', '事假', '2026-03-01 09:00', '2026-03-01 18:00', '家庭私事'].join(',');
+        const headers = ['姓名', 'PIN碼', '請假類型(例如:事假、特休)', '開始時間(YYYY-MM-DD HH:mm)', '結束時間(YYYY-MM-DD HH:mm)', '事由', '時數(選填)', '手動休息時數', '補班日(是/否)'].join(',');
+        const example = ['王小明', '123456', '事假', '2026-03-01 09:00', '2026-03-01 18:00', '家庭私事', '', '', '否'].join(',');
         const template = `${headers}\n${example}`;
         const blob = new Blob(['\uFEFF' + template], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);

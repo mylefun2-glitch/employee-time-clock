@@ -1,0 +1,1 @@
+import { supabase } from './lib/supabase'; async function check() { const { data } = await supabase.from('leave_requests').select('*, leave_type:leave_types(*)').gte('start_date', '2024-08-10').lte('start_date', '2024-08-11'); console.log(JSON.stringify(data, null, 2)); } check();

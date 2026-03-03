@@ -1,0 +1,675 @@
+ANNUAL Type IDs: [ '38866136-de89-4acc-949f-c19752df1186' ]
+Total APPROVED non-modified records FOUND: 157
+Calculated Total Sum of Hours: 644
+Sum by Year: {
+  '2019': 108,
+  '2020': 202.5,
+  '2021': 158,
+  '2024': 103,
+  '2025': 66,
+  '2026': 6.5
+}
+--- Detailed Records for 2020 ---
+[
+  {
+    "id": "1db69af1-b5e2-4193-8952-ba5da676a6ab",
+    "start_date": "2020-01-10T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "ce9f0a3f-75cf-4bb4-85d0-cdf0d8f01154",
+    "start_date": "2020-01-17T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "7fc6630b-893a-4774-ac6a-39b943b9ed5e",
+    "start_date": "2020-02-07T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "930c76e8-bd77-4b68-9295-dc96749a1ede",
+    "start_date": "2020-02-14T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "018e7bf3-7b57-41ed-9cb1-ace445404b0d",
+    "start_date": "2020-02-15T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "671585c5-b3ea-4d0f-b2b4-63603f550501",
+    "start_date": "2020-02-17T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "cd77bc0c-544a-4785-bce6-61a33bc8415f",
+    "start_date": "2020-03-06T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "2f276138-1727-49d4-bb8b-cf59342b8188",
+    "start_date": "2020-03-13T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "56c34fbf-21d6-43d5-8141-ba1dc766f510",
+    "start_date": "2020-03-20T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "0909a4f9-7891-4975-bfb5-2ed3bdada682",
+    "start_date": "2020-03-23T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "78a22902-76f1-4021-9882-4d916f4e83a0",
+    "start_date": "2020-03-24T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "707c66bd-da00-419c-8a33-9f2308763cd9",
+    "start_date": "2020-03-25T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "d5f607ba-aa15-4ba3-92ce-e18b76efa38a",
+    "start_date": "2020-03-26T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "18be71e3-51d0-404f-8585-11725603b608",
+    "start_date": "2020-03-27T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "3e2a5318-c4ab-4bbd-aaeb-f4dd8ecef1f3",
+    "start_date": "2020-04-10T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "6419deb1-19f5-4446-9443-40e462c4ed83",
+    "start_date": "2020-04-17T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "c7ba624c-8d12-43b6-ad20-dda7152c529a",
+    "start_date": "2020-04-24T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "6e19bc97-55e4-4d2f-ad66-2e2ddd76a650",
+    "start_date": "2020-05-08T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "d28215f2-e9e9-4f33-ae13-bc6a0b151a41",
+    "start_date": "2020-05-15T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "c2f1261a-ec31-4a50-a19b-095f435beb59",
+    "start_date": "2020-05-22T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "13429585-ddb6-4469-a9ff-56e11bc73814",
+    "start_date": "2020-05-29T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "b971396d-4a34-45a4-9074-8b9bac0f5fc5",
+    "start_date": "2020-06-05T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "fcd0ebc4-81b7-4d57-99b0-c6a7c242417d",
+    "start_date": "2020-06-12T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "73bc000a-399c-4801-b969-89f8bf5c6257",
+    "start_date": "2020-06-18T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "f6e1951d-071e-4b08-82f7-b696668bb163",
+    "start_date": "2020-06-19T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "30a6b537-fd3a-4d3f-a27b-970a12b59b73",
+    "start_date": "2020-07-03T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "f5527835-ee6a-41d6-8b54-bbd625098e5b",
+    "start_date": "2020-07-08T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "406a0079-98b3-4a74-9a28-24bdfa116a4d",
+    "start_date": "2020-07-10T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "0bf8e197-9fe8-4b9e-b0eb-03e6be7a3f7b",
+    "start_date": "2020-07-16T01:00:00+00:00",
+    "hours": 2,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "99e52caf-cad7-4f8d-aa99-17120025ddf2",
+    "start_date": "2020-07-17T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "88476e78-6dcf-414d-beb3-2845a285c628",
+    "start_date": "2020-07-24T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "db920586-40d7-4f44-8884-61daa9429937",
+    "start_date": "2020-07-29T01:00:00+00:00",
+    "hours": 1,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "f9938672-89dc-407c-a981-5749d708fdab",
+    "start_date": "2020-07-31T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "e9bfb8bb-6ef5-4021-92f6-ccf7340d0c9a",
+    "start_date": "2020-08-07T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "b77b9e04-7d14-4533-bacb-0ffac71a4ba8",
+    "start_date": "2020-08-11T01:00:00+00:00",
+    "hours": 1.5,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "9d5ae7a7-3438-48ec-a928-7e7cdac77f73",
+    "start_date": "2020-08-14T01:00:00+00:00",
+    "hours": 2,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "0de1916f-2265-4538-a00a-500de3f0ec80",
+    "start_date": "2020-08-19T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "b88cd37c-96aa-4034-897b-0527e8700373",
+    "start_date": "2020-09-21T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "70199fc5-56f1-4f95-86d9-649e22e80001",
+    "start_date": "2020-09-24T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "d39661ed-e3a5-4c0f-9197-f9623f574a48",
+    "start_date": "2020-10-05T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "c6fd4a02-0eb9-44f6-86f7-7d1a231ad63c",
+    "start_date": "2020-10-07T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "445ad744-4c76-4720-9b62-c12b2665d88f",
+    "start_date": "2020-10-22T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "d4dd3725-e57a-4773-844a-67bcf889005a",
+    "start_date": "2020-11-06T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "07777a40-6cca-4e35-a3e1-deb316d88a8d",
+    "start_date": "2020-11-16T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "3dfdc0cc-fe97-48cf-8185-6d8d41cacfff",
+    "start_date": "2020-11-19T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "8779fb1c-e474-43d5-954c-53f4e999527f",
+    "start_date": "2020-11-27T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "e1cdfe5f-d8cd-4a6a-97c9-76bb1f278f92",
+    "start_date": "2020-12-07T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "6fd40857-d3d7-4f13-8dcb-d2e76890bad9",
+    "start_date": "2020-12-14T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "7d03fc7b-e99f-44d5-a72b-fd0e41c1e4e5",
+    "start_date": "2020-12-15T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "95e3731f-aa4c-4fe5-a6c9-da045b926f1a",
+    "start_date": "2020-12-16T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "70c7965e-a109-421e-89ce-3edd6ecde3e2",
+    "start_date": "2020-12-17T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "6fc78949-71a6-40e5-92e4-98755545bfa3",
+    "start_date": "2020-12-18T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "de33b596-c9c9-416c-9eba-ef5fdce7a1e2",
+    "start_date": "2020-12-25T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  }
+]
+--- Detailed Records for 2021 ---
+[
+  {
+    "id": "34b2c07b-3e5c-4cda-aa7a-697eb00d1d60",
+    "start_date": "2021-01-07T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "e3ea7ef6-f38e-42ac-b771-c38d6845dc1a",
+    "start_date": "2021-01-08T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "1d1546f1-de34-4ee8-91f9-5dc48f02dbc5",
+    "start_date": "2021-01-28T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "ae2e66cc-c90a-4557-a336-d64440611e22",
+    "start_date": "2021-02-08T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "1cf63a17-202c-4457-9da0-f24a19a09a6b",
+    "start_date": "2021-02-09T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "09be4424-bb49-4bb5-a781-610b8272acc1",
+    "start_date": "2021-02-19T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "99eb60ab-c1f1-49f7-beaf-0794cddd6bcf",
+    "start_date": "2021-03-11T03:00:00+00:00",
+    "hours": 1,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "c3553a35-2ebe-49b0-aee4-f594173133f7",
+    "start_date": "2021-03-22T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "49881985-718b-4726-ae51-61a145287315",
+    "start_date": "2021-03-23T01:00:00+00:00",
+    "hours": 1,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "4b3faf19-f42a-4a09-8f80-c11a3d0c50cf",
+    "start_date": "2021-05-11T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "b48ffa32-c380-4b86-b13b-f38843418b64",
+    "start_date": "2021-05-12T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "0e600ea9-ad40-4555-a305-cd480e356df5",
+    "start_date": "2021-05-13T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "d065c9e5-4bc0-4f81-a2da-5a94107fe2c6",
+    "start_date": "2021-05-14T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "2bf7894d-b821-48b7-b909-3f39f5b05bd2",
+    "start_date": "2021-05-19T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "c000653c-da34-49c7-9aac-b8898d1703b4",
+    "start_date": "2021-05-20T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "2c7d4a3f-354b-44ab-8dd1-f21b9941b69e",
+    "start_date": "2021-05-21T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "3b611851-e527-4e16-897c-8a8b79db3a17",
+    "start_date": "2021-05-24T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "31f85ea2-3541-45c4-906e-4405feefeead",
+    "start_date": "2021-05-25T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "5f248ca4-e4d4-46cf-bea9-88023412121d",
+    "start_date": "2021-05-26T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "2cb6a482-1e94-4812-bdec-aef05b8bef27",
+    "start_date": "2021-05-27T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "79b84611-48e7-4ab4-8285-50318c88f2c0",
+    "start_date": "2021-05-28T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "934157cc-413c-42d6-b929-6d567774a30c",
+    "start_date": "2021-06-01T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "0bab6e32-fc72-4b60-b02f-fa80983896f3",
+    "start_date": "2021-06-02T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "43b49ab1-34f4-4708-a67d-563517c59f76",
+    "start_date": "2021-06-03T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "087c3060-c31d-441f-9723-82919b27847f",
+    "start_date": "2021-06-04T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "3b286649-97eb-47ab-bbe4-89eb8adc1c87",
+    "start_date": "2021-06-07T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "8504575b-ccff-43eb-94ff-25568b26c4fb",
+    "start_date": "2021-06-08T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "3639990d-b753-4998-b305-d3c625fcc77d",
+    "start_date": "2021-06-09T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "1a6f5fdf-b338-4b1e-b503-3fc1a5f1a82c",
+    "start_date": "2021-06-10T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "84c3c5ba-5234-4463-b46a-34ce95ced69a",
+    "start_date": "2021-06-11T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "4547f7bd-b73a-4502-b226-5c74b29af4a4",
+    "start_date": "2021-06-15T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "fafbff85-7527-4394-b98f-abe15753bf73",
+    "start_date": "2021-06-16T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "0d25584a-16d4-4414-b8ba-7e332200a9b3",
+    "start_date": "2021-06-17T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "a6913868-82ba-4735-820f-3fd6cfe98829",
+    "start_date": "2021-06-18T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "c8b4e790-98cf-48f7-83e6-f82dc06261a3",
+    "start_date": "2021-06-21T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "a7ce881f-fe53-4825-a3a1-50d39e4c47d1",
+    "start_date": "2021-06-22T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "dc381595-0558-44b3-a8d7-6ae186539659",
+    "start_date": "2021-06-23T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "8bc80281-232e-483a-b905-59a83ff9bf5f",
+    "start_date": "2021-06-24T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "f8800c4e-ab1b-4616-9d1f-2ee674b73782",
+    "start_date": "2021-06-25T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "0e87bee1-fbdd-426c-8f52-cfdfe7c3de78",
+    "start_date": "2021-06-28T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  },
+  {
+    "id": "95f5311d-f1a7-43fc-8140-f7528346365a",
+    "start_date": "2021-06-29T00:00:00+00:00",
+    "hours": 4,
+    "status": "APPROVED",
+    "is_modified": false
+  }
+]

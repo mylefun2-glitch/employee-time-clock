@@ -742,6 +742,8 @@ export const requestService = {
                     reason: req.reason || '',
                     status: RequestStatus.APPROVED,
                     hours: hours,
+                    manual_break_hours: req.manual_break_hours || 0,
+                    is_makeup_workday: req.is_makeup_workday || false,
                     approved_at: new Date().toISOString()
                 });
 
