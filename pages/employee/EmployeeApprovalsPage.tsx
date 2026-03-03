@@ -491,6 +491,7 @@ const EmployeeApprovalsPage: React.FC = () => {
                                         onChange={(values) => setColumnFilters({ ...columnFilters, leaveType: values })}
                                     />
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">期間</th>
+                                    <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">時數</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">事由</th>
                                     <th className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider">附件</th>
                                     {filter !== 'PENDING' && (
@@ -551,6 +552,11 @@ const EmployeeApprovalsPage: React.FC = () => {
                                             <td className="px-4 py-4 text-nowrap">
                                                 <div className="text-sm font-mono text-slate-700">
                                                     {formatDateTimeRange(request.start_date, request.end_date)}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-4 text-nowrap">
+                                                <div className="text-sm font-black text-slate-900">
+                                                    {request.hours || 0} <span className="text-[10px] text-slate-400 font-bold">小時</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4 max-w-xs">
