@@ -69,10 +69,13 @@ export const createEmployee = async (data: Partial<Employee>) => {
     try {
         const { data: createdData, error } = await supabase
             .from('employees')
-            .insert([{
+            .upsert([{
                 ...data,
                 is_active: true
-            }])
+            }], {
+                onConflict: 'pin',
+                ignoreDuplicates: false
+            })
             .select()
             .single();
 

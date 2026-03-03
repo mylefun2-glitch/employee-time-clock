@@ -251,7 +251,9 @@ const EmployeesPage: React.FC = () => {
                         name, username, pin, department, position, gender,
                         birth_date, join_date, gmail, contact_phone, mailing_address,
                         emergency_contact_name, emergency_contact_relationship, emergency_contact_phone,
-                        insurance_start_date, insurance_end_date
+                        insurance_start_date, insurance_end_date,
+                        work_start_time, work_end_time, break_start_time, break_end_time,
+                        salary_type, standard_daily_hours
                     ] = values;
 
                     const employeeData: Partial<Employee> = {
@@ -271,6 +273,12 @@ const EmployeesPage: React.FC = () => {
                         emergency_contact_phone: emergency_contact_phone || undefined,
                         insurance_start_date: insurance_start_date || undefined,
                         insurance_end_date: insurance_end_date || undefined,
+                        work_start_time: work_start_time || undefined,
+                        work_end_time: work_end_time || undefined,
+                        break_start_time: break_start_time || undefined,
+                        break_end_time: break_end_time || undefined,
+                        salary_type: (salary_type === 'MONTHLY' || salary_type === 'HOURLY') ? salary_type : undefined,
+                        standard_daily_hours: standard_daily_hours ? parseFloat(standard_daily_hours) : undefined,
                         is_active: true
                     };
 
@@ -306,14 +314,18 @@ const EmployeesPage: React.FC = () => {
             '姓名', '帳號(可與姓名相同)', 'PIN碼(6位)', '部門', '職務', '性別(MALE/FEMALE/OTHER)',
             '出生日期(YYYY-MM-DD)', '到職日期(YYYY-MM-DD)', 'Gmail', '通訊電話',
             '通訊地址', '緊急聯絡人姓名', '緊急聯絡人關係', '緊急聯絡人電話',
-            '勞保加保日期(YYYY-MM-DD)', '勞保退保日期(YYYY-MM-DD)'
+            '勞保加保日期(YYYY-MM-DD)', '勞保退保日期(YYYY-MM-DD)',
+            '上班時間(HH:mm)', '下班時間(HH:mm)', '休息開始(HH:mm)', '休息結束(HH:mm)',
+            '薪資類型(MONTHLY/HOURLY)', '每日標準工時'
         ].join(',');
 
         const example = [
             '王小明', 'xiaoming_wang', '123456', '行政部', '行政助理', 'MALE',
             '1990-05-20', '2023-01-01', 'xiaoming@gmail.com', '0912345678',
             '台北市中正區123號', '王大明', '父子', '0987654321',
-            '2023-01-01', ''
+            '2023-01-01', '',
+            '08:00', '17:00', '12:00', '13:00',
+            'MONTHLY', '8.0'
         ].join(',');
 
         const template = `${headers} \n${example} `;
