@@ -110,6 +110,7 @@ const AdminLeaveStatsPage: React.FC = () => {
                 .select('*')
                 .eq('employee_id', emp.id)
                 .eq('status', 'APPROVED')
+                .or('is_modified.eq.false,is_modified.is.null')
                 .order('start_date', { ascending: false });
 
             // 3. 獲取調整/折現紀錄
