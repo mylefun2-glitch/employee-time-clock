@@ -711,13 +711,13 @@ export const requestService = {
                 const endIso = endDate.toISOString();
 
                 // 檢查是否與本次批次中已有的記錄重複
-                const batchKey = `${employee.id}_${startIso}_${endIso}`;
+                const batchKey = `${employee.id}_${startIso}_${endIso}_${leaveTypeInfo.id}`;
                 if (processedInThisBatch.has(batchKey)) {
                     results.skipped++;
                     continue;
                 }
 
-                // 檢查是否已存在於資料庫中 (相同員工、相同開始與結束時間)
+                // 檢查是否已存在於資料庫中 (相同員工、相同開始與結束時間、相同類型)
                 const isDuplicate = existingRequests?.some(er => {
                     // 如果現有紀錄是已撤回，則不視為重複，允許重新匯入
                     if (er.status === RequestStatus.WITHDRAWN) return false;
@@ -726,7 +726,8 @@ export const requestService = {
                     const exEndIso = new Date(er.end_date).toISOString();
                     return er.employee_id === employee.id &&
                         exStartIso === startIso &&
-                        exEndIso === endIso;
+                        exEndIso === endIso &&
+                        er.leave_type_id === leaveTypeInfo.id;
                 });
 
                 if (isDuplicate) {
