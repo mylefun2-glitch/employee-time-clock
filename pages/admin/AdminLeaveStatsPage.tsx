@@ -74,23 +74,123 @@ const AdminLeaveStatsPage: React.FC = () => {
 
     const handleExport = () => {
         const dataToExport = filteredEmployees.map(e => ({
-            Department: e.department || '未分配',
-            Name: e.name,
-            Pin: e.pin,
-            Annual_Entitlement: e.leaveBalance ? e.leaveBalance.annual.entitlement : 0,
-            Annual_Used: e.leaveBalance?.annual.used || 0,
-            Annual_Cashout: e.leaveBalance?.annual.cashout || 0,
-            Annual_Remaining: e.leaveBalance?.annual.remaining || 0,
-            Compensatory_Total: e.leaveBalance?.compensatory.entitlement || 0,
-            Compensatory_Used: e.leaveBalance?.compensatory.used || 0,
-            Compensatory_Cashout: e.leaveBalance?.compensatory.cashout || 0,
-            Compensatory_Remaining: e.leaveBalance?.compensatory.remaining || 0,
+            '部門': e.department || '未分配',
+            '姓名': e.name,
+            'PIN': e.pin,
+            '特休總額': e.leaveBalance ? e.leaveBalance.annual.entitlement : 0,
+            '特休已用': e.leaveBalance?.annual.used || 0,
+            '特休折現': e.leaveBalance?.annual.cashout || 0,
+            '特休剩餘': e.leaveBalance?.annual.remaining || 0,
+            '補休總額': e.leaveBalance?.compensatory.entitlement || 0,
+            '補休已用': e.leaveBalance?.compensatory.used || 0,
+            '補休折現': e.leaveBalance?.compensatory.cashout || 0,
+            '補休剩餘': e.leaveBalance?.compensatory.remaining || 0,
         }));
 
         const ws = XLSX.utils.json_to_sheet(dataToExport);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "LeaveStats");
-        XLSX.writeFile(wb, "LeaveStats.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, "差勤統計");
+        XLSX.writeFile(wb, "差勤統計報表.xlsx");
+    };
+
+    const handleIndividualExport = async (emp: EmployeeLeaveStats) => {
+        try {
+            // 1. 獲取所有差勤類型以利對照
+            const { data: leaveTypes } = await supabase.from('leave_types').select('*');
+            const typeMap = new Map((leaveTypes || []).map(t => [t.id, t]));
+            const annualTypeId = (leaveTypes || []).find(t => t.code === 'ANNUAL')?.id;
+            const otTypeId = (leaveTypes || []).find(t => t.code === 'OT')?.id;
+            const toilTypeId = (leaveTypes || []).find(t => t.code === 'TOIL')?.id;
+            const compTypeId = (leaveTypes || []).find(t => t.code === 'COMPENSATORY')?.id;
+
+            // 2. 獲取申請紀錄
+            const { data: requests } = await supabase
+                .from('leave_requests')
+                .select('*')
+                .eq('employee_id', emp.id)
+                .eq('status', 'APPROVED')
+                .order('start_date', { ascending: false });
+
+            // 3. 獲取調整/折現紀錄
+            const { data: adjustments } = await supabase
+                .from('leave_balance_adjustments')
+                .select('*')
+                .eq('employee_id', emp.id)
+                .order('created_at', { ascending: false });
+
+            // 4. 整合並格式化資料
+            const records: any[] = [];
+
+            // 處理申請紀錄
+            (requests || []).forEach(req => {
+                let category = '-';
+                let detailType = '-';
+                let amount = req.hours || 0;
+
+                if (req.leave_type_id === annualTypeId) {
+                    category = '特休';
+                    detailType = '請假申請';
+                    amount = -amount; // 請假扣除
+                } else if (req.leave_type_id === otTypeId) {
+                    category = '補休';
+                    detailType = '加班紀錄 (來源)';
+                    amount = amount; // 加班增加
+                } else if (req.leave_type_id === toilTypeId || req.leave_type_id === compTypeId) {
+                    category = '補休';
+                    detailType = '補休申請';
+                    amount = -amount; // 使用扣除
+                } else {
+                    category = typeMap.get(req.leave_type_id!)?.name || '其他';
+                    detailType = '請假申請';
+                    amount = -amount;
+                }
+
+                records.push({
+                    '日期': new Date(req.start_date).toLocaleDateString('zh-TW'),
+                    '類別': category,
+                    '明細類型': detailType,
+                    '時數(小時)': amount,
+                    '原因': req.reason || '-'
+                });
+            });
+
+            // 處理調整紀錄
+            (adjustments || []).forEach(adj => {
+                const category = adj.leave_type_code === 'ANNUAL' ? '特休' : '補休';
+                let detailType = '手動調整';
+                let amount = adj.amount_hours;
+
+                if (adj.adjustment_type === 'CASHOUT') {
+                    detailType = '折現/折算';
+                    amount = -amount; // 折現是扣除餘額
+                } else if (adj.adjustment_type === 'GRANT') {
+                    detailType = '手動加給';
+                } else if (adj.adjustment_type === 'CORRECTION') {
+                    detailType = '校正調整';
+                }
+
+                records.push({
+                    '日期': new Date(adj.created_at).toLocaleDateString('zh-TW'),
+                    '類別': category,
+                    '明細類型': detailType,
+                    '時數(小時)': amount,
+                    '原因': adj.reason || '-'
+                });
+            });
+
+            // 按日期倒序排列
+            records.sort((a, b) => new Date(b['日期']).getTime() - new Date(a['日期']).getTime());
+
+            // 5. 匯出 Excel
+            const ws = XLSX.utils.json_to_sheet(records);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "差勤明細");
+            XLSX.writeFile(wb, `${emp.name}_差勤明細紀錄.xlsx`);
+
+        } catch (error) {
+            console.error('Error exporting individual records:', error);
+            alert('匯出失敗，請稍後再試');
+        }
     };
 
     const departments = ['ALL', ...Array.from(new Set(employees.map(e => e.department || '未分配')))];
@@ -164,9 +264,14 @@ const AdminLeaveStatsPage: React.FC = () => {
                                 </tr>
                             ) : (
                                 filteredEmployees.map((emp) => (
-                                    <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-900">
+                                    <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors group">
+                                        <td
+                                            className="px-6 py-4 whitespace-nowrap font-bold text-slate-900 cursor-pointer hover:text-blue-600 flex items-center gap-2 group/name"
+                                            onClick={() => handleIndividualExport(emp)}
+                                            title="點擊匯出個人明細"
+                                        >
                                             {emp.name}
+                                            <Download className="h-3 w-3 opacity-0 group-hover/name:opacity-100 transition-opacity text-blue-500" />
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-medium">
                                             {emp.department || '-'}

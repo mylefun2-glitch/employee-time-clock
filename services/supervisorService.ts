@@ -39,7 +39,7 @@ export const getCurrentUserEmployee = async (userEmail: string) => {
  */
 export const getPendingApprovalsForSupervisor = async (supervisorEmployeeId: string): Promise<PendingApproval> => {
     try {
-        // 查詢所有下屬的待審核請假申請
+        // 查詢所有下屬的待審核請假申請 (包含 PENDING 與 WITHDRAW_PENDING)
         const { data, error } = await supabase
             .from('leave_requests')
             .select(`
@@ -53,21 +53,52 @@ export const getPendingApprovalsForSupervisor = async (supervisorEmployeeId: str
                 leave_type:leave_types(*),
                 deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
             `)
-            .eq('status', 'PENDING');
+            .in('status', ['PENDING', 'WITHDRAW_PENDING'])
+            .eq('employee.manager_id', supervisorEmployeeId); // 這裡使用嵌套查詢過濾，若 RLS 已處理則可更簡單
 
         if (error) {
             console.error('Error fetching pending approvals:', error);
             return { count: 0, requests: [] };
         }
 
-        // 篩選出下屬的請假申請
-        const subordinateRequests = (data || []).filter(
-            (request: any) => request.employee?.manager_id === supervisorEmployeeId
-        );
+        // 由於 supabase-js 對於外鍵過濾的支持度，如果上述 .eq('employee.manager_id', ...) 失敗，
+        // 我們維持手動篩選但改進效能，或者確認 join 語法。
+        // 在目前的 schema 中，我們可以先查詢下屬 ID 清單，或者直接在 SQL 中解決。
+        // 考慮到效能與正確性，我們改用更穩健的篩選方式：
+
+        const { data: subordinates } = await supabase
+            .from('employees')
+            .select('id')
+            .eq('manager_id', supervisorEmployeeId);
+
+        const subIds = (subordinates || []).map(s => s.id);
+
+        if (subIds.length === 0) return { count: 0, requests: [] };
+
+        const { data: requests, error: reqError } = await supabase
+            .from('leave_requests')
+            .select(`
+                *,
+                employee:employees!leave_requests_employee_id_fkey (
+                    id,
+                    name,
+                    department,
+                    manager_id
+                ),
+                leave_type:leave_types(*),
+                deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
+            `)
+            .in('status', ['PENDING', 'WITHDRAW_PENDING'])
+            .in('employee_id', subIds);
+
+        if (reqError) {
+            console.error('Error fetching pending approvals:', reqError);
+            return { count: 0, requests: [] };
+        }
 
         return {
-            count: subordinateRequests.length,
-            requests: subordinateRequests
+            count: (requests || []).length,
+            requests: requests || []
         };
     } catch (err) {
         console.error('Unexpected error fetching pending approvals:', err);
@@ -80,7 +111,17 @@ export const getPendingApprovalsForSupervisor = async (supervisorEmployeeId: str
  */
 export const getAllSubordinateRequests = async (supervisorEmployeeId: string): Promise<any[]> => {
     try {
-        // 查詢所有下屬的請假申請(不限狀態)
+        // 1. 先獲取下屬 ID 清單以進行精確查詢，避免 1000 筆上限導致的遺漏
+        const { data: subordinates } = await supabase
+            .from('employees')
+            .select('id')
+            .eq('manager_id', supervisorEmployeeId);
+
+        const subIds = (subordinates || []).map(s => s.id);
+
+        if (subIds.length === 0) return [];
+
+        // 2. 查詢這些下屬的所有請假申請
         const { data, error } = await supabase
             .from('leave_requests')
             .select(`
@@ -94,6 +135,7 @@ export const getAllSubordinateRequests = async (supervisorEmployeeId: string): P
                 leave_type:leave_types(*),
                 deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
             `)
+            .in('employee_id', subIds)
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -101,12 +143,7 @@ export const getAllSubordinateRequests = async (supervisorEmployeeId: string): P
             return [];
         }
 
-        // 篩選出下屬的請假申請
-        const subordinateRequests = (data || []).filter(
-            (request: any) => request.employee?.manager_id === supervisorEmployeeId
-        );
-
-        return subordinateRequests;
+        return data || [];
     } catch (err) {
         console.error('Unexpected error fetching all subordinate requests:', err);
         return [];

@@ -269,7 +269,7 @@ const EmployeeApprovalsPage: React.FC = () => {
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">請假審核</h1>
-                <p className="text-slate-500 text-sm font-medium mt-1">目前有 <span className="text-blue-600 font-black">{allRequests.filter(r => r.status === 'PENDING').length}</span> 筆待處理申請</p>
+                <p className="text-slate-500 text-sm font-medium mt-1">目前有 <span className="text-blue-600 font-black">{allRequests.filter(r => r.status === 'PENDING' || r.status === 'WITHDRAW_PENDING').length}</span> 筆待處理申請</p>
             </div>
 
             {/* 理事長審核區塊 */}
