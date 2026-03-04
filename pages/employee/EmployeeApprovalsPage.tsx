@@ -268,7 +268,7 @@ const EmployeeApprovalsPage: React.FC = () => {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">請假審核</h1>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight">審核差勤</h1>
                 <p className="text-slate-500 text-sm font-medium mt-1">目前有 <span className="text-blue-600 font-black">{allRequests.filter(r => r.status === 'PENDING' || r.status === 'WITHDRAW_PENDING').length}</span> 筆待處理申請</p>
             </div>
 
@@ -445,7 +445,7 @@ const EmployeeApprovalsPage: React.FC = () => {
                             <span className="material-symbols-outlined text-emerald-300 text-5xl">verified</span>
                         </div>
                         <h3 className="text-xl font-black text-slate-900 tracking-tight">工作已全部處理完畢</h3>
-                        <p className="text-slate-500 font-bold mt-2">目前沒有任何待審核的請假申請事項。</p>
+                        <p className="text-slate-500 font-bold mt-2">目前沒有任何待審核的差勤申請事項。</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">

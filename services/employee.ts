@@ -87,6 +87,7 @@ export const getEmployeeLeaveBalances = async (employeeId: string): Promise<Leav
                     used: data.compensatory?.used || 0,
                     cashout: data.compensatory?.cashout || 0,
                     remaining: data.compensatory?.remaining || 0,
+                    overtime_total: data.compensatory?.overtime_total || 0,
                     periods: data.compensatory?.periods || []
                 }
             };

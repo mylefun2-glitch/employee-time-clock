@@ -229,13 +229,13 @@ export const validateOTHours = (
     historicalSchedules?: EmployeeSchedule[],
     manualBreak: number = 0
 ): OTValidationResult => {
-    // 計算原始時數（不扣除休息時間）
+    // 計算原始時數（不扣除班表內的休息時間，由 overtime 規則統一處理）
     const originalHours = calculateLeaveHours(
         startDate,
         endDate,
         employee,
         true, // ignoreWorkWindow = true (加班可以在工作時間外)
-        false, // deductBreaks = false (先不扣除休息時間)
+        false, // deductBreaks = false (加班期間不依據班表扣除休息)
         historicalSchedules
     );
 
@@ -246,39 +246,42 @@ export const validateOTHours = (
         };
     }
 
+    // 檢查是否為國定假日
+    const holidayName = isNationalHoliday(startDate);
+    if (holidayName) {
+        // 國定假日加班：不論工時統一以 8 小計
+        return {
+            isValid: true,
+            adjustedHours: 8.0,
+            originalHours,
+            breakDeducted: 0
+        };
+    }
+
     // 檢查是否為休息日
     const restDays = employee.rest_days || [0, 6];
     const isRest = isRestDay(startDate, restDays);
 
-    // 檢查是否為國定假日
-    const holidayName = isNationalHoliday(startDate);
-
     // 計算需要扣除的休息時間
-    // 依據勞基法規定：每工作 4 小時應有 30 分鐘休息。
-    // 自動扣除邏輯：每 4.5 小時（4h 工時 + 0.5h 休息）扣除 0.5 小時。
-    // 例如：4.5 小時扣 0.5 小時，9 小時扣 1.0 小時。
-    // 註：若為國定假日，則不在此處計算扣除，後面會統一給予 8 小時。
-    let breakDeducted = holidayName ? 0 : Math.floor(originalHours / 4.5) * 0.5;
+    // 規則：連續工作超過 4 小時扣除 0.5 小時。
+    // 實作：每滿 4 小時扣 0.5 小時 (例如 4.1h 扣 0.5h, 8.1h 扣 1.0h)
+    const breakDeducted = Math.floor(originalHours / 4.0001) * 0.5;
 
     let adjustedHours = parseFloat((originalHours - breakDeducted - manualBreak).toFixed(1));
     if (adjustedHours < 0) adjustedHours = 0;
 
-    // 依據用戶需求：國定假日加班不論工時統一以 1 日 (8 小時) 計
-    if (holidayName) {
-        adjustedHours = 8.0;
-    }
-
-    // 檢查時數限制（使用調整後的時數）
-    const maxHours = isRest ? 12 : 4;
+    // 檢查時數限制（平日最多 4，休息日最多 12）
+    const maxHours = isRest ? 12.0 : 4.0;
     const dayType = isRest ? '休息日' : '平日';
 
+    // 如果超過上限，自動截斷
     if (adjustedHours > maxHours) {
         return {
-            isValid: false,
-            error: `${dayType}加班不得超過 ${maxHours} 小時（原始時數 ${originalHours} 小時，扣除休息 ${breakDeducted} 小時後為 ${adjustedHours} 小時）`,
+            isValid: true, // 改為 True，因為我們自動修正
+            adjustedHours: maxHours,
             originalHours,
-            adjustedHours,
-            breakDeducted
+            breakDeducted,
+            error: `注意：${dayType}加班時數已達上限 ${maxHours} 小時（原始計算為 ${adjustedHours} 小時已自動修正）`
         };
     }
 

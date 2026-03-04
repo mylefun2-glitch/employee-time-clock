@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { LeaveRequest, RequestStatus } from '../types';
-import { calculateLeaveHours } from '../lib/leaveUtils';
+import { calculateLeaveHours, calculateOTHours } from '../lib/leaveUtils';
 
 export const requestService = {
     async createRequest(request: Omit<LeaveRequest, 'id' | 'created_at' | 'status'> & { car_id?: string }): Promise<{ success: boolean; data?: any; error?: string }> {
@@ -678,7 +678,19 @@ export const requestService = {
                 }
 
                 // 查找請假類型
-                const leaveTypeInfo = leaveTypeMap[req.leave_type_name];
+                let leaveTypeName = req.leave_type_name;
+                let leaveTypeInfo = leaveTypeMap[leaveTypeName];
+
+                // 模糊匹配：處理常見名稱差異 (例如：加班折算 -> 加班折算補休)
+                if (!leaveTypeInfo) {
+                    const possibleMatch = Object.values(leaveTypeMap).find(t =>
+                        t.name.includes(leaveTypeName) || leaveTypeName.includes(t.name)
+                    );
+                    if (possibleMatch) {
+                        leaveTypeInfo = possibleMatch;
+                    }
+                }
+
                 if (!leaveTypeInfo) {
                     results.failed++;
                     results.errors.push({ line: lineNum, name: req.name, error: `找不到請假類型: ${req.leave_type_name}` });
@@ -723,16 +735,24 @@ export const requestService = {
                     continue;
                 }
 
-                // 計算時數
-                let hours = req.hours;
-                if (!hours) {
-                    const isOvertime =
-                        leaveTypeInfo.code === 'OT' ||
-                        leaveTypeInfo.code === 'CO' ||
-                        leaveTypeInfo.name?.includes('加班');
+                // 判斷是否為加班類型
+                const isOvertime =
+                    leaveTypeInfo.code === 'OT' ||
+                    leaveTypeInfo.code === 'CO' ||
+                    leaveTypeInfo.code === 'ALC' ||
+                    leaveTypeInfo.name?.includes('加班') ||
+                    leaveTypeInfo.name?.includes('折算');
 
+                // 計算時數 (加班強制使用 OTHours 計算以符合勞基法與公司規定)
+                let hours = req.hours;
+                if (isOvertime) {
+                    // 若是加班，一律重新計算或校正時數
                     const empSchedules = (historicalSchedules || []).filter(s => s.employee_id === employee.id);
-                    hours = calculateLeaveHours(startDate, endDate, employee, isOvertime, true, empSchedules);
+                    hours = calculateOTHours(startDate, endDate, employee, empSchedules, req.manual_break_hours || 0);
+                } else if (!hours) {
+                    // 非加班且未提供時數，使用一般請假計算
+                    const empSchedules = (historicalSchedules || []).filter(s => s.employee_id === employee.id);
+                    hours = calculateLeaveHours(startDate, endDate, employee, false, true, empSchedules, req.manual_break_hours || 0);
                 }
 
                 insertData.push({

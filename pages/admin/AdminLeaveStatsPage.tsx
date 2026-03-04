@@ -85,6 +85,7 @@ const AdminLeaveStatsPage: React.FC = () => {
             '補休已用': e.leaveBalance?.compensatory.used || 0,
             '補休折現': e.leaveBalance?.compensatory.cashout || 0,
             '補休剩餘': e.leaveBalance?.compensatory.remaining || 0,
+            '加班總額': e.leaveBalance?.compensatory.overtime_total || 0,
         }));
 
         const ws = XLSX.utils.json_to_sheet(dataToExport);
@@ -131,9 +132,16 @@ const AdminLeaveStatsPage: React.FC = () => {
                     category = '特休';
                     detailType = '請假申請';
                     amount = -amount; // 請假扣除
-                } else if (req.leave_type_id === otTypeId) {
+                } else if (
+                    req.leave_type_id === otTypeId ||
+                    typeMap.get(req.leave_type_id!)?.code === 'CO' ||
+                    typeMap.get(req.leave_type_id!)?.code === 'ALC' ||
+                    typeMap.get(req.leave_type_id!)?.name?.includes('加班') ||
+                    typeMap.get(req.leave_type_id!)?.name?.includes('折算') ||
+                    typeMap.get(req.leave_type_id!)?.name?.includes('折現')
+                ) {
                     category = '補休';
-                    detailType = '加班紀錄 (來源)';
+                    detailType = typeMap.get(req.leave_type_id!)?.name || '加班紀錄';
                     amount = amount; // 加班增加
                 } else if (req.leave_type_id === toilTypeId || req.leave_type_id === compTypeId) {
                     category = '補休';

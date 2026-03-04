@@ -36,9 +36,9 @@ const EmployeeLayout: React.FC = () => {
         { path: '/employee/requests', icon: 'description', label: '申請記錄' },
     ];
 
-    // 主管額外選單 - 顯示請假審核
+    // 主管額外選單 - 顯示審核差勤
     if (employee.is_supervisor) {
-        navItems.push({ path: '/employee/approvals', icon: 'rule', label: '請假審核' });
+        navItems.push({ path: '/employee/approvals', icon: 'rule', label: '審核差勤' });
         navItems.push({ path: '/employee/team-leaves', icon: 'group', label: '團隊差勤' });
     }
 

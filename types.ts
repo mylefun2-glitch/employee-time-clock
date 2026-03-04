@@ -192,6 +192,7 @@ export interface LeaveBalance {
     used: number;
     cashout: number;
     remaining: number;
+    overtime_total: number; // 新增：加班總計
     periods: Array<{
       label: string;
       start_date: string;
