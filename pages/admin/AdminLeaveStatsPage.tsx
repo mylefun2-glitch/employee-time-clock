@@ -103,6 +103,7 @@ const AdminLeaveStatsPage: React.FC = () => {
             const otTypeId = (leaveTypes || []).find(t => t.code === 'OT')?.id;
             const toilTypeId = (leaveTypes || []).find(t => t.code === 'TOIL')?.id;
             const compTypeId = (leaveTypes || []).find(t => t.code === 'COMPENSATORY')?.id;
+            const alcTypeId = (leaveTypes || []).find(t => t.code === 'ALC')?.id;
 
             // 2. 獲取申請紀錄
             const { data: requests } = await supabase
@@ -133,17 +134,18 @@ const AdminLeaveStatsPage: React.FC = () => {
                     category = '特休';
                     detailType = '請假申請';
                     amount = -amount; // 請假扣除
-                } else if (
-                    req.leave_type_id === otTypeId ||
-                    typeMap.get(req.leave_type_id!)?.code === 'CO' ||
-                    typeMap.get(req.leave_type_id!)?.code === 'ALC' ||
-                    typeMap.get(req.leave_type_id!)?.name?.includes('加班') ||
-                    typeMap.get(req.leave_type_id!)?.name?.includes('折算') ||
-                    typeMap.get(req.leave_type_id!)?.name?.includes('折現')
-                ) {
+                } else if (req.leave_type_id === otTypeId) {
                     category = '補休';
-                    detailType = typeMap.get(req.leave_type_id!)?.name || '加班紀錄';
+                    detailType = '加班紀錄';
                     amount = amount; // 加班增加
+                } else if (typeMap.get(req.leave_type_id!)?.code === 'CO' || typeMap.get(req.leave_type_id!)?.name?.includes('折算')) {
+                    category = '補休';
+                    detailType = '加班折算';
+                    amount = -amount; // 折算視為轉出/扣除
+                } else if (req.leave_type_id === alcTypeId || typeMap.get(req.leave_type_id!)?.code === 'ALC' || typeMap.get(req.leave_type_id!)?.name?.includes('折現')) {
+                    category = '特休';
+                    detailType = '特休折現';
+                    amount = -amount; // 折現視為使用/扣除
                 } else if (req.leave_type_id === toilTypeId || req.leave_type_id === compTypeId) {
                     category = '補休';
                     detailType = '補休申請';
