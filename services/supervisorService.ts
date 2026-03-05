@@ -141,7 +141,7 @@ export const getAllSubordinateRequests = async (managerId: string): Promise<any[
             .from('leave_requests')
             .select(`
                 *,
-                employee:employees (id, name, department, pin, manager_id),
+                employee:employees!leave_requests_employee_id_fkey (id, name, department, pin, manager_id),
                 leave_type:leave_types (*)
             `)
             .in('employee_id', subordinateIds)
@@ -155,7 +155,7 @@ export const getAllSubordinateRequests = async (managerId: string): Promise<any[
             .from('leave_requests')
             .select(`
                 *,
-                employee:employees (id, name, department, pin, manager_id),
+                employee:employees!leave_requests_employee_id_fkey (id, name, department, pin, manager_id),
                 leave_type:leave_types (*)
             `)
             .in('employee_id', subordinateIds)
