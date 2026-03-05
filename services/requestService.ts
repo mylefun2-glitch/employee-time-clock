@@ -323,6 +323,7 @@ export const requestService = {
             hours?: number;
             manual_break_hours?: number;
             is_makeup_workday?: boolean;
+            is_makeup_holiday?: boolean;
         },
         employeeId: string
     ): Promise<{ success: boolean; data?: any; error?: string }> {

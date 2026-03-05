@@ -36,6 +36,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
     const [detailedHours, setDetailedHours] = useState<DetailedLeaveHours | null>(null);
     const [manualBreakHours, setManualBreakHours] = useState<string>('0');
     const [isMakeupWorkday, setIsMakeupWorkday] = useState(false);
+    const [isMakeupHoliday, setIsMakeupHoliday] = useState(false);
 
     useEffect(() => {
         loadLeaveTypes();
@@ -138,7 +139,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                 new Date(endDateTimeStr),
                 employeeSchedule,
                 historicalSchedules,
-                manualBreak
+                manualBreak,
+                isMakeupHoliday
             );
             setOtValidation(validation);
             setDetailedHours({
@@ -173,7 +175,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
             true,
             historicalSchedules,
             manualBreak,
-            isMakeupWorkday
+            isMakeupWorkday,
+            isMakeupHoliday
         );
         setDetailedHours(detailed);
 
@@ -182,7 +185,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
         });
 
         return detailed.finalHours;
-    }, [startDate, startTime, endDate, endTime, employeeSchedule, selectedTypeId, leaveTypes, historicalSchedules, manualBreakHours, isMakeupWorkday]);
+    }, [startDate, startTime, endDate, endTime, employeeSchedule, selectedTypeId, leaveTypes, historicalSchedules, manualBreakHours, isMakeupWorkday, isMakeupHoliday]);
 
     // 計算請假天數（用於判斷是否需要理事長審核）
     const totalDays = useMemo(() => {
@@ -263,6 +266,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                 car_id: needCar ? selectedCarId : undefined,
                 deputy_id: selectedDeputyId || undefined,
                 is_makeup_workday: isMakeupWorkday,
+                is_makeup_holiday: isMakeupHoliday,
                 ...attachmentInfo
             });
             onSuccess();
@@ -413,25 +417,49 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                 </div>
                             </div>
 
-                            {/* 補行上班日開關 */}
-                            <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100 text-white shrink-0">
-                                        <span className="material-symbols-outlined text-xl">work_history</span>
+                            {/* 特殊項目：補行上班日與補假列 */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* 補行上班日開關 */}
+                                <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100 text-white shrink-0">
+                                            <span className="material-symbols-outlined text-xl">work_history</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">特殊項目</p>
+                                            <p className="text-sm font-black text-indigo-900 mt-0.5">補行上班日</p>
+                                            <p className="text-[10px] text-indigo-500 mt-1">若申請日為週六、日補班。</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">特殊項目</p>
-                                        <p className="text-sm font-black text-indigo-900 mt-0.5">補行上班日</p>
-                                        <p className="text-[10px] text-indigo-500 mt-1">若申請日適逢補班日（如週末補班），請開啟此開關。</p>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsMakeupWorkday(!isMakeupWorkday)}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isMakeupWorkday ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700'}`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isMakeupWorkday ? 'translate-x-6' : 'translate-x-1'}`} />
+                                    </button>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsMakeupWorkday(!isMakeupWorkday)}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isMakeupWorkday ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700'}`}
-                                >
-                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isMakeupWorkday ? 'translate-x-6' : 'translate-x-1'}`} />
-                                </button>
+
+                                {/* 補假開關 */}
+                                <div className="bg-rose-50/50 border border-rose-100 rounded-2xl p-4 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-rose-600 rounded-xl flex items-center justify-center shadow-lg shadow-rose-100 text-white shrink-0">
+                                            <span className="material-symbols-outlined text-xl">event_busy</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest">假日設定</p>
+                                            <p className="text-sm font-black text-rose-900 mt-0.5">本日為補假</p>
+                                            <p className="text-[10px] text-rose-500 mt-1">若申請日為補假日（如國假避開週休）。</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsMakeupHoliday(!isMakeupHoliday)}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isMakeupHoliday ? 'bg-rose-600' : 'bg-slate-200 dark:bg-slate-700'}`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isMakeupHoliday ? 'translate-x-6' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
                             </div>
 
                             {/* OT 規則說明 */}

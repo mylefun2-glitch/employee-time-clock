@@ -30,7 +30,8 @@ export const calculateLeaveHoursDetailed = (
     deductBreaks: boolean = true,
     historicalSchedules?: EmployeeSchedule[],
     manualBreak: number = 0,
-    isMakeupWorkday: boolean = false
+    isMakeupWorkday: boolean = false,
+    isMakeupHoliday: boolean = false
 ): DetailedLeaveHours => {
     if (endDate <= startDate) return { totalHours: 0, rawHours: 0, breakHours: 0, finalHours: 0 };
 
@@ -78,7 +79,8 @@ export const calculateLeaveHoursDetailed = (
         // 如果不是忽略工作時間(ignoreWorkWindow=true，通常是加班)，
         // 則檢查是否為休息日。
         // 如果標記為補行上班日(isMakeupWorkday=true)，則不視為休息日。
-        if (!ignoreWorkWindow && (holidayName || (isRestDay && !isMakeupWorkday))) {
+        // 如果標記為補假(isMakeupHoliday=true)，則視為國定假日。
+        if (!ignoreWorkWindow && (holidayName || isMakeupHoliday || (isRestDay && !isMakeupWorkday))) {
             currentDayHead.setDate(currentDayHead.getDate() + 1);
             continue;
         }
@@ -178,7 +180,8 @@ export const calculateLeaveHours = (
     deductBreaks: boolean = true,
     historicalSchedules?: EmployeeSchedule[],
     manualBreak: number = 0,
-    isMakeupWorkday: boolean = false
+    isMakeupWorkday: boolean = false,
+    isMakeupHoliday: boolean = false
 ): number => {
     const result = calculateLeaveHoursDetailed(
         startDate,
@@ -188,7 +191,8 @@ export const calculateLeaveHours = (
         deductBreaks,
         historicalSchedules,
         manualBreak,
-        isMakeupWorkday
+        isMakeupWorkday,
+        isMakeupHoliday
     );
     return result.finalHours;
 };
@@ -227,7 +231,8 @@ export const validateOTHours = (
     endDate: Date,
     employee: Partial<Employee>,
     historicalSchedules?: EmployeeSchedule[],
-    manualBreak: number = 0
+    manualBreak: number = 0,
+    isMakeupHoliday: boolean = false
 ): OTValidationResult => {
     // 計算原始時數（不扣除班表內的休息時間，由 overtime 規則統一處理）
     const originalHours = calculateLeaveHours(
@@ -236,7 +241,10 @@ export const validateOTHours = (
         employee,
         true, // ignoreWorkWindow = true (加班可以在工作時間外)
         false, // deductBreaks = false (加班期間不依據班表扣除休息)
-        historicalSchedules
+        historicalSchedules,
+        0,
+        false,
+        isMakeupHoliday
     );
 
     if (originalHours === 0) {
@@ -254,7 +262,8 @@ export const validateOTHours = (
     // 判斷是否應採計為「國定假日」邏輯
     // 規則：如果當日是國定假日，且「不是」週末，或者它是「補假」，則視為國定假日加班。
     // 如果當日是國定假日且正好是週末（且不是補假），則回歸「休息日」計算邏輯。
-    const isHolidayLogic = !!holidayName && (!isWeekend || holidayName.includes('補假'));
+    // 或者手動勾選了「補假」。
+    const isHolidayLogic = isMakeupHoliday || (!!holidayName && (!isWeekend || holidayName.includes('補假')));
 
     if (isHolidayLogic) {
         // 國定假日加班：不論工時統一以 1 日工時（通常 8 小時）計，若實際加班超過則按實際計
@@ -316,8 +325,9 @@ export const calculateOTHours = (
     endDate: Date,
     employee: Partial<Employee>,
     historicalSchedules?: EmployeeSchedule[],
-    manualBreak: number = 0
+    manualBreak: number = 0,
+    isMakeupHoliday: boolean = false
 ): number => {
-    const result = validateOTHours(startDate, endDate, employee, historicalSchedules, manualBreak);
+    const result = validateOTHours(startDate, endDate, employee, historicalSchedules, manualBreak, isMakeupHoliday);
     return result.adjustedHours || 0;
 };

@@ -32,6 +32,7 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
     const [detailedHours, setDetailedHours] = useState<DetailedLeaveHours | null>(null);
     const [manualBreakHours, setManualBreakHours] = useState<string>('0');
     const [isMakeupWorkday, setIsMakeupWorkday] = useState(false);
+    const [isMakeupHoliday, setIsMakeupHoliday] = useState(false);
 
     useEffect(() => {
         const splitISO = (isoStr: string) => {
@@ -53,6 +54,7 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
         setReason(originalRequest.reason || '');
         setManualBreakHours(originalRequest.manual_break_hours?.toString() || '0');
         setIsMakeupWorkday(originalRequest.is_makeup_workday || false);
+        setIsMakeupHoliday(originalRequest.is_makeup_holiday || false);
 
         // 獲取班表資訊以便計算時數
         const fetchSchedule = async () => {
@@ -120,7 +122,8 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
                 new Date(endDateTimeStr),
                 employeeSchedule,
                 historicalSchedules,
-                manualBreak
+                manualBreak,
+                isMakeupHoliday
             );
             setOtValidation(validation);
             setDetailedHours({
@@ -155,7 +158,8 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
             true,
             historicalSchedules,
             manualBreak,
-            isMakeupWorkday
+            isMakeupWorkday,
+            isMakeupHoliday
         );
         setDetailedHours(detailed);
 
@@ -165,7 +169,7 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
         });
 
         return detailed.finalHours;
-    }, [startDate, startTime, endDate, endTime, employeeSchedule, originalRequest, historicalSchedules, manualBreakHours, isMakeupWorkday]);
+    }, [startDate, startTime, endDate, endTime, employeeSchedule, originalRequest, historicalSchedules, manualBreakHours, isMakeupWorkday, isMakeupHoliday]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -200,7 +204,8 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
                 type: originalRequest.type,
                 hours: totalHours,
                 manual_break_hours: parseFloat(manualBreakHours) || 0,
-                is_makeup_workday: isMakeupWorkday
+                is_makeup_workday: isMakeupWorkday,
+                is_makeup_holiday: isMakeupHoliday
             },
             employeeId
         );
@@ -376,25 +381,49 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
                                 </div>
                             </div>
 
-                            {/* 補行上班日開關 */}
-                            <div className="md:col-span-2 bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100 text-white shrink-0">
-                                        <span className="material-symbols-outlined text-xl">work_history</span>
+                            {/* 特殊項目：補行上班日與補假列 */}
+                            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* 補行上班日開關 */}
+                                <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100 text-white shrink-0">
+                                            <span className="material-symbols-outlined text-xl">work_history</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">特殊項目</p>
+                                            <p className="text-sm font-black text-indigo-900 mt-0.5">補行上班日</p>
+                                            <p className="text-[10px] text-indigo-500 mt-1">若申請日適逢補班日（如週末補班）。</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">特殊項目</p>
-                                        <p className="text-sm font-black text-indigo-900 mt-0.5">補行上班日</p>
-                                        <p className="text-[10px] text-indigo-500 mt-1">若申請日適逢補班日（如週末補班），請開啟此開關。</p>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsMakeupWorkday(!isMakeupWorkday)}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isMakeupWorkday ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700'}`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isMakeupWorkday ? 'translate-x-6' : 'translate-x-1'}`} />
+                                    </button>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsMakeupWorkday(!isMakeupWorkday)}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isMakeupWorkday ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700'}`}
-                                >
-                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isMakeupWorkday ? 'translate-x-6' : 'translate-x-1'}`} />
-                                </button>
+
+                                {/* 補假開關 */}
+                                <div className="bg-rose-50/50 border border-rose-100 rounded-2xl p-4 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-rose-600 rounded-xl flex items-center justify-center shadow-lg shadow-rose-100 text-white shrink-0">
+                                            <span className="material-symbols-outlined text-xl">event_busy</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest">假日設定</p>
+                                            <p className="text-sm font-black text-rose-900 mt-0.5">本日為補假</p>
+                                            <p className="text-[10px] text-rose-500 mt-1">若申請日為補假日（如國假避開週休）。</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsMakeupHoliday(!isMakeupHoliday)}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isMakeupHoliday ? 'bg-rose-600' : 'bg-slate-200 dark:bg-slate-700'}`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isMakeupHoliday ? 'translate-x-6' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
                             </div>
 
                             {/* OT 規則說明 */}

@@ -73,6 +73,7 @@ export interface LeaveRequest {
   attachment_url?: string;           // 檔案預覽連結
   attachment_expires_at?: string;    // 附件自動刪除時間
   is_makeup_workday?: boolean;       // 是否為補行上班日
+  is_makeup_holiday?: boolean;       // 是否為補假
 
   original_request?: LeaveRequest;   // 包含原始申請資訊
   modified_request?: LeaveRequest;   // 包含變更後的申請資訊
