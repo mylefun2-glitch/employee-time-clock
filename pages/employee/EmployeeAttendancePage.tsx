@@ -167,20 +167,19 @@ const EmployeeAttendancePage: React.FC = () => {
         }
     }, [viewingEmployeeId, employee?.id]);
 
-    const fetchPeriodDetails = async (period: any, leaveType: 'ANNUAL' | 'COMPENSATORY' = 'ANNUAL') => {
+    const fetchPeriodDetails = async (period: any, leaveType: 'ANNUAL' | 'TOIL' = 'ANNUAL') => {
         const targetId = viewingEmployeeId === 'all' ? employee?.id : viewingEmployeeId;
         if (!targetId) return;
         setSelectedPeriod({ ...period, leaveType }); // Store leaveType in selectedPeriod for title display
-        setLoadingRecords(true);
         try {
-            const codes = leaveType === 'COMPENSATORY' ? ['COMPENSATORY', 'TOIL'] : [leaveType];
+            const codes = [leaveType];
             const promises: Promise<any>[] = [
                 requestService.getLeaveRequestsByRange(targetId, period.start_date, period.end_date, codes),
                 requestService.getAdjustmentsByRange(targetId, period.start_date, period.end_date, leaveType)
             ];
 
             // 如果是補休,額外查詢加班紀錄
-            if (leaveType === 'COMPENSATORY') {
+            if (leaveType === 'TOIL') {
                 promises.push(requestService.getOvertimeRequestsByRange(targetId, period.start_date, period.end_date));
             }
 
@@ -1010,7 +1009,7 @@ const EmployeeAttendancePage: React.FC = () => {
                                                                 </td>
                                                                 <td className="px-8 py-5 whitespace-nowrap text-right">
                                                                     <button
-                                                                        onClick={() => fetchPeriodDetails(period, 'COMPENSATORY')}
+                                                                        onClick={() => fetchPeriodDetails(period, 'TOIL')}
                                                                         className="inline-flex items-center gap-2 text-xs font-black text-blue-600 hover:text-white hover:bg-blue-600 px-4 py-2 rounded-xl transition-all border border-blue-100 group-hover:border-blue-600 shadow-sm"
                                                                     >
                                                                         <span className="material-symbols-outlined text-sm">history</span>
@@ -1157,7 +1156,7 @@ const EmployeeAttendancePage: React.FC = () => {
                         {/* Modal Header */}
                         <div className="bg-slate-50 px-8 py-6 border-b border-slate-100 flex items-center justify-between">
                             <div>
-                                <h3 className="text-xl font-black text-slate-900">{selectedPeriod.label} {selectedPeriod.leaveType === 'COMPENSATORY' ? '補休明細' : '特休明細'}</h3>
+                                <h3 className="text-xl font-black text-slate-900">{selectedPeriod.label} {selectedPeriod.leaveType === 'TOIL' ? '補休明細' : '特休明細'}</h3>
                                 <p className="text-xs text-slate-500 font-bold mt-1">期間：{selectedPeriod.start_date} ~ {selectedPeriod.end_date}</p>
                             </div>
                             <button onClick={() => setSelectedPeriod(null)} className="w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-slate-200 text-slate-400 transition-all">
@@ -1253,7 +1252,7 @@ const EmployeeAttendancePage: React.FC = () => {
                                     </div>
 
                                     {/* Overtime Records (僅補休明細顯示) */}
-                                    {selectedPeriod.leaveType === 'COMPENSATORY' && (
+                                    {selectedPeriod.leaveType === 'TOIL' && (
                                         <div>
                                             <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                                                 <span className="material-symbols-outlined text-blue-500 text-lg">schedule</span>

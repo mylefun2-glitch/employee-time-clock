@@ -97,13 +97,12 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
             leaveTypeCode === 'OT' ||
             leaveTypeCode === 'CO' ||
             leaveTypeCode === 'ALC' ||
-            leaveTypeCode === 'COMPENSATORY' ||
             leaveTypeCode === 'TOIL' ||
             leaveTypeName.includes('加班') ||
             leaveTypeName.includes('折現') ||
-            leaveTypeName.includes('折算') ||
             leaveTypeName.includes('補休') ||
-            originalRequest.reason?.includes('加班') ||
+            leaveTypeName.includes('小時換補休') ||
+            leaveTypeName.includes('折算') ||
             originalRequest.reason?.includes('補休');
 
         const startDateTimeStr = `${startDate}T${startTime}`;
@@ -294,7 +293,6 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
 
                             const isAnnual = leaveTypeCode === 'ANNUAL' || leaveTypeName.includes('特休') || leaveTypeName.includes('折現');
                             const isCompensatory =
-                                leaveTypeCode === 'COMPENSATORY' ||
                                 leaveTypeCode === 'TOIL' ||
                                 leaveTypeCode === 'ALC' ||
                                 leaveTypeName.includes('補休') ||

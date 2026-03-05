@@ -173,18 +173,16 @@ BEGIN
         calc_total_earned decimal(10, 2) := 0;
         total_comp_used decimal(10, 2) := 0;
         total_comp_cashout decimal(10, 2) := 0;
-        ot_type_id uuid; comp_type_id uuid; toil_type_id uuid;
+        ot_type_id uuid; toil_type_id uuid;
     BEGIN
-        SELECT id INTO comp_type_id FROM leave_types WHERE code = 'COMPENSATORY';
         SELECT id INTO toil_type_id FROM leave_types WHERE code = 'TOIL';
         SELECT id INTO ot_type_id FROM leave_types WHERE code = 'OT';
 
-        SELECT COALESCE(SUM(hours), 0) INTO total_comp_used FROM leave_requests
         WHERE employee_id = target_employee_id AND status = 'APPROVED' AND (is_modified IS FALSE OR is_modified IS NULL)
-          AND leave_type_id IN (toil_type_id, comp_type_id);
+          AND leave_type_id = toil_type_id;
 
         SELECT COALESCE(SUM(amount_hours), 0) INTO total_comp_cashout FROM leave_balance_adjustments
-        WHERE employee_id = target_employee_id AND leave_type_code = 'COMPENSATORY' AND adjustment_type = 'CASHOUT';
+        WHERE employee_id = target_employee_id AND leave_type_code = 'TOIL' AND adjustment_type = 'CASHOUT';
 
         FOR i IN 0..full_years LOOP
             p_start := adjusted_join_dt + (i * interval '1 year');
@@ -196,7 +194,7 @@ BEGIN
               AND leave_type_id = ot_type_id AND start_date >= p_start AND start_date < p_end;
               
             SELECT COALESCE(SUM(amount_hours), 0) INTO p_weighted_avg_hours FROM leave_balance_adjustments
-            WHERE employee_id = target_employee_id AND leave_type_code = 'COMPENSATORY' AND adjustment_type IN ('GRANT', 'CORRECTION')
+            WHERE employee_id = target_employee_id AND leave_type_code = 'TOIL' AND adjustment_type IN ('GRANT', 'CORRECTION')
               AND created_at >= p_start AND created_at < p_end;
             
             p_entitlement_hours := p_entitlement_hours + COALESCE(p_weighted_avg_hours, 0);

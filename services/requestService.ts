@@ -742,10 +742,9 @@ export const requestService = {
 
                 // 判斷是否為「使用型」或「折算型」 (包含補休、加班折算、特休折現等)
                 const isLeaveUsageOrCashout =
+                    leaveTypeInfo.code === 'TOIL' ||
                     leaveTypeInfo.code === 'CO' ||
                     leaveTypeInfo.code === 'ALC' ||
-                    leaveTypeInfo.code === 'COMPENSATORY' ||
-                    leaveTypeInfo.code === 'TOIL' ||
                     leaveTypeInfo.name?.includes('折算') ||
                     leaveTypeInfo.name?.includes('補休');
 

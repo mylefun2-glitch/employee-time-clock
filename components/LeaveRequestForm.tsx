@@ -126,7 +126,6 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
             selectedType?.code === 'OT' ||
             selectedType?.code === 'CO' ||
             selectedType?.code === 'ALC' ||
-            selectedType?.code === 'COMPENSATORY' ||
             selectedType?.code === 'TOIL' ||
             selectedType?.name?.includes('加班') ||
             selectedType?.name?.includes('折現') ||
@@ -357,7 +356,6 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
 
                                 const isAnnual = selectedType.code === 'ANNUAL' || selectedType.name?.includes('特休') || selectedType.name?.includes('折現');
                                 const isCompensatory =
-                                    selectedType.code === 'COMPENSATORY' ||
                                     selectedType.code === 'TOIL' ||
                                     selectedType.code === 'ALC' ||
                                     selectedType.name?.includes('補休') ||

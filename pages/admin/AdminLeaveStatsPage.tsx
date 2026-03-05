@@ -102,7 +102,7 @@ const AdminLeaveStatsPage: React.FC = () => {
             const annualTypeId = (leaveTypes || []).find(t => t.code === 'ANNUAL')?.id;
             const otTypeId = (leaveTypes || []).find(t => t.code === 'OT')?.id;
             const toilTypeId = (leaveTypes || []).find(t => t.code === 'TOIL')?.id;
-            const compTypeId = (leaveTypes || []).find(t => t.code === 'COMPENSATORY')?.id;
+            const compTypeId = (leaveTypes || []).find(t => t.code === 'TOIL')?.id;
             const alcTypeId = (leaveTypes || []).find(t => t.code === 'ALC')?.id;
 
             // 2. 獲取申請紀錄
