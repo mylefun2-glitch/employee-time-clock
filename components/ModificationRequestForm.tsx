@@ -4,6 +4,8 @@ import { requestService } from '../services/requestService';
 import { calculateLeaveHours, calculateLeaveHoursDetailed, validateOTHours, OTValidationResult, DetailedLeaveHours } from '../lib/leaveUtils';
 import { getEmployeeSchedules } from '../services/admin';
 import { formatDateTimeRange } from '../lib/hrUtils';
+import { getEmployeeLeaveBalances } from '../services/employee';
+import { LeaveBalance } from '../types';
 
 interface ModificationRequestFormProps {
     originalRequest: LeaveRequest;
@@ -33,6 +35,7 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
     const [manualBreakHours, setManualBreakHours] = useState<string>('0');
     const [isMakeupWorkday, setIsMakeupWorkday] = useState(false);
     const [isMakeupHoliday, setIsMakeupHoliday] = useState(false);
+    const [leaveBalance, setLeaveBalance] = useState<LeaveBalance | null>(null);
 
     useEffect(() => {
         const splitISO = (isoStr: string) => {
@@ -68,6 +71,10 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
 
             const schedules = await getEmployeeSchedules(employeeId);
             setHistoricalSchedules(schedules);
+
+            // 取得餘額資訊
+            const balance = await getEmployeeLeaveBalances(employeeId);
+            setLeaveBalance(balance);
         };
         fetchSchedule();
     }, [originalRequest, employeeId]);
@@ -288,6 +295,42 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
                             <span className="material-symbols-outlined text-blue-600">edit</span>
                             <h3 className="text-sm font-black text-blue-900 uppercase tracking-wider">變更後的資訊</h3>
                         </div>
+
+                        {/* 餘額顯示提示 */}
+                        {(() => {
+                            const leaveTypeName = originalRequest.leave_type?.name || '';
+                            const leaveTypeCode = originalRequest.leave_type?.code || '';
+
+                            if (!leaveBalance) return null;
+
+                            const isAnnual = leaveTypeCode === 'ANNUAL' || leaveTypeName.includes('特休') || leaveTypeName.includes('折現');
+                            const isCompensatory =
+                                leaveTypeCode === 'COMPENSATORY' ||
+                                leaveTypeCode === 'TOIL' ||
+                                leaveTypeCode === 'ALC' ||
+                                leaveTypeName.includes('補休') ||
+                                leaveTypeName.includes('小時換補休') ||
+                                leaveTypeName.includes('折算');
+
+                            if (!isAnnual && !isCompensatory) return null;
+
+                            const balanceValue = isAnnual ? leaveBalance.annual.remaining : leaveBalance.compensatory.remaining;
+                            const label = isAnnual ? '特休餘額' : '補休餘額';
+                            const icon = isAnnual ? 'calendar_month' : 'history';
+
+                            return (
+                                <div className={`p-3 mb-4 rounded-xl border flex items-center justify-between animate-in fade-in slide-in-from-top-1 ${isAnnual ? 'border-emerald-200 bg-emerald-50/50' : 'border-purple-200 bg-purple-50/50'}`}>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`material-symbols-outlined text-lg ${isAnnual ? 'text-emerald-500' : 'text-purple-500'}`}>{icon}</span>
+                                        <span className={`text-xs font-black uppercase tracking-widest ${isAnnual ? 'text-emerald-700' : 'text-purple-700'}`}>{label}</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-1">
+                                        <span className={`text-lg font-black tabular-nums ${isAnnual ? 'text-emerald-600' : 'text-purple-600'}`}>{balanceValue}</span>
+                                        <span className={`text-[10px] font-bold ${isAnnual ? 'text-emerald-500' : 'text-purple-500'}`}>小時</span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-black text-blue-900 uppercase tracking-wider mb-2">

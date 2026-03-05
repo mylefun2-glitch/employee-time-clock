@@ -109,43 +109,69 @@ export const getPendingApprovalsForSupervisor = async (supervisorEmployeeId: str
 /**
  * 獲取主管的所有下屬請假申請(包含所有狀態)
  */
-export const getAllSubordinateRequests = async (supervisorEmployeeId: string): Promise<any[]> => {
+// 獲取所有下屬的申請（主管視角）
+export const getAllSubordinateRequests = async (managerId: string): Promise<any[]> => {
     try {
-        // 1. 先獲取下屬 ID 清單以進行精確查詢，避免 1000 筆上限導致的遺漏
-        const { data: subordinates } = await supabase
+        console.log('[supervisorService] getAllSubordinateRequests called for manager:', managerId);
+
+        // 1. 先獲取所有下屬的 ID
+        const { data: subordinates, error: subError } = await supabase
             .from('employees')
             .select('id')
-            .eq('manager_id', supervisorEmployeeId);
+            .eq('manager_id', managerId);
 
-        const subIds = (subordinates || []).map(s => s.id);
+        if (subError) throw subError;
 
-        if (subIds.length === 0) return [];
-
-        // 2. 查詢這些下屬的所有請假申請
-        const { data, error } = await supabase
-            .from('leave_requests')
-            .select(`
-                *,
-                employee:employees!leave_requests_employee_id_fkey (
-                    id,
-                    name,
-                    department,
-                    manager_id
-                ),
-                leave_type:leave_types(*),
-                deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
-            `)
-            .in('employee_id', subIds)
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('Error fetching all subordinate requests:', error);
+        if (!subordinates || subordinates.length === 0) {
+            console.log('[supervisorService] No subordinates found');
             return [];
         }
 
-        return data || [];
-    } catch (err) {
-        console.error('Unexpected error fetching all subordinate requests:', err);
+        const subordinateIds = subordinates.map(s => s.id);
+
+        /**
+         * 修正顯示逾期未審核的問題：
+         * 為了確保「待審核」的申請不論多舊都能被看見，我們分開查詢：
+         * 1. 優先抓取所有「待審核」狀態的申請（不設嚴格限制或設較大限制，並按時間正序/倒序排列）
+         * 2. 抓取「已審核」的歷史紀錄（設限制並按時間倒序排列）
+         */
+
+        // 1. 抓取待審核申請 (PENDING, WITHDRAW_PENDING)
+        const { data: pendingRequests, error: pendingError } = await supabase
+            .from('leave_requests')
+            .select(`
+                *,
+                employee:employees (id, name, department, pin, manager_id),
+                leave_type:leave_types (*)
+            `)
+            .in('employee_id', subordinateIds)
+            .in('status', ['PENDING', 'WITHDRAW_PENDING'])
+            .order('created_at', { ascending: false });
+
+        if (pendingError) throw pendingError;
+
+        // 2. 抓取已審核的歷史紀錄 (最多 5000 筆)
+        const { data: historyRequests, error: historyError } = await supabase
+            .from('leave_requests')
+            .select(`
+                *,
+                employee:employees (id, name, department, pin, manager_id),
+                leave_type:leave_types (*)
+            `)
+            .in('employee_id', subordinateIds)
+            .not('status', 'in', '("PENDING", "WITHDRAW_PENDING")')
+            .order('created_at', { ascending: false })
+            .limit(5000);
+
+        if (historyError) throw historyError;
+
+        // 合併結果：待審核在前，歷史紀錄在後
+        const allRequests = [...(pendingRequests || []), ...(historyRequests || [])];
+
+        console.log('[supervisorService] Total requests fetched:', allRequests.length);
+        return allRequests;
+    } catch (error) {
+        console.error('[supervisorService] Error in getAllSubordinateRequests:', error);
         return [];
     }
 };

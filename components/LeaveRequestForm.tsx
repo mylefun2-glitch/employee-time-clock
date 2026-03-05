@@ -5,6 +5,8 @@ import { requestService } from '../services/requestService';
 import { getEmployeeSchedules } from '../services/admin';
 import { leaveTypeService } from '../services/leaveTypeService';
 import { getCars } from '../services/carService';
+import { getEmployeeLeaveBalances } from '../services/employee';
+import { LeaveBalance } from '../types';
 
 interface LeaveRequestFormProps {
     employeeId: string;
@@ -37,6 +39,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
     const [manualBreakHours, setManualBreakHours] = useState<string>('0');
     const [isMakeupWorkday, setIsMakeupWorkday] = useState(false);
     const [isMakeupHoliday, setIsMakeupHoliday] = useState(false);
+    const [leaveBalance, setLeaveBalance] = useState<LeaveBalance | null>(null);
 
     useEffect(() => {
         loadLeaveTypes();
@@ -86,6 +89,10 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                 .neq('id', employeeId)
                 .order('name');
             setEmployees(data || []);
+
+            // 取得餘額資訊
+            const balance = await getEmployeeLeaveBalances(employeeId);
+            setLeaveBalance(balance);
         } catch (err) {
             console.error('Error loading employees:', err);
         }
@@ -337,6 +344,41 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                     </div>
                                 )}
                             </div>
+
+                            {/* 餘額顯示提示 */}
+                            {(() => {
+                                const selectedType = leaveTypes.find(t => t.id === selectedTypeId);
+                                if (!selectedType || !leaveBalance) return null;
+
+                                const isAnnual = selectedType.code === 'ANNUAL' || selectedType.name?.includes('特休') || selectedType.name?.includes('折現');
+                                const isCompensatory =
+                                    selectedType.code === 'COMPENSATORY' ||
+                                    selectedType.code === 'TOIL' ||
+                                    selectedType.code === 'ALC' ||
+                                    selectedType.name?.includes('補休') ||
+                                    selectedType.name?.includes('小時換補休') ||
+                                    selectedType.name?.includes('折算');
+
+                                if (!isAnnual && !isCompensatory) return null;
+
+                                const balanceValue = isAnnual ? leaveBalance.annual.remaining : leaveBalance.compensatory.remaining;
+                                const label = isAnnual ? '特休餘額' : '補休餘額';
+                                const colorClass = isAnnual ? 'text-emerald-600 bg-emerald-50' : 'text-purple-600 bg-purple-50';
+                                const icon = isAnnual ? 'calendar_month' : 'history';
+
+                                return (
+                                    <div className={`p-3 rounded-xl border flex items-center justify-between animate-in fade-in slide-in-from-top-1 ${isAnnual ? 'border-emerald-100 bg-emerald-50/30' : 'border-purple-100 bg-purple-50/30'}`}>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`material-symbols-outlined text-lg ${isAnnual ? 'text-emerald-500' : 'text-purple-500'}`}>{icon}</span>
+                                            <span className={`text-xs font-black uppercase tracking-widest ${isAnnual ? 'text-emerald-700' : 'text-purple-700'}`}>{label}</span>
+                                        </div>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className={`text-lg font-black tabular-nums ${isAnnual ? 'text-emerald-600' : 'text-purple-600'}`}>{balanceValue}</span>
+                                            <span className={`text-[10px] font-bold ${isAnnual ? 'text-emerald-500' : 'text-purple-500'}`}>小時</span>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-4">

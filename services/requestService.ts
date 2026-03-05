@@ -737,27 +737,30 @@ export const requestService = {
                     continue;
                 }
 
-                // 判斷是否為加班類型
-                const isOvertime =
-                    leaveTypeInfo.code === 'OT' ||
+                // 判斷是否為「掙得型」加班 (需套用勞基法時數限制)
+                const isOTEarning = leaveTypeInfo.code === 'OT';
+
+                // 判斷是否為「使用型」或「折算型」 (包含補休、加班折算、特休折現等)
+                const isLeaveUsageOrCashout =
                     leaveTypeInfo.code === 'CO' ||
                     leaveTypeInfo.code === 'ALC' ||
                     leaveTypeInfo.code === 'COMPENSATORY' ||
                     leaveTypeInfo.code === 'TOIL' ||
-                    leaveTypeInfo.name?.includes('加班') ||
                     leaveTypeInfo.name?.includes('折算') ||
                     leaveTypeInfo.name?.includes('補休');
 
-                // 計算時數 (加班強制使用 OTHours 計算以符合勞基法與公司規定)
+                // 計算時數
                 let hours = req.hours;
-                if (isOvertime) {
-                    // 若是加班，一律重新計算或校正時數
+                if (isOTEarning) {
+                    // 只有「加班登記」一律重新計算或校正時數 (套用平日/休息日上限)
                     const empSchedules = (historicalSchedules || []).filter(s => s.employee_id === employee.id);
                     hours = calculateOTHours(startDate, endDate, employee, empSchedules, req.manual_break_hours || 0);
                 } else if (!hours) {
-                    // 非加班且未提供時數，使用一般請假計算
+                    // 其他類型 (包含補休使用) 若未提供時數，使用一般請假計算 (依班表扣除休息，但不限時數)
                     const empSchedules = (historicalSchedules || []).filter(s => s.employee_id === employee.id);
-                    hours = calculateLeaveHours(startDate, endDate, employee, false, true, empSchedules, req.manual_break_hours || 0);
+                    // 若是補休使用或折算，計算時忽略工作視窗限制 (ignoreWorkWindow=true) 以確保能計入完整時段，但仍扣除休息
+                    const ignoreWorkWindow = isLeaveUsageOrCashout;
+                    hours = calculateLeaveHours(startDate, endDate, employee, ignoreWorkWindow, true, empSchedules, req.manual_break_hours || 0);
                 }
 
                 insertData.push({

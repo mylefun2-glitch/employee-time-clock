@@ -274,53 +274,70 @@ export const getMakeupRequests = async (status?: string, managerId?: string) => 
     try {
         console.log('[getMakeupRequests] Called with:', { status, managerId });
 
-        let query = supabase
+        /**
+         * 修正顯示逾期未審核的問題：
+         * 1. 優先抓取「待審核」狀態的申請
+         * 2. 增加歷史紀錄的抓取上限
+         */
+
+        // 基礎查詢 (包含員工與主管資訊以便後續可能的 RLS 或手動過濾)
+        const baseQuery = supabase
             .from('makeup_attendance_requests')
             .select(`
                 *,
                 employee:employees(name, department, pin, manager_id)
-            `)
-            .order('created_at', { ascending: false });
+            `);
 
-        if (status && status !== 'ALL') {
-            query = query.eq('status', status);
+        let pendingData: any[] = [];
+        let historyData: any[] = [];
+
+        // 1. 如果是查詢「全部」或「待審核」，優先抓取待審核
+        if (!status || status === 'ALL' || status === 'PENDING') {
+            let pendingQuery = supabase
+                .from('makeup_attendance_requests')
+                .select(`
+                    *,
+                    employee:employees(name, department, pin, manager_id)
+                `)
+                .eq('status', 'PENDING')
+                .order('created_at', { ascending: false });
+
+            const { data, error } = await pendingQuery;
+            if (error) throw error;
+            pendingData = data || [];
         }
 
-        const { data, error } = await query;
+        // 2. 抓取其餘狀態的紀錄 (或當 status 不是 PENDING 時的特定狀態紀錄)
+        if (!status || status === 'ALL' || status !== 'PENDING') {
+            let historyQuery = supabase
+                .from('makeup_attendance_requests')
+                .select(`
+                    *,
+                    employee:employees(name, department, pin, manager_id)
+                `)
+                .neq('status', 'PENDING')
+                .order('created_at', { ascending: false })
+                .limit(5000);
 
-        if (error) {
-            console.error('[getMakeupRequests] Supabase error:', error);
-            throw error;
+            if (status && status !== 'ALL') {
+                historyQuery = historyQuery.eq('status', status);
+            }
+
+            const { data, error } = await historyQuery;
+            if (error) throw error;
+            historyData = data || [];
         }
 
-        console.log('[getMakeupRequests] Raw data from Supabase:', {
-            count: data?.length || 0,
-            data: data
-        });
+        let allData = status === 'PENDING' ? pendingData :
+            status && status !== 'ALL' ? historyData :
+                [...pendingData, ...historyData];
 
-        // 如果指定了主管 ID，只返回該主管的直屬下屬的申請
+        // 如果指定了主管 ID，進行過濾
         if (managerId) {
-            const filtered = (data || []).filter((req: any) => {
-                const match = req.employee?.manager_id === managerId;
-                console.log('[getMakeupRequests] Filtering:', {
-                    requestId: req.id,
-                    employeeName: req.employee?.name,
-                    employeeManagerId: req.employee?.manager_id,
-                    targetManagerId: managerId,
-                    match: match
-                });
-                return match;
-            });
-
-            console.log('[getMakeupRequests] Filtered results:', {
-                count: filtered.length,
-                data: filtered
-            });
-
-            return filtered;
+            allData = allData.filter((req: any) => req.employee?.manager_id === managerId);
         }
 
-        return data;
+        return allData;
     } catch (error) {
         console.error('Error fetching makeup requests:', error);
         return [];
