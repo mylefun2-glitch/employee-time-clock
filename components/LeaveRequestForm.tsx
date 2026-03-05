@@ -101,10 +101,13 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
     const loadLeaveTypes = async () => {
         setIsLoading(true);
         const types = await leaveTypeService.getActiveLeaveTypes();
-        setLeaveTypes(types);
-        if (types.length > 0) {
-            setSelectedTypeId(types[0].id);
-        }
+        // 按中文筆劃/字典順序排序 (使用 zh-Hant)
+        const sortedTypes = [...(types || [])].sort((a, b) =>
+            a.name.localeCompare(b.name, 'zh-Hant')
+        );
+        setLeaveTypes(sortedTypes);
+        // 預設不選取任何類型，讓使用者自選
+        setSelectedTypeId('');
         setIsLoading(false);
     };
 
@@ -324,16 +327,20 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                             className="w-full p-3 pl-10 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold appearance-none cursor-pointer"
                                             required
                                         >
+                                            <option value="" disabled>請選擇類型...</option>
                                             {leaveTypes.map((type) => (
                                                 <option key={type.id} value={type.id}>
                                                     {type.name}
                                                 </option>
                                             ))}
                                         </select>
-                                        {/* 顏色指示器 */}
                                         <div
                                             className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full pointer-events-none"
-                                            style={{ backgroundColor: leaveTypes.find(t => t.id === selectedTypeId)?.color || '#3B82F6' }}
+                                            style={{
+                                                backgroundColor: selectedTypeId
+                                                    ? (leaveTypes.find(t => t.id === selectedTypeId)?.color || '#3B82F6')
+                                                    : '#CBD5E1' // 未選取時顯示灰色
+                                            }}
                                         />
                                         {/* 下拉箭頭 */}
                                         <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
