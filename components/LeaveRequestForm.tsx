@@ -109,11 +109,16 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
     };
 
     // 計算總時數邏輯 (使用統一工具函數)
-    const totalHours = useMemo(() => {
-        if (!startDate || !endDate) return 0;
-        const selectedType = leaveTypes.find(t => t.id === selectedTypeId);
+    const [totalHours, setTotalHours] = useState(0);
 
-        // 判斷是否為加班或折現類型：檢查代碼 (OT, CO, ALC) 或名稱包含「加班/折現」
+    // 計算總時數邏輯 (使用 useEffect 處理副作用，避免 Infinite Loop)
+    useEffect(() => {
+        if (!startDate || !endDate) {
+            setTotalHours(0);
+            return;
+        }
+
+        const selectedType = leaveTypes.find(t => t.id === selectedTypeId);
         const isOvertime =
             selectedType?.code === 'OT' ||
             selectedType?.code === 'CO' ||
@@ -127,19 +132,9 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
 
         const startDateTimeStr = `${startDate}T${startTime}`;
         const endDateTimeStr = `${endDate}T${endTime}`;
-
-        console.log('LeaveRequestForm Calculation Start:', {
-            leaveTypeId: selectedTypeId,
-            leaveTypeName: selectedType?.name,
-            leaveTypeCode: selectedType?.code,
-            isOvertime,
-            startDateStr: startDateTimeStr,
-            endDateStr: endDateTimeStr
-        });
-
         const manualBreak = parseFloat(manualBreakHours) || 0;
 
-        // 如果是加班類型，使用驗證函數
+        // 如果是加班類型 (OT)，使用驗證函數
         if (selectedType?.code === 'OT') {
             const validation = validateOTHours(
                 new Date(startDateTimeStr),
@@ -149,6 +144,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                 manualBreak,
                 isMakeupHoliday
             );
+
+            // 批次更新狀態
             setOtValidation(validation);
             setDetailedHours({
                 totalHours: validation.adjustedHours || 0,
@@ -159,40 +156,41 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
 
             if (!validation.isValid) {
                 setError(validation.error || '加班時數驗證失敗');
-                return 0;
+                setTotalHours(0);
+            } else {
+                // 如果目前的錯誤是關於「加班」或「驗證」的，則清除
+                if (error && (error.includes('加班') || error.includes('驗證'))) {
+                    setError(null);
+                }
+                setTotalHours(validation.adjustedHours || 0);
             }
+        } else {
+            // 非 OT 加班登記類型 (含請假、出差、或補休使用)
+            setOtValidation(null);
 
-            // 清除錯誤訊息
-            if (error && error.includes('加班')) {
+            const detailed = calculateLeaveHoursDetailed(
+                new Date(startDateTimeStr),
+                new Date(endDateTimeStr),
+                employeeSchedule,
+                isOvertime,
+                true,
+                historicalSchedules,
+                manualBreak,
+                isMakeupWorkday,
+                isMakeupHoliday
+            );
+
+            setDetailedHours(detailed);
+            setTotalHours(detailed.finalHours);
+
+            // 嘗試清除因加班導致的舊錯誤訊息
+            if (error && (error.includes('加班') || error.includes('驗證'))) {
                 setError(null);
             }
-
-            console.log('OT Validation Result:', validation);
-            return validation.adjustedHours || 0;
-        } else {
-            // 非加班類型，清除 OT 驗證狀態
-            setOtValidation(null);
         }
-
-        const detailed = calculateLeaveHoursDetailed(
-            new Date(startDateTimeStr),
-            new Date(endDateTimeStr),
-            employeeSchedule,
-            isOvertime,
-            true,
-            historicalSchedules,
-            manualBreak,
-            isMakeupWorkday,
-            isMakeupHoliday
-        );
-        setDetailedHours(detailed);
-
-        console.log('LeaveRequestForm Calculation End:', {
-            calculatedHours: detailed.finalHours
-        });
-
-        return detailed.finalHours;
     }, [startDate, startTime, endDate, endTime, employeeSchedule, selectedTypeId, leaveTypes, historicalSchedules, manualBreakHours, isMakeupWorkday, isMakeupHoliday]);
+
+
 
     // 計算請假天數（用於判斷是否需要理事長審核）
     const totalDays = useMemo(() => {

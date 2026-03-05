@@ -80,16 +80,19 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
     }, [originalRequest, employeeId]);
 
     // 計算新時數
-    const totalHours = useMemo(() => {
-        if (!startDate || !endDate) return 0;
+    const [totalHours, setTotalHours] = useState(0);
 
-        // 強化加班判定：從多個來源確認
+    // 計算總時數邏輯 (使用 useEffect 處理副作用，避免 Infinite Loop)
+    useEffect(() => {
+        if (!startDate || !endDate) {
+            setTotalHours(0);
+            return;
+        }
+
         const leaveTypeName = originalRequest.leave_type?.name || '';
         const leaveTypeCode = originalRequest.leave_type?.code || '';
 
-        // 1. 檢查代碼是否為 OT, CO, ALC
-        // 2. 檢查名稱是否包含「加班」、「折現」、「折算」
-        // 3. 檢查原始申請原因是否有「加班」關鍵字
+        // 判斷是否為加班或折現類型
         const isOvertime =
             leaveTypeCode === 'OT' ||
             leaveTypeCode === 'CO' ||
@@ -103,26 +106,11 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
             originalRequest.reason?.includes('加班') ||
             originalRequest.reason?.includes('補休');
 
-        console.log('ModificationRequestForm Calculation Start:', {
-            requestId: originalRequest.id,
-            leaveType: {
-                id: originalRequest.leave_type_id,
-                name: leaveTypeName,
-                code: leaveTypeCode
-            },
-            isOvertime,
-            startDateStr: `${startDate}T${startTime}`,
-            endDateStr: `${endDate}T${endTime}`,
-            hasSchedules: historicalSchedules.length > 0,
-            originalRequestRaw: originalRequest
-        });
-
         const startDateTimeStr = `${startDate}T${startTime}`;
         const endDateTimeStr = `${endDate}T${endTime}`;
-
         const manualBreak = parseFloat(manualBreakHours) || 0;
 
-        // 如果是加班類型，使用驗證函數
+        // 如果是加班類型 (OT)，使用驗證函數
         if (leaveTypeCode === 'OT') {
             const validation = validateOTHours(
                 new Date(startDateTimeStr),
@@ -132,6 +120,8 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
                 manualBreak,
                 isMakeupHoliday
             );
+
+            // 批次更新狀態
             setOtValidation(validation);
             setDetailedHours({
                 totalHours: validation.adjustedHours || 0,
@@ -142,41 +132,40 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
 
             if (!validation.isValid) {
                 setError(validation.error || '加班時數驗證失敗');
-                return 0;
+                setTotalHours(0);
+            } else {
+                // 如果目前的錯誤是關於「加班」的，則清除
+                if (error && error.includes('加班')) {
+                    setError('');
+                }
+                setTotalHours(validation.adjustedHours || 0);
             }
+        } else {
+            // 非 OT 加班登記類型
+            setOtValidation(null);
 
-            // 清除錯誤訊息
+            const detailed = calculateLeaveHoursDetailed(
+                new Date(startDateTimeStr),
+                new Date(endDateTimeStr),
+                employeeSchedule,
+                isOvertime,
+                true,
+                historicalSchedules,
+                manualBreak,
+                isMakeupWorkday,
+                isMakeupHoliday
+            );
+
+            setDetailedHours(detailed);
+            setTotalHours(detailed.finalHours);
+
+            // 嘗試清除因加班導致的舊錯誤訊息
             if (error && error.includes('加班')) {
                 setError('');
             }
-
-            console.log('OT Validation Result:', validation);
-            return validation.adjustedHours || 0;
-        } else {
-            // 非加班類型，清除 OT 驗證狀態
-            setOtValidation(null);
         }
-
-        const detailed = calculateLeaveHoursDetailed(
-            new Date(startDateTimeStr),
-            new Date(endDateTimeStr),
-            employeeSchedule,
-            isOvertime,
-            true,
-            historicalSchedules,
-            manualBreak,
-            isMakeupWorkday,
-            isMakeupHoliday
-        );
-        setDetailedHours(detailed);
-
-        console.log('ModificationRequestForm Calculation End:', {
-            requestId: originalRequest.id,
-            calculatedHours: detailed.finalHours
-        });
-
-        return detailed.finalHours;
     }, [startDate, startTime, endDate, endTime, employeeSchedule, originalRequest, historicalSchedules, manualBreakHours, isMakeupWorkday, isMakeupHoliday]);
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
