@@ -635,7 +635,7 @@ export const requestService = {
             // 增加 limit 以確保能抓到足夠的歷史紀錄比對
             const { data: existingRequests, error: exError } = await supabase
                 .from('leave_requests')
-                .select('employee_id, start_date, end_date, status')
+                .select('employee_id, start_date, end_date, status, leave_type_id')
                 .in('employee_id', employeeIds)
                 .order('start_date', { ascending: false })
                 .limit(2000);
@@ -741,8 +741,11 @@ export const requestService = {
                     leaveTypeInfo.code === 'OT' ||
                     leaveTypeInfo.code === 'CO' ||
                     leaveTypeInfo.code === 'ALC' ||
+                    leaveTypeInfo.code === 'COMPENSATORY' ||
+                    leaveTypeInfo.code === 'TOIL' ||
                     leaveTypeInfo.name?.includes('加班') ||
-                    leaveTypeInfo.name?.includes('折算');
+                    leaveTypeInfo.name?.includes('折算') ||
+                    leaveTypeInfo.name?.includes('補休');
 
                 // 計算時數 (加班強制使用 OTHours 計算以符合勞基法與公司規定)
                 let hours = req.hours;

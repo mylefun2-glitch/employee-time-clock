@@ -110,9 +110,12 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
             selectedType?.code === 'OT' ||
             selectedType?.code === 'CO' ||
             selectedType?.code === 'ALC' ||
+            selectedType?.code === 'COMPENSATORY' ||
+            selectedType?.code === 'TOIL' ||
             selectedType?.name?.includes('加班') ||
             selectedType?.name?.includes('折現') ||
-            selectedType?.name?.includes('折算');
+            selectedType?.name?.includes('折算') ||
+            selectedType?.name?.includes('補休');
 
         const startDateTimeStr = `${startDate}T${startTime}`;
         const endDateTimeStr = `${endDate}T${endTime}`;

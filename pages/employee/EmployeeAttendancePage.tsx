@@ -505,13 +505,6 @@ const EmployeeAttendancePage: React.FC = () => {
                         />
                         <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">calendar_view_month</span>
                     </div>
-                    <button
-                        onClick={() => setShowMakeupForm(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-xl font-bold shadow-md hover:bg-purple-700 transition-all"
-                    >
-                        <span className="material-symbols-outlined text-lg">edit_calendar</span>
-                        <span className="hidden sm:inline">申請補卡</span>
-                    </button>
                 </div>
             </div>
 

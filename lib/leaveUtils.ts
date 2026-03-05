@@ -248,11 +248,20 @@ export const validateOTHours = (
 
     // 檢查是否為國定假日
     const holidayName = isNationalHoliday(startDate);
-    if (holidayName) {
-        // 國定假日加班：不論工時統一以 8 小計
+    const dayOfWeek = startDate.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // 週日或週六
+
+    // 判斷是否應採計為「國定假日」邏輯
+    // 規則：如果當日是國定假日，且「不是」週末，或者它是「補假」，則視為國定假日加班。
+    // 如果當日是國定假日且正好是週末（且不是補假），則回歸「休息日」計算邏輯。
+    const isHolidayLogic = !!holidayName && (!isWeekend || holidayName.includes('補假'));
+
+    if (isHolidayLogic) {
+        // 國定假日加班：不論工時統一以 1 日工時（通常 8 小時）計，若實際加班超過則按實際計
+        const standardDailyHours = employee.standard_daily_hours || 8.0;
         return {
             isValid: true,
-            adjustedHours: 8.0,
+            adjustedHours: Math.max(standardDailyHours, originalHours),
             originalHours,
             breakDeducted: 0
         };
@@ -260,7 +269,7 @@ export const validateOTHours = (
 
     // 檢查是否為休息日
     const restDays = employee.rest_days || [0, 6];
-    const isRest = isRestDay(startDate, restDays);
+    const isRest = restDays.includes(dayOfWeek) || !!holidayName; // 國假遇週末也視為休息日
 
     // 計算需要扣除的休息時間
     // 規則：連續工作超過 4 小時扣除 0.5 小時。

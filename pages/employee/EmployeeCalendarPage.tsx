@@ -231,6 +231,14 @@ const EmployeeCalendarPage: React.FC = () => {
                         </div>
 
                         <button
+                            onClick={() => setShowMakeupForm(true)}
+                            className="inline-flex items-center px-3 py-2 bg-purple-600 text-white rounded-xl text-xs font-black hover:bg-purple-700 transition-all shadow-md shadow-purple-100"
+                        >
+                            <span className="material-symbols-outlined text-[16px] mr-1">edit_calendar</span>
+                            <span className="hidden sm:inline">申請補卡</span>
+                        </button>
+
+                        <button
                             onClick={() => window.print()}
                             className="inline-flex items-center px-3 py-2 bg-slate-900 text-white rounded-xl text-xs font-black hover:bg-slate-800 transition-all shadow-md shadow-slate-200"
                         >

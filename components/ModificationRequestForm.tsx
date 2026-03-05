@@ -85,10 +85,14 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
             leaveTypeCode === 'OT' ||
             leaveTypeCode === 'CO' ||
             leaveTypeCode === 'ALC' ||
+            leaveTypeCode === 'COMPENSATORY' ||
+            leaveTypeCode === 'TOIL' ||
             leaveTypeName.includes('加班') ||
             leaveTypeName.includes('折現') ||
             leaveTypeName.includes('折算') ||
-            originalRequest.reason?.includes('加班');
+            leaveTypeName.includes('補休') ||
+            originalRequest.reason?.includes('加班') ||
+            originalRequest.reason?.includes('補休');
 
         console.log('ModificationRequestForm Calculation Start:', {
             requestId: originalRequest.id,
