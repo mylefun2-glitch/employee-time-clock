@@ -234,6 +234,29 @@ export const validateOTHours = (
     manualBreak: number = 0,
     isMakeupHoliday: boolean = false
 ): OTValidationResult => {
+    // 1. 取得指定日期的有效班表設定
+    const getEffectiveSchedule = (date: Date) => {
+        if (historicalSchedules && historicalSchedules.length > 0) {
+            const dateStr = format(date, 'yyyy-MM-dd');
+            const schedule = historicalSchedules
+                .filter(s => s.effective_date <= dateStr)
+                .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
+            if (schedule) return schedule;
+        }
+
+        return {
+            work_start_time: employee.work_start_time || '08:00',
+            work_end_time: employee.work_end_time || '17:00',
+            break_start_time: employee.break_start_time || '12:00',
+            break_end_time: employee.break_end_time || '13:00',
+            rest_days: employee.rest_days || [0, 6],
+            standard_daily_hours: employee.standard_daily_hours || 8.0
+        };
+    };
+
+    const schedule = getEffectiveSchedule(startDate);
+    const standardDailyHours = schedule.standard_daily_hours || 8.0;
+
     // 計算原始時數（不扣除班表內的休息時間，由 overtime 規則統一處理）
     const originalHours = calculateLeaveHours(
         startDate,
@@ -257,57 +280,48 @@ export const validateOTHours = (
     // 檢查是否為國定假日
     const holidayName = isNationalHoliday(startDate);
     const dayOfWeek = startDate.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // 週日或週六
+    // 依據有效班表判斷是否為休息日 (防止排班人員誤判)
+    const restDays = schedule.rest_days || [0, 6];
+    const isRest = restDays.includes(dayOfWeek) || !!holidayName;
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    // 計算扣除休息後的時數
+    // 規則：連續工作超過 4 小時扣除 0.5 小時。
+    // 每滿 4 小時扣 0.5 小時 (例如 4.1h 扣 0.5h, 8.1h 扣 1.0h)
+    // 8:00 ~ 17:00 (9.0h) 會扣除 1.0h = 8.0h
+    const breakDeducted = Math.floor(originalHours / 4.0001) * 0.5;
+    let baseAdjustedHours = parseFloat((originalHours - breakDeducted - manualBreak).toFixed(1));
+    if (baseAdjustedHours < 0) baseAdjustedHours = 0;
 
     // 判斷是否應採計為「國定假日」邏輯
-    // 規則：如果當日是國定假日，且「不是」週末，或者它是「補假」，則視為國定假日加班。
-    // 如果當日是國定假日且正好是週末（且不是補假），則回歸「休息日」計算邏輯。
-    // 或者手動勾選了「補假」。
     const isHolidayLogic = isMakeupHoliday || (!!holidayName && (!isWeekend || holidayName.includes('補假')));
 
     if (isHolidayLogic) {
         // 國定假日加班：不論工時統一以 1 日工時（通常 8 小時）計，若實際加班超過則按實際計
-        const standardDailyHours = employee.standard_daily_hours || 8.0;
+        // 修正：這裡的「實際計」也要套用休息扣除後的時數。
+        // 例如 8:00~17:00 (9h)，扣除後是 8h，Math.max(8, 8) = 8
         return {
             isValid: true,
-            adjustedHours: Math.max(standardDailyHours, originalHours),
+            adjustedHours: Math.max(standardDailyHours, baseAdjustedHours),
             originalHours,
-            breakDeducted: 0
+            breakDeducted
         };
     }
-
-    // 檢查是否為休息日
-    const restDays = employee.rest_days || [0, 6];
-    const isRest = restDays.includes(dayOfWeek) || !!holidayName; // 國假遇週末也視為休息日
-
-    // 計算需要扣除的休息時間
-    // 規則：連續工作超過 4 小時扣除 0.5 小時。
-    // 實作：每滿 4 小時扣 0.5 小時 (例如 4.1h 扣 0.5h, 8.1h 扣 1.0h)
-    const breakDeducted = Math.floor(originalHours / 4.0001) * 0.5;
-
-    let adjustedHours = parseFloat((originalHours - breakDeducted - manualBreak).toFixed(1));
-    if (adjustedHours < 0) adjustedHours = 0;
 
     // 檢查時數限制（平日最多 4，休息日最多 12）
     const maxHours = isRest ? 12.0 : 4.0;
     const dayType = isRest ? '休息日' : '平日';
 
-    // 如果超過上限，自動截斷
-    if (adjustedHours > maxHours) {
-        return {
-            isValid: true, // 改為 True，因為我們自動修正
-            adjustedHours: maxHours,
-            originalHours,
-            breakDeducted,
-            error: `注意：${dayType}加班時數已達上限 ${maxHours} 小時（原始計算為 ${adjustedHours} 小時已自動修正）`
-        };
-    }
+    const adjustedHours = Math.min(baseAdjustedHours, maxHours);
 
     return {
         isValid: true,
         adjustedHours,
         originalHours,
-        breakDeducted
+        breakDeducted,
+        error: baseAdjustedHours > maxHours
+            ? `注意：${dayType}加班時數已達上限 ${maxHours} 小時（原始計算為 ${baseAdjustedHours} 小時已自動修正）`
+            : undefined
     };
 };
 
