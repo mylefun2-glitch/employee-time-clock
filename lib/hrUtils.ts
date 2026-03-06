@@ -64,8 +64,8 @@ export const formatDateTimeRange = (startDateStr: string | Date, endDateStr: str
     const endTime = formatTime(end);
 
     if (startDay === endDay) {
-        return `${startDay}${startTime}～${endTime}`;
+        return `${startDay} ${startTime}～${endTime}`;
     } else {
-        return `${startDay}${startTime}～${endDay} ${endTime}`;
+        return `${startDay} ${startTime}～${endDay} ${endTime}`;
     }
 };

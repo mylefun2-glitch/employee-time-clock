@@ -184,7 +184,27 @@ const EmployeeAttendancePage: React.FC = () => {
             }
 
             const results = await Promise.all(promises);
-            const [requests, adjustments, overtimeRecords = []] = results;
+            let [requests, adjustments, overtimeRecords = []] = results;
+
+            // --- 將加班折算移出 overtimeRecords 並加入 requests ---
+            if (leaveType === 'TOIL' && overtimeRecords.length > 0) {
+                // 識別折算紀錄 (ALC 或名稱包含折算)
+                const conversionRecords = overtimeRecords.filter((req: LeaveRequest) =>
+                    req.leave_type?.code === 'ALC' || req.leave_type?.name?.includes('折算')
+                );
+
+                // 剩下的才是純加班 (OT)
+                const pureOvertime = overtimeRecords.filter((req: LeaveRequest) =>
+                    !(req.leave_type?.code === 'ALC' || req.leave_type?.name?.includes('折算'))
+                );
+
+                // 合併並排序 (由新到舊)
+                requests = [...requests, ...conversionRecords].sort((a: any, b: any) =>
+                    new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+                );
+
+                overtimeRecords = pureOvertime;
+            }
 
             setPeriodRecords({ requests, adjustments, overtimeRecords });
         } catch (error) {
@@ -1181,30 +1201,35 @@ const EmployeeAttendancePage: React.FC = () => {
                                         ) : (
                                             <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-100">
                                                 <div className="divide-y divide-slate-100">
-                                                    {periodRecords.requests.map((req) => (
-                                                        <div key={req.id} className="flex items-center justify-between p-4 hover:bg-slate-100/50 transition-colors cursor-pointer group/item" onClick={() => {
-                                                            setActionMenuRecord(req);
-                                                            setShowActionMenu(true);
-                                                        }}>
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center group-hover/item:bg-orange-200 transition-colors">
-                                                                    <span className="material-symbols-outlined text-orange-600 text-xl">event_available</span>
-                                                                </div>
-                                                                <div>
-                                                                    <div className="font-black text-slate-900">{req.leave_type?.name || '特休'}</div>
-                                                                    <div className="text-xs text-slate-500 font-bold">
-                                                                        {new Date(req.start_date).toLocaleDateString('zh-TW')} {new Date(req.start_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                                                    {periodRecords.requests.map((req) => {
+                                                        const isConversion = req.leave_type?.code === 'ALC' || req.leave_type?.name?.includes('折算');
+                                                        return (
+                                                            <div key={req.id} className="flex items-center justify-between p-4 hover:bg-slate-100/50 transition-colors cursor-pointer group/item" onClick={() => {
+                                                                setActionMenuRecord(req);
+                                                                setShowActionMenu(true);
+                                                            }}>
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isConversion ? 'bg-blue-100' : 'bg-orange-100'} group-hover/item:bg-slate-200 transition-colors`}>
+                                                                        <span className={`material-symbols-outlined ${isConversion ? 'text-blue-600' : 'text-orange-600'} text-xl`}>
+                                                                            {isConversion ? 'schedule' : 'event_available'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="font-black text-slate-900">{req.leave_type?.name || (isConversion ? '加班折算' : '特休')}</div>
+                                                                        <div className="text-xs text-slate-500 font-bold">
+                                                                            {new Date(req.start_date).toLocaleDateString('zh-TW')} {new Date(req.start_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <div className="font-mono font-black text-orange-600">
-                                                                    -{req.hours} 小時
+                                                                <div className="text-right">
+                                                                    <div className={`font-mono font-black ${isConversion ? 'text-blue-600' : 'text-orange-600'}`}>
+                                                                        {isConversion ? '+' : '-'}{req.hours} 小時
+                                                                    </div>
+                                                                    {req.reason && <div className="text-[10px] text-slate-400 font-bold truncate max-w-[150px]">{req.reason}</div>}
                                                                 </div>
-                                                                {req.reason && <div className="text-[10px] text-slate-400 font-bold truncate max-w-[150px]">{req.reason}</div>}
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         )}
