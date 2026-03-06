@@ -7,6 +7,7 @@ import { leaveTypeService } from '../services/leaveTypeService';
 import { getCars } from '../services/carService';
 import { getEmployeeLeaveBalances } from '../services/employee';
 import { LeaveBalance } from '../types';
+import TimeInput24h from './ui/TimeInput24h';
 
 interface LeaveRequestFormProps {
     employeeId: string;
@@ -20,9 +21,9 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [selectedTypeId, setSelectedTypeId] = useState<string>('');
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-    const [startTime, setStartTime] = useState('09:00');
+    const [startTime, setStartTime] = useState('08:00');
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-    const [endTime, setEndTime] = useState('18:00');
+    const [endTime, setEndTime] = useState('17:00');
     const [reason, setReason] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -136,11 +137,22 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
         const endDateTimeStr = `${endDate}T${endTime}`;
         const manualBreak = parseFloat(manualBreakHours) || 0;
 
+        const currentStartDate = new Date(startDateTimeStr);
+        const currentEndDate = new Date(endDateTimeStr);
+
+        // 如果日期無效（可能正在輸入中），則不進行計算，避免崩潰
+        if (isNaN(currentStartDate.getTime()) || isNaN(currentEndDate.getTime())) {
+            setTotalHours(0);
+            setOtValidation(null);
+            setDetailedHours(null);
+            return;
+        }
+
         // 如果是加班類型 (OT)，使用驗證函數
         if (selectedType?.code === 'OT') {
             const validation = validateOTHours(
-                new Date(startDateTimeStr),
-                new Date(endDateTimeStr),
+                currentStartDate,
+                currentEndDate,
                 employeeSchedule,
                 historicalSchedules,
                 manualBreak,
@@ -171,8 +183,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
             setOtValidation(null);
 
             const detailed = calculateLeaveHoursDetailed(
-                new Date(startDateTimeStr),
-                new Date(endDateTimeStr),
+                currentStartDate,
+                currentEndDate,
                 employeeSchedule,
                 isOvertime,
                 true,
@@ -396,15 +408,14 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                                 // 預設結束日期與開始日期相同
                                                 setEndDate(newDate);
                                             }}
-                                            className="flex-[2] p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold"
+                                            className="flex-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold"
                                             max="9999-12-31"
                                             required
                                         />
-                                        <input
-                                            type="time"
+                                        <TimeInput24h
                                             value={startTime}
-                                            onChange={(e) => setStartTime(e.target.value)}
-                                            className="flex-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold"
+                                            onChange={setStartTime}
+                                            className="flex-1"
                                             required
                                         />
                                     </div>
@@ -417,15 +428,14 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                             type="date"
                                             value={endDate}
                                             onChange={(e) => setEndDate(e.target.value)}
-                                            className="flex-[2] p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold"
+                                            className="flex-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold"
                                             max="9999-12-31"
                                             required
                                         />
-                                        <input
-                                            type="time"
+                                        <TimeInput24h
                                             value={endTime}
-                                            onChange={(e) => setEndTime(e.target.value)}
-                                            className="flex-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold"
+                                            onChange={setEndTime}
+                                            className="flex-1"
                                             required
                                         />
                                     </div>

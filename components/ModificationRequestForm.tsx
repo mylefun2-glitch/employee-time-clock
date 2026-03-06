@@ -6,6 +6,7 @@ import { getEmployeeSchedules } from '../services/admin';
 import { formatDateTimeRange } from '../lib/hrUtils';
 import { getEmployeeLeaveBalances } from '../services/employee';
 import { LeaveBalance } from '../types';
+import TimeInput24h from './ui/TimeInput24h';
 
 interface ModificationRequestFormProps {
     originalRequest: LeaveRequest;
@@ -335,14 +336,13 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
                                         }}
                                         required
                                         max="9999-12-31"
-                                        className="flex-[2] px-4 py-3 rounded-xl border border-blue-200 bg-white text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    />
-                                    <input
-                                        type="time"
-                                        value={startTime}
-                                        onChange={(e) => setStartTime(e.target.value)}
-                                        required
                                         className="flex-1 px-4 py-3 rounded-xl border border-blue-200 bg-white text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                    <TimeInput24h
+                                        value={startTime}
+                                        onChange={setStartTime}
+                                        required
+                                        className="flex-1"
                                     />
                                 </div>
                             </div>
@@ -359,12 +359,11 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
                                         max="9999-12-31"
                                         className="flex-[2] px-4 py-3 rounded-xl border border-blue-200 bg-white text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     />
-                                    <input
-                                        type="time"
+                                    <TimeInput24h
                                         value={endTime}
-                                        onChange={(e) => setEndTime(e.target.value)}
+                                        onChange={setEndTime}
                                         required
-                                        className="flex-1 px-4 py-3 rounded-xl border border-blue-200 bg-white text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="flex-1"
                                     />
                                 </div>
                             </div>

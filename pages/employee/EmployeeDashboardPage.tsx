@@ -253,9 +253,9 @@ const EmployeeDashboardPage: React.FC = () => {
                                                         {leave.leave_type?.name || '請假'}
                                                     </span>
                                                     <span className="text-xs text-slate-400 font-bold">
-                                                        {new Date(leave.start_date).toLocaleDateString('zh-TW')} {new Date(leave.start_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                                                        {new Date(leave.start_date).toLocaleDateString('zh-TW')} {new Date(leave.start_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}
                                                         <span className="text-slate-300 mx-1">→</span>
-                                                        {new Date(leave.end_date).toLocaleDateString('zh-TW')} {new Date(leave.end_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                                                        {new Date(leave.end_date).toLocaleDateString('zh-TW')} {new Date(leave.end_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}
                                                     </span>
                                                 </div>
                                             </div>

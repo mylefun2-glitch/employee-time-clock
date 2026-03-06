@@ -41,6 +41,23 @@ export const calculateLeaveHoursDetailed = (
 
     // 取得指定日期的有效班表設定
     const getEffectiveSchedule = (date: Date) => {
+        // 檢查日期是否合法，避免 format 報錯
+        if (!date || isNaN(date.getTime())) {
+            return {
+                work_start_time: '08:00',
+                work_end_time: '17:00',
+                break_start_time: '12:00',
+                break_end_time: '13:00',
+                break2_start_time: employee.break2_start_time,
+                break2_end_time: employee.break2_end_time,
+                break3_start_time: employee.break3_start_time,
+                break3_end_time: employee.break3_end_time,
+                rest_days: employee.rest_days || [0, 6],
+                salary_type: employee.salary_type || 'MONTHLY',
+                standard_daily_hours: employee.standard_daily_hours || 8.0
+            };
+        }
+
         if (historicalSchedules && historicalSchedules.length > 0) {
             const dateStr = format(date, 'yyyy-MM-dd');
             const schedule = historicalSchedules
@@ -236,6 +253,18 @@ export const validateOTHours = (
 ): OTValidationResult => {
     // 1. 取得指定日期的有效班表設定
     const getEffectiveSchedule = (date: Date) => {
+        // 檢查日期是否合法，避免 format 報錯
+        if (!date || isNaN(date.getTime())) {
+            return {
+                work_start_time: '08:00',
+                work_end_time: '17:00',
+                break_start_time: '12:00',
+                break_end_time: '13:00',
+                rest_days: [0, 6],
+                standard_daily_hours: 8.0
+            };
+        }
+
         if (historicalSchedules && historicalSchedules.length > 0) {
             const dateStr = format(date, 'yyyy-MM-dd');
             const schedule = historicalSchedules

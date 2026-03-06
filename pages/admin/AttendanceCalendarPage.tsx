@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, parseISO, addMonths, subMonths, startOfWeek } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X, CheckSquare, Square, Info, Search, Plus } from 'lucide-react';
+import TimeInput24h from '../../components/ui/TimeInput24h';
 import { sortByNameStroke } from '../../lib/nameStrokeSort';
 import { deleteAttendanceLog, deleteAttendanceLogs, createAttendanceLog, importAttendanceLogs, getEmployeeSchedules } from '../../services/admin';
 import { Employee, CheckType, EmployeeSchedule } from '../../types';
@@ -990,11 +991,10 @@ const AttendanceCalendarPage: React.FC = () => {
                             {/* 時間 */}
                             <div>
                                 <label className="block text-xs font-bold text-slate-700 mb-2">時間</label>
-                                <input
-                                    type="time"
+                                <TimeInput24h
                                     value={newLogTime}
-                                    onChange={(e) => setNewLogTime(e.target.value)}
-                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                    onChange={setNewLogTime}
+                                    required
                                 />
                             </div>
 

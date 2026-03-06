@@ -53,11 +53,9 @@ export const formatDateTimeRange = (startDateStr: string | Date, endDateStr: str
     };
 
     const formatTime = (date: Date) => {
-        const hours = date.getHours();
+        const hours = date.getHours().toString().padStart(2, '0');
         const minutes = date.getMinutes().toString().padStart(2, '0');
-        const period = hours < 12 ? '上午' : '下午';
-        const displayHours = (hours % 12 || 12).toString().padStart(2, '0');
-        return `${period}${displayHours}:${minutes}`;
+        return `${hours}:${minutes}`;
     };
 
     const startDay = formatDate(start);

@@ -20,6 +20,9 @@ interface DeptStats {
     ageRanges: Record<string, number>;
     seniorityRanges: Record<string, number>;
     positions: Record<string, number>;
+    avgCheckInTime: string;
+    avgCheckOutTime: string;
+    leaveTypeStats: Record<string, number>;
 }
 
 const COLORS = [
@@ -113,8 +116,12 @@ const MultiSelectDropdown: React.FC<{
 const StatisticsPage: React.FC = () => {
 
     const [employees, setEmployees] = useState<Employee[]>([]);
+    const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
+    const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+    const [leaveTypes, setLeaveTypes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeIndex, setActiveIndex] = useState(0);
+    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
 
     // 複合篩選狀態
     const [filters, setFilters] = useState<{
@@ -128,13 +135,32 @@ const StatisticsPage: React.FC = () => {
     });
 
     useEffect(() => {
-        fetchEmployees();
-    }, []);
+        fetchData();
+    }, [selectedMonth]);
 
-    const fetchEmployees = async () => {
-        const { data, error } = await supabase.from('employees').select('*').eq('is_active', true);
-        if (data) setEmployees(data);
-        setLoading(false);
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const startOfMonth = new Date(selectedMonth + '-01');
+            const endOfMonth = new Date(startOfMonth);
+            endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+
+            const [empRes, logRes, leaveRes, typeRes] = await Promise.all([
+                supabase.from('employees').select('*').eq('is_active', true),
+                supabase.from('attendance_logs').select('*').gte('timestamp', startOfMonth.toISOString()).lt('timestamp', endOfMonth.toISOString()),
+                supabase.from('leave_requests').select('*, leave_type:leave_types(*)').eq('status', 'APPROVED').gte('start_date', startOfMonth.toISOString()).lt('start_date', endOfMonth.toISOString()),
+                supabase.from('leave_types').select('*')
+            ]);
+
+            if (empRes.data) setEmployees(empRes.data);
+            if (logRes.data) setAttendanceLogs(logRes.data);
+            if (leaveRes.data) setLeaveRequests(leaveRes.data);
+            if (typeRes.data) setLeaveTypes(typeRes.data);
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     // 選項列表
@@ -164,8 +190,13 @@ const StatisticsPage: React.FC = () => {
                 '0.25年以下': 0, '0.25年～0.5年以下': 0, '0.5年～1年': 0, '1年～2年': 0,
                 '2年～3年': 0, '3年～4年': 0, '4年～5年': 0, '5年以上': 0, '10年以上': 0, '未知': 0
             },
-            positions: {}
+            positions: {},
+            avgCheckInTime: '--:--',
+            avgCheckOutTime: '--:--',
+            leaveTypeStats: {}
         };
+
+        const filteredIds = new Set(filtered.map(e => e.id));
 
         filtered.forEach(e => {
             if (e.gender === 'MALE') stats.gender.male++;
@@ -190,6 +221,36 @@ const StatisticsPage: React.FC = () => {
 
             const pos = e.position || '未設定';
             stats.positions[pos] = (stats.positions[pos] || 0) + 1;
+        });
+
+        // 計算平均上班時間
+        const relevantLogs = attendanceLogs.filter(log => filteredIds.has(log.employee_id));
+        const checkIns = relevantLogs.filter(log => log.check_type === 'IN');
+        if (checkIns.length > 0) {
+            const totalMinutes = checkIns.reduce((sum, log) => {
+                const time = new Date(log.timestamp);
+                return sum + time.getHours() * 60 + time.getMinutes();
+            }, 0);
+            const avgMinutes = Math.round(totalMinutes / checkIns.length);
+            stats.avgCheckInTime = `${Math.floor(avgMinutes / 60).toString().padStart(2, '0')}:${(avgMinutes % 60).toString().padStart(2, '0')}`;
+        }
+
+        // 計算平均下班時間
+        const checkOuts = relevantLogs.filter(log => log.check_type === 'OUT');
+        if (checkOuts.length > 0) {
+            const totalMinutes = checkOuts.reduce((sum, log) => {
+                const time = new Date(log.timestamp);
+                return sum + time.getHours() * 60 + time.getMinutes();
+            }, 0);
+            const avgMinutes = Math.round(totalMinutes / checkOuts.length);
+            stats.avgCheckOutTime = `${Math.floor(avgMinutes / 60).toString().padStart(2, '0')}:${(avgMinutes % 60).toString().padStart(2, '0')}`;
+        }
+
+        // 計算差勤時數統計
+        const relevantLeaves = leaveRequests.filter(req => filteredIds.has(req.employee_id));
+        relevantLeaves.forEach(req => {
+            const typeName = req.leave_type?.name || '未知假別';
+            stats.leaveTypeStats[typeName] = (stats.leaveTypeStats[typeName] || 0) + (req.hours || 0);
         });
 
         return stats;
@@ -256,9 +317,22 @@ const StatisticsPage: React.FC = () => {
 
     return (
         <div className="space-y-8 pb-12 animate-in fade-in duration-500">
-            <div className="flex flex-col gap-2">
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">人事統計報表</h1>
-                <p className="text-slate-500 text-base font-medium">即時分析全會人力結構與分佈數據</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col gap-2">
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">人事統計報表</h1>
+                    <p className="text-slate-500 text-base font-medium">即時分析全會人力結構與分佈數據</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <input
+                            type="month"
+                            value={selectedMonth}
+                            onChange={(e) => setSelectedMonth(e.target.value)}
+                            className="pl-5 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 shadow-sm appearance-none min-w-[180px]"
+                        />
+                        <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">calendar_view_month</span>
+                    </div>
+                </div>
             </div>
 
             {/* 篩選工具列 */}
@@ -292,54 +366,130 @@ const StatisticsPage: React.FC = () => {
             </div>
 
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* 總計與狀態卡片 */}
-                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden group">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                {/* 總計卡片 */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                        <Users className="w-32 h-32" />
+                        <Users className="w-16 h-16" />
                     </div>
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-3">當前篩選人數</span>
-                    <div className="text-7xl font-black text-blue-600 mb-3 tabular-nums">{currentStats.total}</div>
-                    <div className="flex items-center gap-2 text-sm font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
-                        <UserCheck className="w-4 h-4" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">篩選人數</span>
+                    <div className="text-4xl font-black text-blue-600 mb-1 tabular-nums">{currentStats.total}</div>
+                    <div className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
                         在職成員
                     </div>
                 </div>
 
-                {/* 性別比例 */}
-                <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-                    <h3 className="text-base font-black text-slate-900 uppercase tracking-widest mb-8 border-l-4 border-blue-600 pl-4">性別結構比例</h3>
-                    <div className="space-y-6">
-                        {[
-                            { label: '男性成員', count: currentStats.gender.male, color: 'bg-blue-500', icon: 'male' },
-                            { label: '女性成員', count: currentStats.gender.female, color: 'bg-rose-500', icon: 'female' },
-                            { label: '其他/未設定', count: currentStats.gender.other, color: 'bg-slate-400', icon: 'more_horiz' }
-                        ].map(item => (
-                            <div key={item.label} className="space-y-2">
-                                <div className="flex justify-between items-end">
-                                    <div className="flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-slate-400 text-lg">{item.icon}</span>
-                                        <span className="text-sm font-black text-slate-600">{item.label}</span>
-                                    </div>
-                                    <span className="text-base font-black text-slate-900">
-                                        {item.count} 人
-                                        <span className="ml-2 text-blue-500 text-sm">({currentStats.total ? Math.round(item.count / currentStats.total * 100) : 0}%)</span>
-                                    </span>
-                                </div>
-                                <div className="h-3 w-full bg-slate-50 rounded-full overflow-hidden border border-slate-100">
+                {/* 平均上班 */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden group">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">平均上班</span>
+                    <div className="text-4xl font-black text-emerald-600 mb-1 tabular-nums">{currentStats.avgCheckInTime}</div>
+                    <div className="text-[10px] font-bold text-slate-400">本月紀錄</div>
+                </div>
+
+                {/* 平均下班 */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden group">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">平均下班</span>
+                    <div className="text-4xl font-black text-orange-600 mb-1 tabular-nums">{currentStats.avgCheckOutTime}</div>
+                    <div className="text-[10px] font-bold text-slate-400">本月紀錄</div>
+                </div>
+
+                {/* 性別比例 (簡化版放在 Grid 中) */}
+                <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">性別比例</h3>
+                    <div className="flex items-center gap-4 h-full">
+                        <div className="flex-1 space-y-3">
+                            {[
+                                { count: currentStats.gender.male, color: 'bg-blue-500' },
+                                { count: currentStats.gender.female, color: 'bg-rose-500' },
+                                { count: currentStats.gender.other, color: 'bg-slate-400' }
+                            ].map((item, idx) => (
+                                <div key={idx} className="h-2 w-full bg-slate-50 rounded-full overflow-hidden">
                                     <div
-                                        className={`h-full ${item.color} transition-all duration-1000 ease-out shadow-sm`}
+                                        className={`h-full ${item.color}`}
                                         style={{ width: `${currentStats.total ? (item.count / currentStats.total * 100) : 0}%` }}
                                     />
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
+                        <div className="text-right shrink-0">
+                            <div className="text-xs font-black text-blue-500">男 {currentStats.gender.male}</div>
+                            <div className="text-xs font-black text-rose-500">女 {currentStats.gender.female}</div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* 年資分佈 */}
+                {/* 差勤時數百分比 */}
+                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="flex items-center gap-3 mb-8">
+                        <div className="p-1.5 bg-rose-50 rounded-lg">
+                            <span className="material-symbols-outlined text-rose-600 text-xl font-black">event_available</span>
+                        </div>
+                        <h3 className="text-lg font-black text-slate-900 tracking-tight">差勤各項類別時數統計</h3>
+                    </div>
+                    <div className="space-y-4">
+                        {Object.keys(currentStats.leaveTypeStats).length === 0 ? (
+                            <div className="py-12 text-center text-slate-400 font-bold italic">本月尚無任何核准的差勤紀錄</div>
+                        ) : (
+                            Object.entries(currentStats.leaveTypeStats)
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([type, hours]) => (
+                                    <div key={type} className="flex items-center gap-5 group">
+                                        <span className="text-xs font-black text-slate-500 w-24 text-right tracking-tight group-hover:text-rose-600 transition-colors truncate">{type}</span>
+                                        <div className="flex-1 h-8 bg-slate-50 rounded-xl overflow-hidden flex items-center pr-3 border border-slate-50 group-hover:border-slate-100 transition-all">
+                                            <div
+                                                className="h-full bg-rose-100 border-r-4 border-rose-500 transition-all duration-1000 shadow-sm"
+                                                style={{ width: `${(hours / Math.max(...Object.values(currentStats.leaveTypeStats), 1)) * 100}%` }}
+                                            />
+                                            <span className={`ml-3 text-sm font-black ${hours > 0 ? 'text-rose-600' : 'text-slate-300'}`}>
+                                                {hours > 0 ? `${hours} 小時` : '0'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))
+                        )}
+                    </div>
+                </div>
+
+                {/* 職務結構圖表 (原有，調整位置與大小) */}
+                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm overflow-hidden text-center flex flex-col items-center">
+                    <div className="flex items-center gap-3 mb-4 w-full text-left">
+                        <div className="p-1.5 bg-amber-50 rounded-lg">
+                            <PieIcon className="w-6 h-6 text-amber-600" />
+                        </div>
+                        <h3 className="text-lg font-black text-slate-900 tracking-tight">職務結構細分</h3>
+                    </div>
+                    <div className="w-full h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    // @ts-ignore
+                                    activeIndex={activeIndex}
+                                    // @ts-ignore
+                                    activeShape={renderActiveShape}
+                                    data={positionChartData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={90}
+                                    fill="#8884d8"
+                                    dataKey="value"
+                                    onMouseEnter={onPieEnter}
+                                >
+                                    {positionChartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* 年資分佈 (原有) */}
                 <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                     <div className="flex items-center gap-3 mb-8">
                         <BarChart3 className="w-6 h-6 text-blue-600" />
@@ -363,7 +513,7 @@ const StatisticsPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* 年齡分佈 */}
+                {/* 年齡分佈 (原有) */}
                 <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                     <div className="flex items-center gap-3 mb-8">
                         <div className="p-1.5 bg-indigo-50 rounded-lg">
@@ -386,71 +536,6 @@ const StatisticsPage: React.FC = () => {
                                 </div>
                             </div>
                         ))}
-                    </div>
-                </div>
-
-                {/* 職務結構圖表 */}
-                <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                    <div className="flex items-center justify-between mb-8">
-                        <div className="flex items-center gap-3">
-                            <div className="p-1.5 bg-amber-50 rounded-lg">
-                                <PieIcon className="w-6 h-6 text-amber-600" />
-                            </div>
-                            <h3 className="text-lg font-black text-slate-900 tracking-tight">職務結構細分圖表</h3>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col lg:flex-row items-center gap-12">
-                        {/* 圓餅圖 */}
-                        <div className="w-full lg:w-1/2 h-[400px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        // @ts-ignore
-                                        activeIndex={activeIndex}
-                                        // @ts-ignore
-                                        activeShape={renderActiveShape}
-                                        data={positionChartData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={80}
-                                        outerRadius={120}
-                                        fill="#8884d8"
-                                        dataKey="value"
-                                        onMouseEnter={onPieEnter}
-                                    >
-                                        {positionChartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip
-                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-
-                        {/* 文字對照表 */}
-                        <div className="w-full lg:w-1/2 grid grid-cols-2 gap-4">
-                            {positionChartData.map((item, index) => (
-                                <div key={item.name} className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100 flex items-center gap-4 hover:bg-white hover:shadow-lg transition-all cursor-default">
-                                    <div
-                                        className="w-3 h-10 rounded-full flex-shrink-0 shadow-sm"
-                                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                                    />
-                                    <div className="min-w-0">
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">{item.name}</div>
-                                        <div className="flex items-baseline gap-2">
-                                            <span className="text-xl font-black text-slate-900">{item.value}</span>
-                                            <span className="text-[10px] font-black text-slate-400">人</span>
-                                            <span className="text-[10px] font-black text-blue-500 ml-auto">
-                                                {((item.value / currentStats.total) * 100).toFixed(0)}%
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
                     </div>
                 </div>
             </div>

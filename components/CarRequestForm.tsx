@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getCars, submitCarRequest } from '../services/carService';
+import TimeInput24h from './ui/TimeInput24h';
 
 interface CarRequestFormProps {
     employeeId: string;
@@ -128,12 +129,10 @@ const CarRequestForm: React.FC<CarRequestFormProps> = ({ employeeId, onClose, on
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">時間</label>
-                                <input
-                                    required
-                                    type="time"
+                                <TimeInput24h
                                     value={formData.start_time}
-                                    onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
+                                    onChange={(val) => setFormData({ ...formData, start_time: val })}
+                                    required
                                 />
                             </div>
                         </div>
@@ -153,12 +152,10 @@ const CarRequestForm: React.FC<CarRequestFormProps> = ({ employeeId, onClose, on
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">時間</label>
-                                <input
-                                    required
-                                    type="time"
+                                <TimeInput24h
                                     value={formData.end_time}
-                                    onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
+                                    onChange={(val) => setFormData({ ...formData, end_time: val })}
+                                    required
                                 />
                             </div>
                         </div>

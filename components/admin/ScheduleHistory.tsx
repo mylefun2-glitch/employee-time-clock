@@ -3,6 +3,7 @@ import { getEmployeeSchedules, addEmployeeSchedule, deleteEmployeeSchedule } fro
 import { EmployeeSchedule } from '../../types';
 import { Trash2, History, Plus, AlertCircle, X, Check, RotateCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import TimeInput24h from '../ui/TimeInput24h';
 
 interface ScheduleHistoryProps {
     employeeId: string;
@@ -149,11 +150,11 @@ const ScheduleHistory: React.FC<ScheduleHistoryProps> = ({ employeeId, isAdmin =
                         <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-5">
                             <div>
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">上班時間</label>
-                                <input type="time" value={formIn} onChange={e => setFormIn(e.target.value)} required className="w-full text-sm p-3 rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500 bg-white" />
+                                <TimeInput24h value={formIn} onChange={setFormIn} required />
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">下班時間</label>
-                                <input type="time" value={formOut} onChange={e => setFormOut(e.target.value)} required className="w-full text-sm p-3 rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500 bg-white" />
+                                <TimeInput24h value={formOut} onChange={setFormOut} required />
                             </div>
                         </div>
 
@@ -165,11 +166,11 @@ const ScheduleHistory: React.FC<ScheduleHistoryProps> = ({ employeeId, isAdmin =
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-300 uppercase mb-1">開始</label>
-                                    <input type="time" value={formBreakIn} onChange={e => setFormBreakIn(e.target.value)} required className="w-full text-sm p-3 rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500 bg-white" />
+                                    <TimeInput24h value={formBreakIn} onChange={setFormBreakIn} required />
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-300 uppercase mb-1">結束</label>
-                                    <input type="time" value={formBreakOut} onChange={e => setFormBreakOut(e.target.value)} required className="w-full text-sm p-3 rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500 bg-white" />
+                                    <TimeInput24h value={formBreakOut} onChange={setFormBreakOut} required />
                                 </div>
                             </div>
                         </div>
@@ -180,8 +181,8 @@ const ScheduleHistory: React.FC<ScheduleHistoryProps> = ({ employeeId, isAdmin =
                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">第二組休息 (選填)</span>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <input type="time" value={formBreak2In} onChange={e => setFormBreak2In(e.target.value)} className="w-full text-sm p-3 rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500 bg-white" />
-                                <input type="time" value={formBreak2Out} onChange={e => setFormBreak2Out(e.target.value)} className="w-full text-sm p-3 rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500 bg-white" />
+                                <TimeInput24h value={formBreak2In} onChange={setFormBreak2In} />
+                                <TimeInput24h value={formBreak2Out} onChange={setFormBreak2Out} />
                             </div>
                         </div>
 
@@ -191,8 +192,8 @@ const ScheduleHistory: React.FC<ScheduleHistoryProps> = ({ employeeId, isAdmin =
                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">第三組休息 (選填)</span>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <input type="time" value={formBreak3In} onChange={e => setFormBreak3In(e.target.value)} className="w-full text-sm p-3 rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500 bg-white" />
-                                <input type="time" value={formBreak3Out} onChange={e => setFormBreak3Out(e.target.value)} className="w-full text-sm p-3 rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500 bg-white" />
+                                <TimeInput24h value={formBreak3In} onChange={setFormBreak3In} />
+                                <TimeInput24h value={formBreak3Out} onChange={setFormBreak3Out} />
                             </div>
                         </div>
 

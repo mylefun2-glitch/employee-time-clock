@@ -158,7 +158,7 @@ const RequestsPage: React.FC = () => {
         const timeOptions: Intl.DateTimeFormatOptions = {
             hour: '2-digit',
             minute: '2-digit',
-            hour12: true
+            hour12: false
         };
 
         const startDate = start.toLocaleDateString('zh-TW', dateOptions);
