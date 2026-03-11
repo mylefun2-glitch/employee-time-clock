@@ -174,12 +174,12 @@ const EmployeesPage: React.FC = () => {
                 } as any);
             }
         } else {
-            result = await createEmployee(data);
+            result = await createEmployee(basicInfo);
             if (result.success && result.data) {
                 // 新增員工時，同步建立第一筆歷史班表紀錄
                 await addEmployeeSchedule({
                     employee_id: result.data.id,
-                    effective_date: data.schedule_effective_date || result.data.join_date || new Date().toISOString().split('T')[0],
+                    effective_date: schedule_effective_date || result.data.join_date || new Date().toISOString().split('T')[0],
                     work_start_time,
                     work_end_time,
                     break_start_time,

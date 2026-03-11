@@ -6,6 +6,11 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, FileText, Download
 import { isNationalHoliday } from '../../lib/holidays';
 import { CheckType } from '../../types';
 import MakeupRequestForm from '../../components/MakeupRequestForm';
+import LeaveRequestForm from '../../components/LeaveRequestForm';
+import ModificationRequestForm from '../../components/ModificationRequestForm';
+import { requestService } from '../../services/requestService';
+import { formatDateTimeRange } from '../../lib/hrUtils';
+import { RequestStatus } from '../../types';
 
 interface AttendanceLog {
     id: string;
@@ -36,6 +41,13 @@ const EmployeeCalendarPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [showMakeupForm, setShowMakeupForm] = useState(false);
     const [selectedDateStr, setSelectedDateStr] = useState<string>('');
+    const [showActionMenu, setShowActionMenu] = useState(false);
+    const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
+    const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
+    const [showModificationForm, setShowModificationForm] = useState(false);
+    const [isWithdrawing, setIsWithdrawing] = useState(false);
+    const [showDayMenu, setShowDayMenu] = useState(false);
+    const [showLeaveForm, setShowLeaveForm] = useState(false);
 
     const rocYear = currentDate.getFullYear() - 1911;
     const monthStr = format(currentDate, 'M');
@@ -67,7 +79,8 @@ const EmployeeCalendarPage: React.FC = () => {
                     leave_type:leave_types(name, color)
                 `)
                 .eq('employee_id', employee.id)
-                .eq('status', 'APPROVED')
+                .neq('status', 'WITHDRAWN')
+                .or('is_modified.is.null,is_modified.eq.false')
                 .or(`start_date.lte.${end},end_date.gte.${start}`);
 
             setLogs(logsData || []);
@@ -193,7 +206,44 @@ const EmployeeCalendarPage: React.FC = () => {
 
     const handleDateClick = (day: Date) => {
         setSelectedDateStr(format(day, 'yyyy-MM-dd'));
-        setShowMakeupForm(true);
+        setShowDayMenu(true);
+    };
+
+    const handleRequestClick = (e: React.MouseEvent, request: any) => {
+        e.stopPropagation();
+        setSelectedRequest(request);
+        setShowActionMenu(true);
+    };
+
+    const handleWithdraw = async () => {
+        if (!employee || !selectedRequest) return;
+        setIsWithdrawing(true);
+        try {
+            const result = await requestService.withdrawRequest(selectedRequest.id, employee.id);
+            if (result.success) {
+                alert('已送出撤回申請，請等待主管審核');
+                setShowWithdrawConfirm(false);
+                setShowActionMenu(false);
+                fetchData();
+            } else {
+                alert(result.error || '撤回失敗');
+            }
+        } catch (error) {
+            alert('系統錯誤');
+        } finally {
+            setIsWithdrawing(false);
+        }
+    };
+
+    const getStatusBadge = (status: string) => {
+        const statuses: { [key: string]: { text: string, class: string } } = {
+            PENDING: { text: '待審核', class: 'bg-amber-100 text-amber-700 border-amber-200' },
+            APPROVED: { text: '已核准', class: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+            REJECTED: { text: '已拒絕', class: 'bg-rose-100 text-rose-700 border-rose-200' },
+            WITHDRAW_PENDING: { text: '撤回待審', class: 'bg-orange-100 text-orange-700 border-orange-200' }
+        };
+        const info = statuses[status] || statuses.PENDING;
+        return <span className={`px-2 py-0.5 rounded text-[8px] font-black border ${info.class}`}>{info.text}</span>;
     };
 
     return (
@@ -334,11 +384,21 @@ const EmployeeCalendarPage: React.FC = () => {
                                             {dayInfo?.leaves?.map(leave => (
                                                 <div
                                                     key={leave.id}
-                                                    className="px-2 py-1 rounded-md text-[10px] font-black text-white shadow-sm"
+                                                    onClick={(e) => handleRequestClick(e, leave)}
+                                                    className="px-2 py-1 rounded-md text-[10px] font-black text-white shadow-sm flex items-center justify-between gap-1 group/item hover:brightness-110 active:scale-[0.98] transition-all"
                                                     style={{ backgroundColor: leave.leave_type?.color || '#3b82f6' }}
                                                     title={leave.reason}
                                                 >
-                                                    {leave.leave_type?.name} {leave.hours ? `${leave.hours}H` : ''}
+                                                    <span className="truncate flex-1">
+                                                        {leave.leave_type?.name} {leave.hours ? `${leave.hours}H` : ''}
+                                                    </span>
+                                                    {leave.status !== 'APPROVED' && (
+                                                        <span className="shrink-0 bg-white/20 px-1 rounded-[4px] text-[8px]">
+                                                            {leave.status === 'PENDING' ? '待審' :
+                                                                leave.status === 'REJECTED' ? '駁回' :
+                                                                    leave.status === 'WITHDRAW_PENDING' ? '撤回中' : ''}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -362,6 +422,190 @@ const EmployeeCalendarPage: React.FC = () => {
                     onClose={() => setShowMakeupForm(false)}
                     onSuccess={() => {
                         setShowMakeupForm(false);
+                        fetchData();
+                    }}
+                />
+            )}
+
+            {/* Day Action Menu Modal (快速申請選單) */}
+            {showDayMenu && (
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
+                    onClick={() => setShowDayMenu(false)}
+                >
+                    <div
+                        className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm p-8 animate-in zoom-in-95 duration-300 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="mb-6 items-center flex flex-col">
+                            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-4 font-black">
+                                <span className="material-symbols-outlined text-4xl">add_circle</span>
+                            </div>
+                            <h2 className="text-xl font-black text-slate-900 mb-1">選擇操作</h2>
+                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{selectedDateStr}</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowDayMenu(false);
+                                    setShowMakeupForm(true);
+                                }}
+                                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-lg">edit_calendar</span>
+                                申請補登打卡
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    setShowDayMenu(false);
+                                    setShowLeaveForm(true);
+                                }}
+                                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-lg">event_note</span>
+                                發起差勤申請
+                            </button>
+
+                            <button
+                                onClick={() => setShowDayMenu(false)}
+                                className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black hover:bg-slate-200 transition-all active:scale-95"
+                            >
+                                取消
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Leave Request Form Modal */}
+            {showLeaveForm && employee && (
+                <LeaveRequestForm
+                    employeeId={employee.id}
+                    initialDate={selectedDateStr}
+                    onClose={() => setShowLeaveForm(false)}
+                    onSuccess={() => {
+                        setShowLeaveForm(false);
+                        fetchData();
+                    }}
+                />
+            )}
+
+            {/* Action Menu Modal */}
+            {showActionMenu && selectedRequest && (
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
+                    onClick={() => setShowActionMenu(false)}
+                >
+                    <div
+                        className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm p-8 animate-in zoom-in-95 duration-300 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="mb-8 items-center flex flex-col">
+                            <div
+                                className="w-20 h-20 rounded-3xl flex items-center justify-center text-white border-4 border-white shadow-xl mb-6"
+                                style={{ backgroundColor: selectedRequest.leave_type?.color || '#3b82f6' }}
+                            >
+                                <span className="material-symbols-outlined text-4xl">edit_calendar</span>
+                            </div>
+                            <div className="mb-2 uppercase tracking-widest text-[10px] font-black text-slate-400">
+                                申請詳情
+                            </div>
+                            <h2 className="text-2xl font-black text-slate-900 mb-2">{selectedRequest.leave_type?.name || '差勤申請'}</h2>
+                            <div className="flex items-center gap-2 mb-4">
+                                {getStatusBadge(selectedRequest.status)}
+                                {selectedRequest.hours && (
+                                    <span className="px-2 py-0.5 rounded text-[8px] font-black border bg-slate-50 text-slate-600 border-slate-200">
+                                        共 {selectedRequest.hours} 小時
+                                    </span>
+                                )}
+                            </div>
+                            <div className="text-xs text-slate-500 font-medium bg-slate-50 px-4 py-2 rounded-full">
+                                {formatDateTimeRange(selectedRequest.start_date, selectedRequest.end_date)}
+                            </div>
+                            {selectedRequest.reason && (
+                                <div className="text-sm text-slate-600 mt-4 px-4 line-clamp-3 italic">
+                                    "{selectedRequest.reason}"
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3">
+                            {(selectedRequest.status === 'PENDING' || selectedRequest.status === 'APPROVED') && (
+                                <button
+                                    onClick={() => setShowWithdrawConfirm(true)}
+                                    className="w-full py-4 bg-rose-50 text-rose-600 rounded-2xl font-black hover:bg-rose-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined text-lg">cancel</span>
+                                    撤回申請
+                                </button>
+                            )}
+
+                            {(selectedRequest.status === 'APPROVED' || selectedRequest.status === 'REJECTED') && (
+                                <button
+                                    onClick={() => setShowModificationForm(true)}
+                                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined text-lg">edit</span>
+                                    申請變更
+                                </button>
+                            )}
+
+                            <button
+                                onClick={() => setShowActionMenu(false)}
+                                className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black hover:bg-slate-200 transition-all active:scale-95"
+                            >
+                                關閉選單
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Withdraw Confirmation Dialog */}
+            {showWithdrawConfirm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center">
+                                <span className="material-symbols-outlined text-amber-600 text-2xl">warning</span>
+                            </div>
+                            <h3 className="text-xl font-black text-slate-900">確認撤回申請</h3>
+                        </div>
+                        <p className="text-slate-600 mb-6 font-medium">確定要撤回此申請嗎？撤回後將待主管審核，通過後將無法復原。</p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowWithdrawConfirm(false)}
+                                className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-black hover:bg-slate-200 transition-colors"
+                                disabled={isWithdrawing}
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleWithdraw}
+                                disabled={isWithdrawing}
+                                className="flex-1 px-6 py-3 bg-rose-600 text-white rounded-xl font-black hover:bg-rose-700 transition-colors flex items-center justify-center gap-2"
+                            >
+                                {isWithdrawing && <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>}
+                                確認撤回
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modification Request Form Modal */}
+            {showModificationForm && employee && selectedRequest && (
+                <ModificationRequestForm
+                    originalRequest={selectedRequest}
+                    employeeId={employee.id}
+                    onClose={() => {
+                        setShowModificationForm(false);
+                    }}
+                    onSuccess={() => {
+                        setShowModificationForm(false);
+                        setShowActionMenu(false);
                         fetchData();
                     }}
                 />

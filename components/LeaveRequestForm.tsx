@@ -13,16 +13,17 @@ interface LeaveRequestFormProps {
     employeeId: string;
     onClose: () => void;
     onSuccess: () => void;
+    initialDate?: string;
 }
 
-const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose, onSuccess }) => {
+const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose, onSuccess, initialDate }) => {
     const [employeeSchedule, setEmployeeSchedule] = useState<Partial<Employee>>({});
     const [historicalSchedules, setHistoricalSchedules] = useState<EmployeeSchedule[]>([]);
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [selectedTypeId, setSelectedTypeId] = useState<string>('');
-    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [startDate, setStartDate] = useState(initialDate || new Date().toISOString().split('T')[0]);
     const [startTime, setStartTime] = useState('08:00');
-    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [endDate, setEndDate] = useState(initialDate || new Date().toISOString().split('T')[0]);
     const [endTime, setEndTime] = useState('17:00');
     const [reason, setReason] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
