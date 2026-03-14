@@ -42,6 +42,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
     const [isMakeupWorkday, setIsMakeupWorkday] = useState(false);
     const [isMakeupHoliday, setIsMakeupHoliday] = useState(false);
     const [leaveBalance, setLeaveBalance] = useState<LeaveBalance | null>(null);
+    const [isManualHours, setIsManualHours] = useState(false);
+    const [manualTotalHours, setManualTotalHours] = useState<string>('0');
 
     useEffect(() => {
         loadLeaveTypes();
@@ -183,11 +185,13 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
             // 非 OT 加班登記類型 (含請假、出差、或補休使用)
             setOtValidation(null);
 
+            // 如果是一般請假，不應該忽略工作時間
+            const ignoreWorkWindow = selectedType?.code === 'OT';
             const detailed = calculateLeaveHoursDetailed(
                 currentStartDate,
                 currentEndDate,
                 employeeSchedule,
-                isOvertime,
+                ignoreWorkWindow,
                 true,
                 historicalSchedules,
                 manualBreak,
@@ -259,7 +263,6 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
         try {
             let attachmentInfo = {};
 
-            // 如果有選取檔案，先上傳
             if (selectedFile) {
                 setUploadProgress(10); // 模擬進度開始
                 const { data: uploadData, error: uploadError } = await requestService.uploadAttachment(selectedFile);
@@ -274,6 +277,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                 setUploadProgress(100);
             }
 
+            const submitHours = isManualHours ? (parseFloat(manualTotalHours) || 0) : totalHours;
+
             await requestService.createRequest({
                 employee_id: employeeId,
                 type: 'LEAVE' as any,
@@ -281,7 +286,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                 start_date: new Date(startDateTimeStr).toISOString(),
                 end_date: new Date(endDateTimeStr).toISOString(),
                 reason,
-                hours: totalHours,
+                hours: submitHours,
                 manual_break_hours: parseFloat(manualBreakHours) || 0,
                 car_id: needCar ? selectedCarId : undefined,
                 deputy_id: selectedDeputyId || undefined,
@@ -551,25 +556,66 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                             )}
 
                             {/* 時數顯示區 */}
-                            {startDate && endDate && totalHours > 0 && (
-                                <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 flex flex-wrap items-center justify-between animate-in fade-in slide-in-from-bottom-2">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-100 text-white">
-                                            <span className="material-symbols-outlined text-xl">schedule</span>
+                            {startDate && endDate && (totalHours > 0 || isManualHours) && (
+                                <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-100 text-white shrink-0">
+                                                <span className="material-symbols-outlined text-xl">schedule</span>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">預計總時數</p>
+                                                <p className="text-sm font-black text-blue-900 mt-0.5">
+                                                    {isManualHours ? '已啟用手動輸入時數覆寫' : (
+                                                        detailedHours && detailedHours.breakHours > 0 ? (
+                                                            `原始 ${detailedHours.rawHours} 小時，扣除休息 ${detailedHours.breakHours} 小時`
+                                                        ) : (
+                                                            '已依據班表扣除休息時間'
+                                                        )
+                                                    )}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">預計總時數</p>
-                                            <p className="text-sm font-black text-blue-900 mt-0.5">
-                                                {detailedHours && detailedHours.breakHours > 0 ? (
-                                                    `原始 ${detailedHours.rawHours} 小時，扣除休息 ${detailedHours.breakHours} 小時`
-                                                ) : (
-                                                    '已依據班表扣除休息時間'
-                                                )}
-                                            </p>
+                                        <div className="flex flex-col items-end gap-2 shrink-0 ml-2">
+                                            {isManualHours ? (
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="number"
+                                                        step="0.5"
+                                                        min="0"
+                                                        value={manualTotalHours}
+                                                        onChange={(e) => setManualTotalHours(e.target.value)}
+                                                        className="w-24 p-2 bg-white border border-blue-200 rounded-lg text-blue-600 font-black tabular-nums text-right outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                                        required
+                                                    />
+                                                    <span className="text-xs text-blue-600 font-bold">HR</span>
+                                                </div>
+                                            ) : (
+                                                <div className="text-2xl font-black text-blue-600 tabular-nums">
+                                                    {totalHours.toFixed(1)} <span className="text-xs ml-1">HR</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                    <div className="text-2xl font-black text-blue-600 tabular-nums">
-                                        {totalHours.toFixed(1)} <span className="text-xs ml-1">HR</span>
+
+                                    {/* 手動覆寫開關 */}
+                                    <div className="flex items-center justify-end gap-2 pt-3 border-t border-blue-100/50">
+                                        <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest cursor-pointer" onClick={() => {
+                                            setIsManualHours(!isManualHours);
+                                            if (!isManualHours) setManualTotalHours(totalHours.toFixed(1));
+                                        }}>
+                                            {isManualHours ? '關閉手動修改' : '系統計算不準？手動修改'}
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsManualHours(!isManualHours);
+                                                if (!isManualHours) setManualTotalHours(totalHours.toFixed(1));
+                                            }}
+                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${isManualHours ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                        >
+                                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${isManualHours ? 'translate-x-5' : 'translate-x-1'}`} />
+                                        </button>
                                     </div>
                                 </div>
                             )}

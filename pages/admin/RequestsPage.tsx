@@ -3,6 +3,8 @@ import { Download, Upload, Plus } from 'lucide-react';
 import { requestService } from '../../services/requestService';
 import { LeaveRequest, RequestStatus } from '../../types';
 import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
+import EmployeeSelectModal from '../../components/admin/EmployeeSelectModal';
+import LeaveRequestForm from '../../components/LeaveRequestForm';
 
 interface DepartmentStats {
     department: string;
@@ -18,6 +20,8 @@ const RequestsPage: React.FC = () => {
     const [importing, setImporting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isEmployeeSelectOpen, setIsEmployeeSelectOpen] = useState(false);
+    const [selectedEmployeeIdForRequest, setSelectedEmployeeIdForRequest] = useState<string | null>(null);
 
     // 表格標題篩選狀態
     const [columnFilters, setColumnFilters] = useState<{
@@ -365,6 +369,13 @@ const RequestsPage: React.FC = () => {
                 </div>
                 <div className="flex flex-wrap gap-2 md:gap-3">
                     <button
+                        onClick={() => setIsEmployeeSelectOpen(true)}
+                        className="flex-1 md:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-transparent bg-blue-600 text-xs font-bold text-white hover:bg-blue-700 transition-all shadow-sm"
+                    >
+                        <Plus className="h-4 w-4 mr-2" />
+                        新增申請
+                    </button>
+                    <button
                         onClick={handleDownloadTemplate}
                         className="flex-1 md:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
                     >
@@ -674,6 +685,30 @@ const RequestsPage: React.FC = () => {
                 </div>
             </div>
             <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileChange} className="hidden" />
+
+            {isEmployeeSelectOpen && (
+                <EmployeeSelectModal
+                    isOpen={isEmployeeSelectOpen}
+                    onClose={() => setIsEmployeeSelectOpen(false)}
+                    onSelect={(id) => {
+                        setSelectedEmployeeIdForRequest(id);
+                        setIsEmployeeSelectOpen(false);
+                    }}
+                    title="選擇代為申請差勤的員工"
+                />
+            )}
+
+            {selectedEmployeeIdForRequest && (
+                <LeaveRequestForm
+                    employeeId={selectedEmployeeIdForRequest}
+                    onClose={() => setSelectedEmployeeIdForRequest(null)}
+                    onSuccess={() => {
+                        setSelectedEmployeeIdForRequest(null);
+                        loadRequests();
+                        alert('代為申請已成功提交！');
+                    }}
+                />
+            )}
         </div >
     );
 };

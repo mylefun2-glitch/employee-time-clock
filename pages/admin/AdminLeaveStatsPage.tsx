@@ -260,9 +260,11 @@ const AdminLeaveStatsPage: React.FC = () => {
                                 <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest">部門</th>
                                 <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest text-blue-600">特休總額</th>
                                 <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest text-blue-600">已用</th>
+                                <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest text-blue-600">折現</th>
                                 <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest text-blue-600">剩餘</th>
                                 <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest text-purple-600 bg-slate-50">補休總額</th>
                                 <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest text-purple-600 bg-slate-50">已用</th>
+                                <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest text-purple-600 bg-slate-50">折算</th>
                                 <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest text-purple-600 bg-slate-50">剩餘</th>
                             </tr>
                         </thead>
@@ -294,6 +296,9 @@ const AdminLeaveStatsPage: React.FC = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-center font-mono text-orange-600">
                                             {emp.leaveBalance ? emp.leaveBalance.annual.used : '-'}
                                         </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center font-mono text-rose-600">
+                                            {emp.leaveBalance ? emp.leaveBalance.annual.cashout : '-'}
+                                        </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-center font-mono font-bold text-emerald-600">
                                             {emp.leaveBalance ? emp.leaveBalance.annual.remaining : '-'}
                                         </td>
@@ -303,6 +308,9 @@ const AdminLeaveStatsPage: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-center font-mono text-orange-600 bg-slate-50/30">
                                             {emp.leaveBalance ? emp.leaveBalance.compensatory.used : '-'}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center font-mono text-rose-600 bg-slate-50/30">
+                                            {emp.leaveBalance ? emp.leaveBalance.compensatory.cashout : '-'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-center font-mono font-bold text-purple-600 bg-slate-50/30">
                                             {emp.leaveBalance ? emp.leaveBalance.compensatory.remaining : '-'}

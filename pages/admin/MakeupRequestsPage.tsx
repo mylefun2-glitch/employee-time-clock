@@ -3,6 +3,9 @@ import { getMakeupRequests, batchApproveMakeupRequests, batchRejectMakeupRequest
 import { useEmployee } from '../../contexts/EmployeeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
+import { Plus } from 'lucide-react';
+import EmployeeSelectModal from '../../components/admin/EmployeeSelectModal';
+import MakeupRequestForm from '../../components/MakeupRequestForm';
 
 const MakeupRequestsPage: React.FC = () => {
     const { employee } = useEmployee();
@@ -56,6 +59,9 @@ const MakeupRequestsPage: React.FC = () => {
         department: [],
         checkType: []
     });
+
+    const [isEmployeeSelectOpen, setIsEmployeeSelectOpen] = useState(false);
+    const [selectedEmployeeIdForMakeup, setSelectedEmployeeIdForMakeup] = useState<string | null>(null);
 
     // 批次模式狀態
     const [isBatchMode, setIsBatchMode] = useState(false);
@@ -299,13 +305,26 @@ const MakeupRequestsPage: React.FC = () => {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                    {isAdminMode ? '全公司補登審核' : '補登審核'}
-                </h1>
-                <p className="text-slate-500 text-sm font-medium mt-1">
-                    {isAdminMode ? '管理全公司的漏卡補登申請' : '審核漏卡補登申請'}
-                </p>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                <div>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+                        {isAdminMode ? '全公司補登審核' : '補登審核'}
+                    </h1>
+                    <p className="text-slate-500 text-sm font-medium mt-1">
+                        {isAdminMode ? '管理全公司的漏卡補登申請' : '審核漏卡補登申請'}
+                    </p>
+                </div>
+                {isAdminMode && (
+                    <div className="flex flex-wrap gap-2 md:gap-3">
+                        <button
+                            onClick={() => setIsEmployeeSelectOpen(true)}
+                            className="flex-1 md:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-transparent bg-blue-600 text-xs font-bold text-white hover:bg-blue-700 transition-all shadow-sm"
+                        >
+                            <Plus className="h-4 w-4 mr-2" />
+                            新增補登
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Filter Tabs */}
@@ -719,6 +738,30 @@ const MakeupRequestsPage: React.FC = () => {
                         </button>
                     </div>
                 </div>
+            )}
+
+            {isEmployeeSelectOpen && (
+                <EmployeeSelectModal
+                    isOpen={isEmployeeSelectOpen}
+                    onClose={() => setIsEmployeeSelectOpen(false)}
+                    onSelect={(id) => {
+                        setSelectedEmployeeIdForMakeup(id);
+                        setIsEmployeeSelectOpen(false);
+                    }}
+                    title="選擇代為申請補登的員工"
+                />
+            )}
+
+            {selectedEmployeeIdForMakeup && (
+                <MakeupRequestForm
+                    employeeId={selectedEmployeeIdForMakeup}
+                    onClose={() => setSelectedEmployeeIdForMakeup(null)}
+                    onSuccess={() => {
+                        setSelectedEmployeeIdForMakeup(null);
+                        fetchRequests();
+                        alert('代為補登申請已成功提交！');
+                    }}
+                />
             )}
         </div>
     );
