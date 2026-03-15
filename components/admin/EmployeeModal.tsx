@@ -4,6 +4,7 @@ import { Employee } from '../../types';
 import ScheduleHistory from './ScheduleHistory';
 import MovementHistory from './MovementHistory';
 import SenioritySuspensionList from './SenioritySuspensionList';
+import FourDayWorkweekList from './FourDayWorkweekList';
 import { RotateCw } from 'lucide-react';
 
 interface EmployeeModalProps {
@@ -51,7 +52,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'work' | 'schedule' | 'seniority' | 'history'>('basic');
+    const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'work' | 'schedule' | 'seniority' | 'fourDayWorkweek' | 'history'>('basic');
 
     useEffect(() => {
         if (employee && isOpen) {
@@ -172,8 +173,8 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             maxWidth="max-w-2xl"
         >
             <div className="flex border-b border-slate-100 mb-6 overflow-x-auto whitespace-nowrap no-scrollbar -mx-6 px-6 pt-2 min-h-[48px]">
-                {(['basic', 'personal', 'work', 'schedule', 'seniority', 'history'] as const).map((tab) => {
-                    if ((tab === 'history' || tab === 'schedule' || tab === 'seniority') && !employee) return null;
+                {(['basic', 'personal', 'work', 'schedule', 'seniority', 'fourDayWorkweek', 'history'] as const).map((tab) => {
+                    if ((tab === 'history' || tab === 'schedule' || tab === 'seniority' || tab === 'fourDayWorkweek') && !employee) return null;
                     return (
                         <button
                             key={tab}
@@ -184,13 +185,13 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                                 : 'border-transparent text-slate-400 hover:text-slate-600'
                                 }`}
                         >
-                            {tab === 'basic' ? '基本' : tab === 'personal' ? '個人與緊急' : tab === 'work' ? '職務保險' : tab === 'schedule' ? '班表紀錄' : tab === 'seniority' ? '年資中斷' : '異動紀錄'}
+                            {tab === 'basic' ? '基本' : tab === 'personal' ? '個人與緊急' : tab === 'work' ? '職務保險' : tab === 'schedule' ? '班表紀錄' : tab === 'seniority' ? '年資中斷' : tab === 'fourDayWorkweek' ? '調休三日' : '異動紀錄'}
                         </button>
                     );
                 })}
             </div>
 
-            {activeTab !== 'history' && activeTab !== 'schedule' && activeTab !== 'seniority' ? (
+            {activeTab !== 'history' && activeTab !== 'schedule' && activeTab !== 'seniority' && activeTab !== 'fourDayWorkweek' ? (
                 <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
                     <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 mb-6">
                         {error && (
@@ -430,6 +431,10 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             ) : activeTab === 'seniority' ? (
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar pb-6">
                     <SenioritySuspensionList employeeId={employee!.id} />
+                </div>
+            ) : activeTab === 'fourDayWorkweek' ? (
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar pb-6">
+                    <FourDayWorkweekList employeeId={employee!.id} />
                 </div>
             ) : (
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar pb-6">

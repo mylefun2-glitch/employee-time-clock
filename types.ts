@@ -159,6 +159,15 @@ export interface EmployeeMovement {
   recorded_by?: string;
 }
 
+export interface FourDayWorkweekPeriod {
+  id: string;
+  created_at: string;
+  employee_id: string;
+  start_date: string;
+  end_date: string;
+  employee?: Employee;
+}
+
 export interface CompanyLocation {
   id: string;
   created_at?: string;
