@@ -20,6 +20,136 @@ export const upsertCar = async (car: { id?: string; plate_number: string; model:
 
 // --- 公務車申請管理 ---
 
+export const checkCarAvailability = async (carId: string, startTime: string, endTime: string, excludeRequestId?: string) => {
+    // 檢查 car_usage_requests
+    let curQuery = supabase
+        .from('car_usage_requests')
+        .select('id, start_time, end_time')
+        .eq('car_id', carId)
+        .in('status', ['PENDING', 'APPROVED'])
+        .lt('start_time', endTime)
+        .gt('end_time', startTime);
+
+    if (excludeRequestId) {
+        curQuery = curQuery.neq('id', excludeRequestId);
+    }
+    
+    // 檢查 leave_requests
+    let lrQuery = supabase
+        .from('leave_requests')
+        .select('id, start_date, end_date')
+        .eq('car_id', carId)
+        .in('status', ['PENDING', 'APPROVED', 'CHAIRMAN_APPROVED'])
+        .lt('start_date', endTime)
+        .gt('end_date', startTime);
+
+    if (excludeRequestId) {
+        lrQuery = lrQuery.neq('id', excludeRequestId);
+    }
+
+    const [curResult, lrResult] = await Promise.all([curQuery, lrQuery]);
+
+    if (curResult.error) throw curResult.error;
+    if (lrResult.error) throw lrResult.error;
+
+    return (curResult.data && curResult.data.length > 0) || (lrResult.data && lrResult.data.length > 0);
+};
+
+export const getBusyCarIds = async (startTime: string, endTime: string, excludeRequestId?: string) => {
+    // 檢查 car_usage_requests
+    let curQuery = supabase
+        .from('car_usage_requests')
+        .select('car_id')
+        .in('status', ['PENDING', 'APPROVED'])
+        .lt('start_time', endTime)
+        .gt('end_time', startTime);
+
+    if (excludeRequestId) {
+        curQuery = curQuery.neq('id', excludeRequestId);
+    }
+    
+    // 檢查 leave_requests
+    let lrQuery = supabase
+        .from('leave_requests')
+        .select('car_id')
+        .in('status', ['PENDING', 'APPROVED', 'CHAIRMAN_APPROVED'])
+        .lt('start_date', endTime)
+        .gt('end_date', startTime);
+
+    if (excludeRequestId) {
+        lrQuery = lrQuery.neq('id', excludeRequestId);
+    }
+
+    const [curResult, lrResult] = await Promise.all([curQuery, lrQuery]);
+
+    if (curResult.error) throw curResult.error;
+    if (lrResult.error) throw lrResult.error;
+
+    const busyIds = new Set<string>();
+    
+    curResult.data?.forEach(item => {
+        if (item.car_id) busyIds.add(item.car_id);
+    });
+    
+    lrResult.data?.forEach(item => {
+        if (item.car_id) busyIds.add(item.car_id);
+    });
+
+    return Array.from(busyIds);
+};
+
+export const getCarUsageHistory = async (carId: string, targetDate?: string) => {
+    // 取得 car_usage_requests 的紀錄
+    let curQuery = supabase.from('car_usage_requests').select(`
+        *,
+        employee:employees(name, department)
+    `).eq('car_id', carId).in('status', ['PENDING', 'APPROVED']).order('start_time', { ascending: false });
+
+    // 取得 leave_requests 的紀錄
+    let lrQuery = supabase.from('leave_requests').select(`
+        *,
+        employee:employees!leave_requests_employee_id_fkey(name, department)
+    `).eq('car_id', carId).in('status', ['PENDING', 'APPROVED', 'CHAIRMAN_APPROVED']).order('start_date', { ascending: false });
+
+    if (targetDate) {
+        // targetDate is like 'YYYY-MM-DD'
+        const startDate = `${targetDate}T00:00:00+08:00`;
+        const endDate = `${targetDate}T23:59:59+08:00`;
+        curQuery = curQuery.lte('start_time', endDate).gte('end_time', startDate);
+        lrQuery = lrQuery.lte('start_date', endDate).gte('end_date', startDate);
+    }
+
+    const [curResult, lrResult] = await Promise.all([curQuery, lrQuery]);
+
+    if (curResult.error) throw curResult.error;
+    if (lrResult.error) throw lrResult.error;
+
+    const formattedCur = (curResult.data || []).map(item => ({
+        id: item.id,
+        employee_name: item.employee?.name || '未知',
+        department: item.employee?.department || '',
+        start_time: item.start_time,
+        end_time: item.end_time,
+        purpose: item.purpose,
+        status: item.status,
+        type: 'car_request'
+    }));
+
+    const formattedLr = (lrResult.data || []).map(item => ({
+        id: item.id,
+        employee_name: item.employee?.name || '未知',
+        department: item.employee?.department || '',
+        start_time: item.start_date,
+        end_time: item.end_date,
+        purpose: item.reason,
+        status: item.status,
+        type: 'leave_request'
+    }));
+
+    // 合併並按時間排序
+    return [...formattedCur, ...formattedLr].sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+};
+
 export const submitCarRequest = async (request: {
     employee_id: string;
     car_id: string;
@@ -70,12 +200,6 @@ export const reviewCarRequest = async (requestId: string, approverId: string, st
     }).eq('id', requestId).select().single();
 
     if (error) throw error;
-
-    // 如果核准，則將該車輛狀態同步更新為 IN_USE (簡單邏輯，暫時先這麼做)
-    // 實際上應根據 start_time 判斷，但為了 demo 直覺先這樣寫
-    if (status === 'APPROVED' && request.car_id) {
-        await supabase.from('cars').update({ status: 'IN_USE' }).eq('id', request.car_id);
-    }
 
     return data;
 };

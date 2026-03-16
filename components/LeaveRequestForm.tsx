@@ -4,7 +4,7 @@ import { calculateLeaveHours, calculateLeaveHoursDetailed, isRestDay, validateOT
 import { requestService } from '../services/requestService';
 import { getEmployeeSchedules } from '../services/admin';
 import { leaveTypeService } from '../services/leaveTypeService';
-import { getCars } from '../services/carService';
+import { getCars, checkCarAvailability, getBusyCarIds } from '../services/carService';
 import { getEmployeeLeaveBalances } from '../services/employee';
 import { LeaveBalance } from '../types';
 import TimeInput24h from './ui/TimeInput24h';
@@ -44,6 +44,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
     const [leaveBalance, setLeaveBalance] = useState<LeaveBalance | null>(null);
     const [isManualHours, setIsManualHours] = useState(false);
     const [manualTotalHours, setManualTotalHours] = useState<string>('0');
+    const [busyCarIds, setBusyCarIds] = useState<string[]>([]);
 
     useEffect(() => {
         loadLeaveTypes();
@@ -62,6 +63,27 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
             console.error('Error loading cars:', err);
         }
     };
+
+    useEffect(() => {
+        const fetchBusyCars = async () => {
+            if (!needCar || !startDate || !endDate) return;
+            try {
+                const start = new Date(`${startDate}T${startTime}`);
+                const end = new Date(`${endDate}T${endTime}`);
+                if (start >= end) {
+                    setBusyCarIds([]);
+                    return;
+                }
+                const ids = await getBusyCarIds(start.toISOString(), end.toISOString());
+                setBusyCarIds(ids);
+            } catch (error) {
+                console.error('Error fetching busy cars:', error);
+            }
+        };
+
+        const timer = setTimeout(fetchBusyCars, 300); // 加上 Debounce
+        return () => clearTimeout(timer);
+    }, [needCar, startDate, startTime, endDate, endTime]);
 
     const loadEmployees = async () => {
         try {
@@ -261,6 +283,21 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
         setError(null);
 
         try {
+            // 如果有選擇借用公務車，請先檢查是否有衝突
+            if (needCar && selectedCarId) {
+                const isBusy = await checkCarAvailability(
+                    selectedCarId,
+                    new Date(startDateTimeStr).toISOString(),
+                    new Date(endDateTimeStr).toISOString()
+                );
+
+                if (isBusy) {
+                    setError('所選公務車在該時段已被借用，請選擇其他車輛或修改時間');
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
             let attachmentInfo = {};
 
             if (selectedFile) {
@@ -768,11 +805,19 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                                     onChange={(e) => setSelectedCarId(e.target.value)}
                                                     className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-bold"
                                                 >
-                                                    {availableCars.map(car => (
-                                                        <option key={car.id} value={car.id}>
-                                                            {car.plate_number} - {car.model}
-                                                        </option>
-                                                    ))}
+                                                    {availableCars.map(car => {
+                                                        const isBusy = busyCarIds.includes(car.id);
+                                                        return (
+                                                            <option 
+                                                                key={car.id} 
+                                                                value={car.id}
+                                                                disabled={isBusy}
+                                                                className={isBusy ? 'text-rose-600 font-bold bg-rose-50/50' : 'text-emerald-700 font-bold'}
+                                                            >
+                                                                {car.plate_number} - {car.model} {isBusy ? '(🔴 已使用)' : '(🟢 可使用)'}
+                                                            </option>
+                                                        );
+                                                    })}
                                                 </select>
                                             </div>
                                         )}

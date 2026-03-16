@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { getCars, upsertCar } from '../../services/carService';
+import CarUsageHistoryModal from '../../components/CarUsageHistoryModal';
 
 const CarManagementPage: React.FC = () => {
     const [cars, setCars] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCar, setEditingCar] = useState<any>(null);
+    const [viewingHistoryCar, setViewingHistoryCar] = useState<any>(null);
     const [formData, setFormData] = useState({
         plate_number: '',
         model: '',
@@ -92,42 +94,81 @@ const CarManagementPage: React.FC = () => {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {cars.map((car) => {
-                    const status = getStatusInfo(car.status);
-                    return (
-                        <div key={car.id} className={`group bg-white rounded-3xl border ${car.is_active ? 'border-slate-100' : 'border-slate-200 opacity-60'} p-6 hover:shadow-xl transition-all duration-300 relative`}>
-                            <div className="flex justify-between items-start mb-4">
-                                <div className={`px-3 py-1 text-[10px] font-black rounded-lg border uppercase tracking-widest ${status.class}`}>
-                                    {status.text}
-                                </div>
-                                <button
-                                    onClick={() => handleOpenModal(car)}
-                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                                >
-                                    <span className="material-symbols-outlined text-xl">edit</span>
-                                </button>
-                            </div>
-
-                            <div className="mb-6">
-                                <h3 className="text-2xl font-black text-slate-900 mb-1">{car.plate_number}</h3>
-                                <p className="text-slate-500 font-bold text-sm flex items-center gap-1.5">
-                                    <span className="material-symbols-outlined text-base">directions_car</span>
-                                    {car.model}
-                                </p>
-                            </div>
-
-                            <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
-                                    里程: {car.last_mileage} KM
-                                </span>
-                                {!car.is_active && (
-                                    <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">已停用</span>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
+            <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden mb-8">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-slate-100 bg-slate-50/50">
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">車牌號碼</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">廠牌型號</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">狀態</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">里程數 (KM)</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {cars.map((car) => {
+                                const status = getStatusInfo(car.status);
+                                return (
+                                    <tr key={car.id} className={`hover:bg-slate-50/50 transition-colors ${!car.is_active ? 'opacity-60' : ''}`}>
+                                        <td className="px-6 py-4 align-middle">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                                                    <span className="material-symbols-outlined text-slate-500">directions_car</span>
+                                                </div>
+                                                <div>
+                                                    <div className="text-base font-black text-slate-900">{car.plate_number}</div>
+                                                    {!car.is_active && (
+                                                        <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest mt-0.5 block">已停用</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 align-middle">
+                                            <span className="text-sm font-bold text-slate-600">{car.model}</span>
+                                        </td>
+                                        <td className="px-6 py-4 align-middle">
+                                            <span className={`inline-flex px-3 py-1 text-[10px] font-black rounded-lg border uppercase tracking-widest ${status.class}`}>
+                                                {status.text}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 align-middle">
+                                            <span className="text-sm font-bold text-slate-600 tabular-nums">{car.last_mileage?.toLocaleString() || 0}</span>
+                                        </td>
+                                        <td className="px-6 py-4 align-middle text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <button
+                                                    onClick={() => setViewingHistoryCar(car)}
+                                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all flex items-center justify-center"
+                                                    title="檢視使用紀錄"
+                                                >
+                                                    <span className="material-symbols-outlined text-[20px]">history</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleOpenModal(car)}
+                                                    className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all flex items-center justify-center"
+                                                    title="編輯車輛"
+                                                >
+                                                    <span className="material-symbols-outlined text-[20px]">edit</span>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {cars.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-12 text-center">
+                                        <div className="flex flex-col items-center justify-center">
+                                            <span className="material-symbols-outlined text-4xl text-slate-300 mb-2">directions_car</span>
+                                            <p className="text-sm font-bold text-slate-500">尚無公務車資料</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* Modal */}
@@ -170,7 +211,6 @@ const CarManagementPage: React.FC = () => {
                                         className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
                                     >
                                         <option value="AVAILABLE">可用</option>
-                                        <option value="IN_USE">使用中</option>
                                         <option value="MAINTENANCE">維修中</option>
                                     </select>
                                 </div>
@@ -205,6 +245,14 @@ const CarManagementPage: React.FC = () => {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {/* History Modal */}
+            {viewingHistoryCar && (
+                <CarUsageHistoryModal
+                    car={viewingHistoryCar}
+                    onClose={() => setViewingHistoryCar(null)}
+                />
             )}
         </div>
     );

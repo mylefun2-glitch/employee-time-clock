@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getCars, submitCarRequest } from '../services/carService';
+import { getCars, submitCarRequest, checkCarAvailability, getBusyCarIds } from '../services/carService';
 import TimeInput24h from './ui/TimeInput24h';
 
 interface CarRequestFormProps {
@@ -20,6 +20,7 @@ const CarRequestForm: React.FC<CarRequestFormProps> = ({ employeeId, onClose, on
         end_time: '18:00',
         purpose: ''
     });
+    const [busyCarIds, setBusyCarIds] = useState<string[]>([]);
 
     useEffect(() => {
         const fetchCars = async () => {
@@ -38,6 +39,27 @@ const CarRequestForm: React.FC<CarRequestFormProps> = ({ employeeId, onClose, on
         fetchCars();
     }, []);
 
+    useEffect(() => {
+        const fetchBusyCars = async () => {
+            if (!formData.start_date || !formData.end_date) return;
+            try {
+                const start = new Date(`${formData.start_date}T${formData.start_time}`);
+                const end = new Date(`${formData.end_date}T${formData.end_time}`);
+                if (start >= end) {
+                    setBusyCarIds([]);
+                    return;
+                }
+                const ids = await getBusyCarIds(start.toISOString(), end.toISOString());
+                setBusyCarIds(ids);
+            } catch (error) {
+                console.error('Error fetching busy cars:', error);
+            }
+        };
+
+        const timer = setTimeout(fetchBusyCars, 300); // 加上 Debounce
+        return () => clearTimeout(timer);
+    }, [formData.start_date, formData.start_time, formData.end_date, formData.end_time]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -52,6 +74,18 @@ const CarRequestForm: React.FC<CarRequestFormProps> = ({ employeeId, onClose, on
 
         setSubmitting(true);
         try {
+            const isBusy = await checkCarAvailability(
+                formData.car_id,
+                start.toISOString(),
+                end.toISOString()
+            );
+
+            if (isBusy) {
+                alert('該時段公務車已被借用，請選擇其他時段或車輛');
+                setSubmitting(false);
+                return;
+            }
+
             await submitCarRequest({
                 employee_id: employeeId,
                 car_id: formData.car_id,
@@ -97,11 +131,19 @@ const CarRequestForm: React.FC<CarRequestFormProps> = ({ employeeId, onClose, on
                                 {cars.length === 0 ? (
                                     <option disabled>目前無可用車輛</option>
                                 ) : (
-                                    cars.map(car => (
-                                        <option key={car.id} value={car.id}>
-                                            {car.plate_number} - {car.model}
-                                        </option>
-                                    ))
+                                    cars.map(car => {
+                                        const isBusy = busyCarIds.includes(car.id);
+                                        return (
+                                            <option 
+                                                key={car.id} 
+                                                value={car.id} 
+                                                disabled={isBusy}
+                                                className={isBusy ? 'text-rose-600 font-bold bg-rose-50/50' : 'text-emerald-700 font-bold'}
+                                            >
+                                                {car.plate_number} - {car.model} {isBusy ? '(🔴 已使用)' : '(🟢 可使用)'}
+                                            </option>
+                                        );
+                                    })
                                 )}
                             </select>
                         </div>
