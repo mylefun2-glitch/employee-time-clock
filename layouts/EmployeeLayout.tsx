@@ -36,14 +36,11 @@ const EmployeeLayout: React.FC = () => {
         { path: '/employee/requests', icon: 'description', label: '申請記錄' },
     ];
 
-    // 主管額外選單 - 顯示審核差勤
+    // 所有主管都可以看到審核差勤
     if (employee.is_supervisor) {
         navItems.push({ path: '/employee/approvals', icon: 'rule', label: '審核差勤' });
         navItems.push({ path: '/employee/team-leaves', icon: 'group', label: '團隊差勤' });
     }
-
-    // 所有員工都可以看到補登審核（如果有下屬的話，會在頁面內判斷）
-    navItems.push({ path: '/employee/makeup-approvals', icon: 'edit_calendar', label: '補登審核' });
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col sm:flex-row">

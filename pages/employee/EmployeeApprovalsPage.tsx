@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useEmployee } from '../../contexts/EmployeeContext';
 import { getPendingApprovalsForSupervisor, getAllSubordinateRequests } from '../../services/supervisorService';
 import { requestService } from '../../services/requestService';
+import { getMakeupRequests, approveMakeupRequest, rejectMakeupRequest, batchApproveMakeupRequests, batchRejectMakeupRequests } from '../../services/admin';
 import { RequestStatus } from '../../types';
 import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 import { formatDateTimeRange } from '../../lib/hrUtils';
@@ -23,7 +24,8 @@ const EmployeeApprovalsPage: React.FC = () => {
         show: boolean;
         type: 'approve' | 'reject' | null;
         requestId: string | null;
-    }>({ show: false, type: null, requestId: null });
+        comment: string;
+    }>({ show: false, type: null, requestId: null, comment: '' });
 
     const [resultDialog, setResultDialog] = useState<{
         show: boolean;
@@ -35,7 +37,8 @@ const EmployeeApprovalsPage: React.FC = () => {
     const [batchDialog, setBatchDialog] = useState<{
         show: boolean;
         type: 'approve' | 'reject' | null;
-    }>({ show: false, type: null });
+        comment: string;
+    }>({ show: false, type: null, comment: '' });
 
     // 批量操作結果對話框
     const [batchResultDialog, setBatchResultDialog] = useState<{
@@ -74,10 +77,20 @@ const EmployeeApprovalsPage: React.FC = () => {
         if (!employee) return;
         setLoading(true);
         try {
-            // 載入所有狀態的下屬申請記錄
+            // 載入所有狀態的下屬請假申請記錄
             const requests = await getAllSubordinateRequests(employee.id);
-            // 過濾掉原本 getAllSubordinateRequests 可能沒處理好的或是重複的，並確保包含 WITHDRAW_PENDING
-            setAllRequests(requests);
+            const formattedLeaveRequests = requests.map(r => ({ ...r, __type: 'LEAVE' }));
+
+            // 載入所有狀態的下屬補登申請記錄
+            const makeupRequests = await getMakeupRequests('ALL', employee.id);
+            const formattedMakeupRequests = (makeupRequests || []).map((r: any) => ({ ...r, __type: 'MAKEUP' }));
+
+            // 標記並合併
+            const allUnifiedRequests = [...formattedLeaveRequests, ...formattedMakeupRequests].sort(
+                (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            );
+
+            setAllRequests(allUnifiedRequests);
 
             // 如果是理事長，載入等待理事長審核的申請
             if (employee.is_chairman) {
@@ -95,19 +108,30 @@ const EmployeeApprovalsPage: React.FC = () => {
     };
 
     const handleReviewClick = (id: string, type: 'approve' | 'reject') => {
-        setReviewDialog({ show: true, type, requestId: id });
+        setReviewDialog({ show: true, type, requestId: id, comment: '' });
     };
 
     const handleReviewConfirm = async () => {
         if (!employee || !reviewDialog.requestId) return;
 
-        const { type, requestId } = reviewDialog;
+        const { type, requestId, comment } = reviewDialog;
         setProcessingId(requestId);
-        setReviewDialog({ show: false, type: null, requestId: null });
+        setReviewDialog({ show: false, type: null, requestId: null, comment: '' });
 
         try {
-            const status = type === 'approve' ? RequestStatus.APPROVED : RequestStatus.REJECTED;
-            const result = await requestService.updateRequestStatus(requestId, status, employee.id);
+            const request = allRequests.find(r => r.id === requestId);
+            let result;
+
+            if (request?.__type === 'LEAVE') {
+                const status = type === 'approve' ? RequestStatus.APPROVED : RequestStatus.REJECTED;
+                result = await requestService.updateRequestStatus(requestId, status, employee.id);
+            } else {
+                if (type === 'approve') {
+                    result = await approveMakeupRequest(requestId, employee.id, comment);
+                } else {
+                    result = await rejectMakeupRequest(requestId, employee.id, comment);
+                }
+            }
 
             if (!result.success) throw new Error(result.error);
 
@@ -156,7 +180,7 @@ const EmployeeApprovalsPage: React.FC = () => {
             // 應用表格欄位篩選 (加上 trim 確保比對精確)
             const empName = (r.employee?.name || '未知員工').trim();
             const deptName = (r.employee?.department || '未分配').trim();
-            const typeName = (r.leave_type?.name || '請假').trim();
+            const typeName = (r.__type === 'MAKEUP' ? `補登(${r.check_type === 'IN' ? '上班' : '下班'})` : (r.leave_type?.name || '請假')).trim();
 
             const employeeMatch = columnFilters.employee.length === 0 ||
                 columnFilters.employee.map(v => v.trim()).includes(empName);
@@ -206,23 +230,55 @@ const EmployeeApprovalsPage: React.FC = () => {
     const handleBatchConfirm = async () => {
         if (!employee || !batchDialog.type || selectedIds.size === 0) return;
 
-        setBatchDialog({ show: false, type: null });
+        const { type, comment } = batchDialog;
+
+        setBatchDialog({ show: false, type: null, comment: '' });
         setIsBatchProcessing(true);
 
         try {
-            const status = batchDialog.type === 'approve' ? RequestStatus.APPROVED : RequestStatus.REJECTED;
-            const result = await requestService.batchUpdateRequestStatus(
-                Array.from(selectedIds),
-                status,
-                employee.id
-            );
+            const leaveIds: string[] = [];
+            const makeupIds: string[] = [];
+
+            selectedIds.forEach(id => {
+                const req = allRequests.find(r => r.id === id);
+                if (req?.__type === 'LEAVE') leaveIds.push(id);
+                else if (req?.__type === 'MAKEUP') makeupIds.push(id);
+            });
+
+            let totalSucceeded = 0;
+            let totalFailed = 0;
+            const errors: string[] = [];
+
+            if (leaveIds.length > 0) {
+                const status = type === 'approve' ? RequestStatus.APPROVED : RequestStatus.REJECTED;
+                const result = await requestService.batchUpdateRequestStatus(
+                    leaveIds,
+                    status,
+                    employee.id
+                );
+                totalSucceeded += result.succeeded;
+                totalFailed += result.failed;
+                if (result.errors) errors.push(...result.errors);
+            }
+
+            if (makeupIds.length > 0) {
+                let result;
+                if (type === 'approve') {
+                    result = await batchApproveMakeupRequests(makeupIds, employee.id, comment);
+                } else {
+                    result = await batchRejectMakeupRequests(makeupIds, employee.id, comment);
+                }
+                totalSucceeded += result.succeeded;
+                totalFailed += result.failed;
+                if (result.errors) errors.push(...result.errors);
+            }
 
             setBatchResultDialog({
                 show: true,
-                total: result.total,
-                succeeded: result.succeeded,
-                failed: result.failed,
-                errors: result.errors
+                total: selectedIds.size,
+                succeeded: totalSucceeded,
+                failed: totalFailed,
+                errors
             });
 
             // 重新載入列表
@@ -410,7 +466,7 @@ const EmployeeApprovalsPage: React.FC = () => {
                         <button
                             onClick={() => {
                                 if (selectedIds.size === 0) return;
-                                setBatchDialog({ show: true, type: 'approve' });
+                                setBatchDialog({ show: true, type: 'approve', comment: '' });
                             }}
                             disabled={selectedIds.size === 0 || isBatchProcessing}
                             className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl text-sm font-black hover:bg-emerald-700 shadow-lg shadow-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
@@ -420,7 +476,7 @@ const EmployeeApprovalsPage: React.FC = () => {
                         <button
                             onClick={() => {
                                 if (selectedIds.size === 0) return;
-                                setBatchDialog({ show: true, type: 'reject' });
+                                setBatchDialog({ show: true, type: 'reject', comment: '' });
                             }}
                             disabled={selectedIds.size === 0 || isBatchProcessing}
                             className="flex items-center gap-2 px-6 py-3 bg-white text-rose-600 border-2 border-rose-200 rounded-xl text-sm font-black hover:bg-rose-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
@@ -484,8 +540,8 @@ const EmployeeApprovalsPage: React.FC = () => {
                                     />
                                     <TableHeaderFilter
                                         columnKey="leaveType"
-                                        label="假別"
-                                        values={activeRequests.map(r => r.leave_type?.name || '請假')}
+                                        label="假別/類型"
+                                        values={Array.from(new Set(activeRequests.map(r => r.__type === 'MAKEUP' ? `補登(${r.check_type === 'IN' ? '上班' : '下班'})` : (r.leave_type?.name || '請假'))))}
                                         selectedValues={columnFilters.leaveType}
                                         onChange={(values) => setColumnFilters({ ...columnFilters, leaveType: values })}
                                     />
@@ -546,16 +602,25 @@ const EmployeeApprovalsPage: React.FC = () => {
                                                 <div className="text-sm text-slate-600 font-medium">{request.employee?.department || '未分配'}</div>
                                             </td>
                                             <td className="px-4 py-4">
-                                                <div className="text-sm font-bold text-slate-700">{request.leave_type?.name || '請假'}</div>
+                                                <div className="text-sm font-bold text-slate-700">
+                                                    {request.__type === 'MAKEUP' ? `補登(${request.check_type === 'IN' ? '上班' : '下班'})` : (request.leave_type?.name || '請假')}
+                                                </div>
                                             </td>
                                             <td className="px-4 py-4 text-nowrap">
                                                 <div className="text-sm font-mono text-slate-700">
-                                                    {formatDateTimeRange(request.start_date, request.end_date)}
+                                                    {request.__type === 'MAKEUP' ? 
+                                                        `${new Date(request.request_date).toLocaleDateString('zh-TW')} ${request.request_time}` 
+                                                        : formatDateTimeRange(request.start_date, request.end_date)
+                                                    }
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4 text-nowrap">
                                                 <div className="text-sm font-black text-slate-900">
-                                                    {request.hours || 0} <span className="text-[10px] text-slate-400 font-bold">小時</span>
+                                                    {request.__type === 'MAKEUP' ? (
+                                                        '-'
+                                                    ) : (
+                                                        <>{request.hours || 0} <span className="text-[10px] text-slate-400 font-bold">小時</span></>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4 max-w-xs">
@@ -610,12 +675,25 @@ const EmployeeApprovalsPage: React.FC = () => {
                         <h2 className="text-2xl font-black text-slate-900 mb-2">
                             {reviewDialog.type === 'approve' ? '確認核准？' : '確認拒絕？'}
                         </h2>
-                        <p className="text-slate-500 font-bold mb-8 px-4">
+                        <p className="text-slate-500 font-bold mb-4 px-4">
                             您確定要執行此審核操作嗎？完成後將無法取消。
                         </p>
+                        <div className="mb-6 px-4">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 text-left">
+                                {reviewDialog.type === 'approve' ? '審核備註（選填）' : '拒絕原因（選項或補登需填）'}
+                            </label>
+                            <textarea
+                                autoFocus={reviewDialog.type === 'reject'}
+                                value={reviewDialog.comment}
+                                onChange={(e) => setReviewDialog({ ...reviewDialog, comment: e.target.value })}
+                                placeholder={reviewDialog.type === 'approve' ? '輸入核准備註...' : '請輸入拒絕原因...'}
+                                rows={3}
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none font-bold text-slate-700 placeholder:text-slate-300 text-sm"
+                            />
+                        </div>
                         <div className="flex gap-4">
                             <button
-                                onClick={() => setReviewDialog({ show: false, type: null, requestId: null })}
+                                onClick={() => setReviewDialog({ show: false, type: null, requestId: null, comment: '' })}
                                 className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black transition-all hover:bg-slate-100"
                             >
                                 我再想想
@@ -684,9 +762,23 @@ const EmployeeApprovalsPage: React.FC = () => {
                             </div>
                         </div>
 
+                        <div className="mb-6">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 text-left">
+                                {batchDialog.type === 'approve' ? '批量核准備註（選填）' : '批量拒絕原因（選項或補登需填）'}
+                            </label>
+                            <textarea
+                                autoFocus={batchDialog.type === 'reject'}
+                                value={batchDialog.comment}
+                                onChange={(e) => setBatchDialog({ ...batchDialog, comment: e.target.value })}
+                                placeholder={batchDialog.type === 'approve' ? '輸入批量核准備註...' : '請輸入批量拒絕原因...'}
+                                rows={3}
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none font-bold text-slate-700 placeholder:text-slate-300 text-sm"
+                            />
+                        </div>
+
                         <div className="flex gap-4">
                             <button
-                                onClick={() => setBatchDialog({ show: false, type: null })}
+                                onClick={() => setBatchDialog({ show: false, type: null, comment: '' })}
                                 className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black transition-all hover:bg-slate-100"
                             >
                                 我再想想
@@ -804,11 +896,14 @@ const EmployeeApprovalsPage: React.FC = () => {
                             <h2 className="text-2xl font-black text-slate-900 mb-2">審核申請</h2>
                             <div className="flex flex-col gap-2 items-center">
                                 <span className="font-bold text-blue-600 bg-blue-50 px-4 py-1 rounded-full text-xs">
-                                    {actionMenuRequest.leave_type?.name || '差勤申請'}
+                                    {actionMenuRequest.__type === 'MAKEUP' ? `補登(${actionMenuRequest.check_type === 'IN' ? '上班' : '下班'})` : (actionMenuRequest.leave_type?.name || '差勤申請')}
                                 </span>
                                 <div className="text-sm font-bold text-slate-900">{actionMenuRequest.employee?.name} ({actionMenuRequest.employee?.department})</div>
                                 <div className="text-xs text-slate-500 font-medium bg-slate-50 px-4 py-2 rounded-full mt-1">
-                                    {formatDateTimeRange(actionMenuRequest.start_date, actionMenuRequest.end_date)}
+                                    {actionMenuRequest.__type === 'MAKEUP' ? 
+                                        `${new Date(actionMenuRequest.request_date).toLocaleDateString('zh-TW')} ${actionMenuRequest.request_time}` 
+                                        : formatDateTimeRange(actionMenuRequest.start_date, actionMenuRequest.end_date)
+                                    }
                                 </div>
                             </div>
                             {actionMenuRequest.reason && (

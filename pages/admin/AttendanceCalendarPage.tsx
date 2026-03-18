@@ -127,6 +127,7 @@ const AttendanceCalendarPage: React.FC = () => {
         `)
                 .eq('employee_id', selectedEmployeeId)
                 .eq('status', 'APPROVED')
+                .or('is_modified.is.null,is_modified.eq.false')
                 .or(`start_date.lte.${end},end_date.gte.${start}`);
 
             setLogs(logsData || []);

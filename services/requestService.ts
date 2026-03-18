@@ -93,6 +93,7 @@ export const requestService = {
                     employee:employees!leave_requests_employee_id_fkey(name, department),
                     deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
                 `)
+                .or('is_modified.is.null,is_modified.eq.false')
                 .order('created_at', { ascending: false })
                 .limit(5000); // 提升上限以應對大量歷史紀錄
 
@@ -564,6 +565,7 @@ export const requestService = {
                 .eq('status', 'PENDING')
                 .not('supervisor_approved_at', 'is', null)
                 .is('chairman_approved_at', null)
+                .or('is_modified.is.null,is_modified.eq.false')
                 .order('supervisor_approved_at', { ascending: true });
 
             if (error) {
