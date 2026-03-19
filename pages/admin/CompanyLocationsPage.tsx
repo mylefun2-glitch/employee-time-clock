@@ -275,7 +275,6 @@ const CompanyLocationsPage: React.FC = () => {
                 )}
             </div>
         </div>
-        </div >
     );
 };
 

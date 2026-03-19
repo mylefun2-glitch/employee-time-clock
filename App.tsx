@@ -13,6 +13,8 @@ const EmployeesPage = lazy(() => import('./pages/admin/EmployeesPage'));
 const MakeupRequestsPage = lazy(() => import('./pages/admin/MakeupRequestsPage'));
 const CarManagementPage = React.lazy(() => import('./pages/admin/CarManagementPage'));
 const CarRequestsPage = React.lazy(() => import('./pages/admin/CarRequestsPage'));
+const ResourceManagementPage = React.lazy(() => import('./pages/admin/ResourceManagementPage'));
+const ResourceRequestsPage = React.lazy(() => import('./pages/admin/ResourceRequestsPage'));
 const RequestsPage = lazy(() => import('./pages/admin/RequestsPage'));
 const LeaveTypesPage = lazy(() => import('./pages/admin/LeaveTypesPage'));
 const CompanyManagementPage = lazy(() => import('./pages/admin/CompanyManagementPage'));
@@ -27,6 +29,7 @@ const EmployeeProfilePage = lazy(() => import('./pages/employee/EmployeeProfileP
 const EmployeeRequestsPage = lazy(() => import('./pages/employee/EmployeeRequestsPage'));
 const EmployeeAttendancePage = lazy(() => import('./pages/employee/EmployeeAttendancePage'));
 const EmployeeCalendarPage = lazy(() => import('./pages/employee/EmployeeCalendarPage'));
+const EmployeeResourceCalendarPage = lazy(() => import('./pages/employee/ResourceCalendarPage'));
 const EmployeeApprovalsPage = lazy(() => import('./pages/employee/EmployeeApprovalsPage'));
 const ManagerTeamLeavePage = lazy(() => import('./pages/employee/ManagerTeamLeavePage'));
 
@@ -52,6 +55,8 @@ const App: React.FC = () => {
                 <Route path="makeup-requests" element={<MakeupRequestsPage />} />
                 <Route path="requests" element={<RequestsPage />} />
                 <Route path="cars" element={<CarManagementPage />} />
+                <Route path="resources" element={<ResourceManagementPage />} />
+                <Route path="resource-requests" element={<ResourceRequestsPage />} />
                 <Route path="leave-types" element={<LeaveTypesPage />} />
                 <Route path="company" element={<CompanyManagementPage />} />
               </Route>
@@ -65,6 +70,7 @@ const App: React.FC = () => {
                 <Route path="requests" element={<EmployeeRequestsPage />} />
                 <Route path="attendance" element={<EmployeeAttendancePage />} />
                 <Route path="calendar" element={<EmployeeCalendarPage />} />
+                <Route path="resource-calendar" element={<EmployeeResourceCalendarPage />} />
                 <Route path="approvals" element={<EmployeeApprovalsPage />} />
                 <Route path="team-leaves" element={<ManagerTeamLeavePage />} />
               </Route>

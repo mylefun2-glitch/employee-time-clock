@@ -183,7 +183,6 @@ const KioskPage: React.FC = () => {
                         if (!withinRange) {
                             console.warn(`打卡位置超出範圍：${distance} 公尺（最近地點：${nearestLocation?.name || '未知'}）`);
                         }
-                    } else {
                         setLocationInfo({
                             distance: 0,
                             withinRange: false,
@@ -200,6 +199,12 @@ const KioskPage: React.FC = () => {
                 } finally {
                     setIsGettingLocation(false);
                 }
+            } else {
+                setLocationInfo({
+                    distance: 0,
+                    withinRange: false,
+                    error: '您的裝置環境不支援定位或未使用安全連線 (HTTPS)'
+                });
             }
 
             // 3. Log Attendance

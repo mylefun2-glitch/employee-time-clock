@@ -705,7 +705,7 @@ const EmployeeAttendancePage: React.FC = () => {
                                                                                                         {p.check_type === 'IN' ? '上班' : '下班'}
                                                                                                     </span>
                                                                                                 </div>
-                                                                                                {p.latitude && (
+                                                                                                {p.latitude ? (
                                                                                                     <a
                                                                                                         href={`https://www.google.com/maps?q=${p.latitude},${p.longitude}`}
                                                                                                         target="_blank"
@@ -715,6 +715,11 @@ const EmployeeAttendancePage: React.FC = () => {
                                                                                                         <span className="material-symbols-outlined text-[12px]">location_on</span>
                                                                                                         {Number(p.latitude).toFixed(4)}, {Number(p.longitude).toFixed(4)}
                                                                                                     </a>
+                                                                                                ) : (
+                                                                                                    <div className="flex items-center gap-1 mt-1 text-[10px] font-bold text-rose-500">
+                                                                                                        <span className="material-symbols-outlined text-[12px]">location_off</span>
+                                                                                                        無法取得定位
+                                                                                                    </div>
                                                                                                 )}
                                                                                             </div>
                                                                                         </div>

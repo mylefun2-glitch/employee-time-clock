@@ -3,17 +3,21 @@ import { useEmployee } from '../../contexts/EmployeeContext';
 import { requestService } from '../../services/requestService';
 import LeaveRequestForm from '../../components/LeaveRequestForm';
 import ModificationRequestForm from '../../components/ModificationRequestForm';
+import ResourceRequestForm from '../../components/ResourceRequestForm';
 import { LeaveRequest } from '../../types';
 import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 import { formatDateTimeRange } from '../../lib/hrUtils';
+import EmployeeResourceRequestsList from '../../components/EmployeeResourceRequestsList';
 
 const EmployeeRequestsPage: React.FC = () => {
     const { employee } = useEmployee();
     const [requests, setRequests] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState<'LEAVE' | 'RESOURCE'>('LEAVE');
     const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
     const [showForm, setShowForm] = useState(false);
     const [showModificationForm, setShowModificationForm] = useState(false);
+    const [showResourceForm, setShowResourceForm] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
     const [selectedYear, setSelectedYear] = useState<number | null>(null);
     const [availableYears, setAvailableYears] = useState<number[]>([]);
@@ -264,6 +268,14 @@ const EmployeeRequestsPage: React.FC = () => {
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">申請記錄</h1>
                     <p className="text-slate-500 text-sm font-medium mt-1">追蹤您的所有申請（含公務車借用）與審核狀態</p>
                 </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                <button
+                    onClick={() => setShowResourceForm(true)}
+                    className="flex items-center justify-center gap-2 px-6 py-3 bg-violet-600 text-white rounded-2xl font-black shadow-xl shadow-violet-100 hover:bg-violet-700 transition-all hover:-translate-y-1 active:scale-95"
+                >
+                    <span className="material-symbols-outlined text-lg">handshake</span>
+                    借用申請
+                </button>
                 <button
                     onClick={() => setShowForm(true)}
                     className="flex items-center justify-center gap-2 px-8 py-3.5 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all hover:-translate-y-1 active:scale-95"
@@ -271,9 +283,27 @@ const EmployeeRequestsPage: React.FC = () => {
                     <span className="material-symbols-outlined text-lg">add_circle</span>
                     發起新申請
                 </button>
+                </div>
             </div>
 
+            {/* Tab Navigation */}
+            <div className="flex gap-6 border-b border-slate-200 pb-px">
+                <button
+                    onClick={() => setActiveTab('LEAVE')}
+                    className={`pb-3 px-2 text-lg font-black transition-all border-b-4 ${activeTab === 'LEAVE' ? 'text-blue-600 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600 hover:border-slate-300'}`}
+                >
+                    差勤與車輛申請
+                </button>
+                <button
+                    onClick={() => setActiveTab('RESOURCE')}
+                    className={`pb-3 px-2 text-lg font-black transition-all border-b-4 ${activeTab === 'RESOURCE' ? 'text-violet-600 border-violet-600' : 'text-slate-400 border-transparent hover:text-slate-600 hover:border-slate-300'}`}
+                >
+                    物品及場地借用
+                </button>
+            </div>
 
+            {activeTab === 'LEAVE' ? (
+                <>
             {/* Filter & Year Selector Area */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 {/* Year Selector - Dropdown */}
@@ -497,6 +527,10 @@ const EmployeeRequestsPage: React.FC = () => {
                     </div>
                 )}
             </div>
+            </>
+            ) : (
+                <EmployeeResourceRequestsList employeeId={employee.id} />
+            )}
 
             {/* Action Menu Modal */}
             {showActionMenu && actionMenuRequest && (
@@ -584,6 +618,19 @@ const EmployeeRequestsPage: React.FC = () => {
                         setShowModificationForm(false);
                         setSelectedRequest(null);
                         fetchData(selectedYear);
+                    }}
+                />
+            )}
+
+            {/* Resource Request Form Modal */}
+            {showResourceForm && employee && (
+                <ResourceRequestForm
+                    employeeId={employee.id}
+                    onClose={() => setShowResourceForm(false)}
+                    onSuccess={() => {
+                        setShowResourceForm(false);
+                        alert('借用申請已送出，請等待審核！');
+                        setActiveTab('RESOURCE');
                     }}
                 />
             )}

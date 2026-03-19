@@ -215,3 +215,35 @@ export interface LeaveBalance {
     }>;
   };
 }
+
+// 借用資源 (物品/場地)
+export interface Resource {
+  id: string;
+  created_at: string;
+  name: string;
+  type: 'ITEM' | 'VENUE';   // ITEM=物品, VENUE=場地
+  description?: string;
+  location?: string;         // 放置位置/場地地點
+  quantity: number;          // 最大可借數量
+  is_active: boolean;
+}
+
+// 借用申請
+export interface ResourceRequest {
+  id: string;
+  created_at: string;
+  employee_id: string;
+  resource_id: string;
+  quantity: number;
+  start_time: string;
+  end_time: string;
+  purpose: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+  approver_id?: string;
+  approved_at?: string;
+  review_comment?: string;
+  // 關聯資料
+  employee?: { id: string; name: string; department: string };
+  resource?: { id: string; name: string; type: string; location?: string };
+  approver?: { id: string; name: string };
+}

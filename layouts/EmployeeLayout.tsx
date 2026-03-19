@@ -33,6 +33,7 @@ const EmployeeLayout: React.FC = () => {
         { path: '/employee/profile', icon: 'person', label: '個人資訊' },
         { path: '/employee/attendance', icon: 'event_note', label: '差勤統計' },
         { path: '/employee/calendar', icon: 'calendar_month', label: '個人月曆' },
+        { path: '/employee/resource-calendar', icon: 'event_available', label: '資源日曆' },
         { path: '/employee/requests', icon: 'description', label: '申請記錄' },
     ];
 
