@@ -48,6 +48,7 @@ const AdminLayout: React.FC = () => {
         { path: '/admin/cars', label: '公務車管理', icon: 'directions_car' },
         { path: '/admin/resources', label: '資源管理', icon: 'inventory_2' },
         { path: '/admin/resource-requests', label: '借用審核', icon: 'handshake' },
+        { path: '/admin/resource-calendar', label: '資源月曆', icon: 'event_available' },
         { path: '/admin/leave-types', label: '假別設定', icon: 'settings_applications' },
         { path: '/admin/company', icon: 'business', label: '公司管理' }
     ];
