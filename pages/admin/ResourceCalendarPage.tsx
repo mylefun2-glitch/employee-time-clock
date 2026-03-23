@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { getResourceRequests, updateResourceRequestStatus } from '../../services/resourceService';
+import { getCarUsageForCalendar } from '../../services/carService';
 import { useAuth } from '../../contexts/AuthContext';
 import { ResourceRequest } from '../../types';
 import { format, startOfMonth, endOfMonth, isSameDay, parseISO, addMonths, subMonths, startOfWeek, getDay } from 'date-fns';
@@ -18,6 +19,12 @@ const AdminResourceCalendarPage: React.FC = () => {
     const handleCancelRequest = async (e: React.MouseEvent, req: ResourceRequest) => {
         e.stopPropagation();
         if (!user) return;
+        
+        if (req.resource?.type === 'CAR') {
+            alert('此為公務車使用申請，請至「公務車管理」或「差勤管理」進行修改與取消。');
+            return;
+        }
+
         if (window.confirm(`確定要取消 ${req.employee?.name} 借用的「${req.resource?.name}」嗎？\n取消後將無法復原。`)) {
             try {
                 setLoading(true);
@@ -42,7 +49,11 @@ const AdminResourceCalendarPage: React.FC = () => {
             // Fetch all requests that aren't rejected/withdrawn to show tentative and confirmed bookings
             const allRequests = await getResourceRequests();
             const relevant = allRequests.filter(r => r.status === 'APPROVED' || r.status === 'PENDING');
-            setRequests(relevant);
+            
+            // 獲取公務車紀錄
+            const carData = await getCarUsageForCalendar() as any[];
+            
+            setRequests([...relevant, ...carData]);
         } catch (err) {
             console.error('Error fetching calendar data:', err);
         } finally {
@@ -187,6 +198,8 @@ const AdminResourceCalendarPage: React.FC = () => {
                                         <div className="flex-1 space-y-1.5 overflow-y-auto max-h-[100px] scrollbar-hide">
                                             {dayInfo?.requests?.map(req => {
                                                 const isVenue = req.resource?.type === 'VENUE';
+                                                const isCar = req.resource?.type === 'CAR';
+                                                const isWithdrawPending = req.status === 'WITHDRAW_PENDING' as any;
                                                 
                                                 return (
                                                     <div
@@ -194,19 +207,24 @@ const AdminResourceCalendarPage: React.FC = () => {
                                                         onClick={(e) => handleCancelRequest(e, req)}
                                                         className={`px-2 py-1.5 rounded-md text-[10px] font-black border flex flex-col gap-0.5 shadow-sm group/item transition-all cursor-pointer hover:ring-2 hover:ring-rose-400
                                                             ${req.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-100' : 
-                                                            isVenue ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}
+                                                              isWithdrawPending ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                                                              isVenue ? 'bg-blue-50 text-blue-700 border-blue-100' : 
+                                                              isCar ? 'bg-cyan-50 text-cyan-700 border-cyan-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}
                                                         `}
                                                         title={`點擊取消此借用。\n用途：${req.purpose} (借用人：${req.employee?.name})`}
                                                     >
                                                         <div className="flex items-center gap-1 justify-between">
                                                             <div className="flex items-center gap-1 truncate">
                                                                 <span className="material-symbols-outlined text-[10px]">
-                                                                    {isVenue ? 'meeting_room' : 'inventory_2'}
+                                                                    {isCar ? 'directions_car' : isVenue ? 'meeting_room' : 'inventory_2'}
                                                                 </span>
                                                                 <span className="truncate">{req.resource?.name}</span>
                                                             </div>
                                                             {req.status === 'PENDING' && (
                                                                 <span className="shrink-0 text-[8px] opacity-70 border border-amber-200 px-1 rounded">待審</span>
+                                                            )}
+                                                            {isWithdrawPending && (
+                                                                <span className="shrink-0 text-[8px] border border-orange-200 px-1 rounded bg-orange-100 text-orange-700">撤回待審</span>
                                                             )}
                                                             {req.quantity > 1 && (
                                                                 <span className="shrink-0 text-[8px] opacity-70">x{req.quantity}</span>

@@ -150,6 +150,63 @@ export const getCarUsageHistory = async (carId: string, targetDate?: string) => 
     return [...formattedCur, ...formattedLr].sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
 };
 
+export const getCarUsageForCalendar = async () => {
+    // 取得所有公務車以便手動關聯 (解決 Supabase 可能沒有 foreign key 的問題)
+    const { data: carsData } = await supabase.from('cars').select('*');
+    const carsMap = new Map((carsData || []).map(c => [c.id, c]));
+
+    // 取得 car_usage_requests 的紀錄
+    const curQuery = supabase.from('car_usage_requests').select(`
+        *,
+        employee:employees(id, name, department),
+        car:cars(id, plate_number, model)
+    `).in('status', ['PENDING', 'APPROVED', 'WITHDRAW_PENDING']);
+
+    // 取得 leave_requests 的紀錄
+    const lrQuery = supabase.from('leave_requests').select(`
+        *,
+        employee:employees!leave_requests_employee_id_fkey(id, name, department)
+    `).not('car_id', 'is', null).in('status', ['PENDING', 'APPROVED', 'WITHDRAW_PENDING', 'CHAIRMAN_APPROVED']);
+
+    const [curResult, lrResult] = await Promise.all([curQuery, lrQuery]);
+
+    if (curResult.error) throw curResult.error;
+    if (lrResult.error) throw lrResult.error;
+
+    const formattedCur = (curResult.data || []).map(item => ({
+        id: item.id,
+        created_at: item.created_at,
+        employee_id: item.employee_id,
+        resource_id: item.car_id,
+        quantity: 1,
+        start_time: item.start_time,
+        end_time: item.end_time,
+        purpose: item.purpose,
+        status: item.status,
+        employee: item.employee,
+        resource: { id: item.car?.id, name: item.car?.plate_number, type: 'CAR' }
+    }));
+
+    const formattedLr = (lrResult.data || []).map(item => {
+        const mappedCar = carsMap.get(item.car_id);
+        return {
+            id: item.id,
+            created_at: item.created_at,
+            employee_id: item.employee_id,
+            resource_id: item.car_id,
+            quantity: 1,
+            start_time: item.start_date,
+            end_time: item.end_date,
+            purpose: item.reason || '公務車借用',
+            status: item.status === 'CHAIRMAN_APPROVED' ? 'APPROVED' : item.status, // CHAIRMAN_APPROVED mapping
+            employee: item.employee,
+            resource: { id: mappedCar?.id || item.car_id, name: mappedCar?.plate_number || '未知名稱', type: 'CAR' }
+        };
+    });
+
+    return [...formattedCur, ...formattedLr].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+};
+
 export const submitCarRequest = async (request: {
     employee_id: string;
     car_id: string;

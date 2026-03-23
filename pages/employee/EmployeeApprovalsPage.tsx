@@ -10,7 +10,6 @@ import { formatDateTimeRange } from '../../lib/hrUtils';
 const EmployeeApprovalsPage: React.FC = () => {
     const { employee } = useEmployee();
     const [allRequests, setAllRequests] = useState<any[]>([]);
-    const [chairmanRequests, setChairmanRequests] = useState<any[]>([]); // 理事長待審核列表
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
@@ -86,17 +85,23 @@ const EmployeeApprovalsPage: React.FC = () => {
             const formattedMakeupRequests = (makeupRequests || []).map((r: any) => ({ ...r, __type: 'MAKEUP' }));
 
             // 標記並合併
-            const allUnifiedRequests = [...formattedLeaveRequests, ...formattedMakeupRequests].sort(
+            let allUnifiedRequests = [...formattedLeaveRequests, ...formattedMakeupRequests].sort(
                 (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
             );
 
-            setAllRequests(allUnifiedRequests);
-
-            // 如果是理事長，載入等待理事長審核的申請
+            // 如果是理事長，載入等待理事長審核的申請並合併到同一個列表中
             if (employee.is_chairman) {
                 const chairmanPending = await requestService.getChairmanPendingRequests();
-                setChairmanRequests(chairmanPending);
+                // 過濾掉可能因為主管自己就是理事長而已包含的重複項目
+                const existingIds = new Set(allUnifiedRequests.map(r => r.id));
+                const uniqueChairmanPending = chairmanPending.filter(r => !existingIds.has(r.id));
+                
+                allUnifiedRequests = [...allUnifiedRequests, ...uniqueChairmanPending].sort(
+                    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                );
             }
+
+            setAllRequests(allUnifiedRequests);
 
             // 清空選擇狀態
             setSelectedIds(new Set());
@@ -190,11 +195,11 @@ const EmployeeApprovalsPage: React.FC = () => {
                 columnFilters.leaveType.map(v => v.trim()).includes(typeName);
             return employeeMatch && deptMatch && leaveTypeMatch;
         });
-    const pendingRequests = activeRequests.filter(r => r.status === 'PENDING' || r.status === 'WITHDRAW_PENDING');
+    const pendingRequests = activeRequests.filter(r => (r.status === 'PENDING' || r.status === 'WITHDRAW_PENDING') && !(r.__type === 'LEAVE' && r.requires_chairman_approval && r.supervisor_approved_at && !employee?.is_chairman));
 
     const handleLongPressStart = (requestId: string, request: any) => {
         // 只有在待審核標籤下且未進入選擇模式時才處理長按
-        if (selectionMode || filter !== 'PENDING') return;
+        if (selectionMode || filter !== 'PENDING' || (request.__type === 'LEAVE' && request.requires_chairman_approval && request.supervisor_approved_at && !employee?.is_chairman)) return;
 
         setIsLongPress(false);
         const timer = setTimeout(() => {
@@ -222,6 +227,9 @@ const EmployeeApprovalsPage: React.FC = () => {
 
         // 只有 Pending 狀態才顯示審核選單
         if (filter !== 'PENDING') return;
+        
+        // 如果已經被主管核准，等待理事長核准，則不顯示操作選單（除非當前使用者是理事長）
+        if (request.__type === 'LEAVE' && request.requires_chairman_approval && request.supervisor_approved_at && !employee?.is_chairman) return;
 
         setActionMenuRequest(request);
         setShowActionMenu(true);
@@ -328,83 +336,6 @@ const EmployeeApprovalsPage: React.FC = () => {
                 <p className="text-slate-500 text-sm font-medium mt-1">目前有 <span className="text-blue-600 font-black">{allRequests.filter(r => r.status === 'PENDING' || r.status === 'WITHDRAW_PENDING').length}</span> 筆待處理申請</p>
             </div>
 
-            {/* 理事長審核區塊 */}
-            {employee?.is_chairman && chairmanRequests.length > 0 && (
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border-2 border-amber-200 p-6 shadow-lg">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center shadow-lg shadow-amber-200">
-                            <span className="material-symbols-outlined text-white text-2xl">admin_panel_settings</span>
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-black text-amber-900">等待理事長審核</h2>
-                            <p className="text-sm font-medium text-amber-700">
-                                有 <span className="font-black">{chairmanRequests.length}</span> 筆申請需要您的核准
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="space-y-3">
-                        {chairmanRequests.map((request) => (
-                            <div key={request.id} className="bg-white rounded-xl p-4 border border-amber-100 hover:shadow-md transition-shadow">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-3">
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">員工</p>
-                                            <p className="text-sm font-bold text-slate-900">{request.employee?.name}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">假別</p>
-                                            <p className="text-sm font-bold text-slate-700">{request.leave_type?.name}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">期間</p>
-                                            <p className="text-xs font-medium text-slate-600">
-                                                {formatDateTimeRange(request.start_date, request.end_date)}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-1.5">
-                                                <span className={`w-2 h-2 bg-emerald-500 rounded-full`}></span>
-                                                <span className="text-xs font-bold text-emerald-600">已核准</span>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">附件</p>
-                                            {request.attachment_url ? (
-                                                <a
-                                                    href={request.attachment_url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center gap-1 text-blue-600 hover:text-blue-700 font-bold text-xs"
-                                                >
-                                                    <span className="material-symbols-outlined text-sm">attach_file</span>
-                                                    查看
-                                                </a>
-                                            ) : (
-                                                <span className="text-xs text-slate-300">-</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2 shrink-0">
-                                        <button
-                                            onClick={() => handleReviewClick(request.id, 'reject')}
-                                            className="px-4 py-2 bg-rose-50 text-rose-600 rounded-lg text-xs font-black hover:bg-rose-100 transition-all"
-                                        >
-                                            拒絕
-                                        </button>
-                                        <button
-                                            onClick={() => handleReviewClick(request.id, 'approve')}
-                                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-black hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
-                                        >
-                                            核准
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
 
             {/* Filter Tabs */}
             <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -562,7 +493,7 @@ const EmployeeApprovalsPage: React.FC = () => {
                                     return (
                                         <tr
                                             key={request.id}
-                                            className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-blue-50' : ''} ${filter === 'PENDING' && !selectionMode ? 'cursor-pointer' : ''}`}
+                                            className={`transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-slate-50'} ${filter === 'PENDING' && !selectionMode && !(request.__type === 'LEAVE' && request.requires_chairman_approval && request.supervisor_approved_at && !employee?.is_chairman) ? 'cursor-pointer' : ''} ${(request.__type === 'LEAVE' && request.requires_chairman_approval && request.supervisor_approved_at && !employee?.is_chairman) ? 'opacity-80' : ''}`}
                                             onClick={() => handleRowClick(request)}
                                             onMouseDown={() => handleLongPressStart(request.id, request)}
                                             onMouseUp={handleLongPressEnd}
@@ -584,7 +515,8 @@ const EmployeeApprovalsPage: React.FC = () => {
                                                             }
                                                             setSelectedIds(newSelected);
                                                         }}
-                                                        className="w-5 h-5 rounded border-2 border-slate-300 checked:bg-blue-600 checked:border-blue-600 cursor-pointer transition-all"
+                                                        disabled={request.__type === 'LEAVE' && request.requires_chairman_approval && request.supervisor_approved_at && !employee?.is_chairman}
+                                                        className="w-5 h-5 rounded border-2 border-slate-300 checked:bg-blue-600 checked:border-blue-600 cursor-pointer disabled:opacity-50 transition-all cursor-pointer"
                                                     />
                                                 </td>
                                             )}
@@ -594,6 +526,11 @@ const EmployeeApprovalsPage: React.FC = () => {
                                                     {request.status === 'WITHDRAW_PENDING' && (
                                                         <span className="px-2 py-0.5 bg-orange-100 text-orange-600 text-[10px] rounded-full font-black border border-orange-200">
                                                             撤回申請
+                                                        </span>
+                                                    )}
+                                                    {request.__type === 'LEAVE' && request.requires_chairman_approval && request.supervisor_approved_at && (
+                                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-600 text-[10px] rounded-full font-black border border-blue-200">
+                                                            呈理事長簽核
                                                         </span>
                                                     )}
                                                 </div>

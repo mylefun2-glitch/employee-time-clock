@@ -193,13 +193,15 @@ export const requestService = {
                 }
                 // 如果需要理事長審核
                 else if (requestData?.requires_chairman_approval) {
-                    // 理事長審核
-                    if (isChairman) {
+                    // 理事長審核或管理員強制核准（未提供 approverId 代表管理員）
+                    if (isChairman || !approverId) {
                         updates.status = RequestStatus.APPROVED;
                         updates.approved_at = new Date().toISOString();
                         updates.chairman_approved_at = new Date().toISOString();
-                        updates.chairman_approved_by = approverId;
-                        updates.approver_id = approverId;
+                        if (approverId) {
+                            updates.chairman_approved_by = approverId;
+                            updates.approver_id = approverId;
+                        }
                     }
                     // 主管審核（第一層）
                     else {
