@@ -630,9 +630,9 @@ export const importAttendanceLogs = async (logs: any[]): Promise<{ success: bool
             let timestamp: Date;
             if (log.date && log.time) {
                 // 如果 CSV 拆分了日期和時間
-                timestamp = new Date(`${log.date} ${log.time}`);
+                timestamp = new Date(`${log.date.replace(/-/g, '/')} ${log.time}`);
             } else {
-                timestamp = new Date(log.timestamp);
+                timestamp = new Date((log.timestamp || '').replace(/-/g, '/'));
             }
 
             if (isNaN(timestamp.getTime())) {

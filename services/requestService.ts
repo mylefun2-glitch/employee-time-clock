@@ -703,8 +703,13 @@ export const requestService = {
                 }
 
                 // 解析日期並標準化為 ISO 字串（這會根據環境時區轉換為 UTC）
-                const startDate = new Date(req.start_date);
-                const endDate = new Date(req.end_date);
+                const parseSafeDate = (ds: string) => {
+                    if (!ds) return new Date('');
+                    if (ds.includes('T')) return new Date(ds);
+                    return new Date(ds.replace(/-/g, '/'));
+                };
+                const startDate = parseSafeDate(req.start_date);
+                const endDate = parseSafeDate(req.end_date);
 
                 if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
                     results.failed++;

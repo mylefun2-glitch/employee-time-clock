@@ -253,6 +253,11 @@ const StatisticsPage: React.FC = () => {
             stats.leaveTypeStats[typeName] = (stats.leaveTypeStats[typeName] || 0) + (req.hours || 0);
         });
 
+        // 將差勤時數四捨五入至整數
+        Object.keys(stats.leaveTypeStats).forEach(key => {
+            stats.leaveTypeStats[key] = Math.round(stats.leaveTypeStats[key]);
+        });
+
         return stats;
     };
 

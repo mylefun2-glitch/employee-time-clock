@@ -4,6 +4,7 @@ import { getEmployeeLeaveBalances } from '../../services/employee';
 import { LeaveBalance, Employee } from '../../types';
 import { Search, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import LeaveBalanceDetailModal from '../../components/admin/LeaveBalanceDetailModal';
 
 interface EmployeeLeaveStats extends Employee {
     leaveBalance: LeaveBalance | null;
@@ -15,6 +16,7 @@ const AdminLeaveStatsPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [departmentFilter, setDepartmentFilter] = useState('ALL');
+    const [selectedEmployeeDetails, setSelectedEmployeeDetails] = useState<EmployeeLeaveStats | null>(null);
 
     useEffect(() => {
         fetchData();
@@ -278,13 +280,22 @@ const AdminLeaveStatsPage: React.FC = () => {
                             ) : (
                                 filteredEmployees.map((emp) => (
                                     <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors group">
-                                        <td
-                                            className="px-6 py-4 whitespace-nowrap font-bold text-slate-900 cursor-pointer hover:text-blue-600 flex items-center gap-2 group/name"
-                                            onClick={() => handleIndividualExport(emp)}
-                                            title="點擊匯出個人明細"
-                                        >
-                                            {emp.name}
-                                            <Download className="h-3 w-3 opacity-0 group-hover/name:opacity-100 transition-opacity text-blue-500" />
+                                        <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-900 flex items-center gap-3">
+                                            <button 
+                                                onClick={() => setSelectedEmployeeDetails(emp)}
+                                                className="hover:text-blue-600 transition-colors flex items-center gap-1 group/name"
+                                                title="查看差勤額度明細"
+                                            >
+                                                {emp.name}
+                                                <span className="material-symbols-outlined text-[14px] opacity-0 group-hover/name:opacity-100 transition-opacity text-blue-500">visibility</span>
+                                            </button>
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleIndividualExport(emp); }}
+                                                className="p-1 rounded bg-slate-100 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                                title="匯出個人明細紀錄"
+                                            >
+                                                <Download className="h-3.5 w-3.5" />
+                                            </button>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-medium">
                                             {emp.department || '-'}
@@ -322,6 +333,13 @@ const AdminLeaveStatsPage: React.FC = () => {
                     </table>
                 </div>
             </div>
+
+            {selectedEmployeeDetails && (
+                <LeaveBalanceDetailModal 
+                    employee={selectedEmployeeDetails} 
+                    onClose={() => setSelectedEmployeeDetails(null)} 
+                />
+            )}
         </div>
     );
 };
