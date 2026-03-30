@@ -707,6 +707,7 @@ const RequestsPage: React.FC = () => {
                         loadRequests();
                         alert('代為申請已成功提交！');
                     }}
+                    isAdmin={true}
                 />
             )}
         </div >

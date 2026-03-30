@@ -14,9 +14,10 @@ interface LeaveRequestFormProps {
     onClose: () => void;
     onSuccess: () => void;
     initialDate?: string;
+    isAdmin?: boolean;
 }
 
-const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose, onSuccess, initialDate }) => {
+const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose, onSuccess, initialDate, isAdmin = false }) => {
     const [employeeSchedule, setEmployeeSchedule] = useState<Partial<Employee>>({});
     const [historicalSchedules, setHistoricalSchedules] = useState<EmployeeSchedule[]>([]);
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
@@ -127,8 +128,17 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
     const loadLeaveTypes = async () => {
         setIsLoading(true);
         const types = await leaveTypeService.getActiveLeaveTypes();
+        
+        let filteredTypes = types || [];
+        if (!isAdmin) {
+            filteredTypes = filteredTypes.filter(t => 
+                !t.name.includes('加班折算') && 
+                !t.name.includes('特休折現')
+            );
+        }
+
         // 按中文筆劃/字典順序排序 (使用 zh-Hant)
-        const sortedTypes = [...(types || [])].sort((a, b) =>
+        const sortedTypes = [...filteredTypes].sort((a, b) =>
             a.name.localeCompare(b.name, 'zh-Hant')
         );
         setLeaveTypes(sortedTypes);
@@ -148,15 +158,13 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
         }
 
         const selectedType = leaveTypes.find(t => t.id === selectedTypeId);
-        const isOvertime =
+        const isOvertimeApplication =
             selectedType?.code === 'OT' ||
             selectedType?.code === 'CO' ||
             selectedType?.code === 'ALC' ||
-            selectedType?.code === 'TOIL' ||
-            selectedType?.name?.includes('加班') ||
+            (selectedType?.name?.includes('加班') && !selectedType?.name?.includes('補休餘額')) ||
             selectedType?.name?.includes('折現') ||
-            selectedType?.name?.includes('折算') ||
-            selectedType?.name?.includes('補休');
+            selectedType?.name?.includes('折算');
 
         const startDateTimeStr = `${startDate}T${startTime}`;
         const endDateTimeStr = `${endDate}T${endTime}`;
@@ -173,8 +181,8 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
             return;
         }
 
-        // 如果是加班類型 (OT)，使用驗證函數
-        if (selectedType?.code === 'OT') {
+        // 如果是加班或加班轉換類型，使用驗證函數
+        if (isOvertimeApplication) {
             const validation = validateOTHours(
                 currentStartDate,
                 currentEndDate,
@@ -208,7 +216,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
             setOtValidation(null);
 
             // 如果是一般請假，不應該忽略工作時間
-            const ignoreWorkWindow = selectedType?.code === 'OT';
+            const ignoreWorkWindow = false;
             const detailed = calculateLeaveHoursDetailed(
                 currentStartDate,
                 currentEndDate,
@@ -561,7 +569,10 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                             </div>
 
                             {/* OT 規則說明 */}
-                            {leaveTypes.find(t => t.id === selectedTypeId)?.code === 'OT' && (
+                            {(() => {
+                                const st = leaveTypes.find(t => t.id === selectedTypeId);
+                                return st?.code === 'OT' || st?.code === 'CO' || st?.code === 'ALC' || (st?.name?.includes('加班') && !st?.name?.includes('補休餘額')) || st?.name?.includes('折現') || st?.name?.includes('折算');
+                            })() && (
                                 <div className="bg-blue-50/50 border border-blue-200 rounded-2xl p-4 animate-in fade-in slide-in-from-bottom-2">
                                     <div className="flex items-start gap-3">
                                         <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-100 text-white shrink-0">

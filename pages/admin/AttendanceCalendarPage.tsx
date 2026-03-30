@@ -9,6 +9,8 @@ import { sortByNameStroke } from '../../lib/nameStrokeSort';
 import { deleteAttendanceLog, deleteAttendanceLogs, createAttendanceLog, importAttendanceLogs, getEmployeeSchedules } from '../../services/admin';
 import { Employee, CheckType, EmployeeSchedule } from '../../types';
 import { isNationalHoliday } from '../../lib/holidays';
+import ModificationRequestForm from '../../components/ModificationRequestForm';
+import { calculateLeaveHoursDetailed } from '../../lib/leaveUtils';
 
 interface AttendanceLog {
     id: string;
@@ -24,11 +26,18 @@ interface LeaveRequest {
     end_date: string;
     reason: string;
     status: string;
-    hours?: number; // 新增時數欄位
+    type?: string; 
+    leave_type_id?: string;
+    is_makeup_workday?: boolean;
+    is_makeup_holiday?: boolean;
+    manual_break_hours?: number;
+    hours?: number;
     leave_type?: {
         name: string;
         color: string;
+        code?: string;
     };
+    dayHours?: number;
 }
 
 const AttendanceCalendarPage: React.FC = () => {
@@ -64,6 +73,7 @@ const AttendanceCalendarPage: React.FC = () => {
 
     // Add Log State
     const [isAddLogModalOpen, setIsAddLogModalOpen] = useState(false);
+    const [selectedLeaveForModification, setSelectedLeaveForModification] = useState<LeaveRequest | null>(null);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [newLogCheckType, setNewLogCheckType] = useState<CheckType>(CheckType.IN);
     const [newLogTime, setNewLogTime] = useState('08:00');
@@ -123,7 +133,7 @@ const AttendanceCalendarPage: React.FC = () => {
                 .from('leave_requests')
                 .select(`
           *,
-          leave_type:leave_types(name, color)
+          leave_type:leave_types(name, color, code)
         `)
                 .eq('employee_id', selectedEmployeeId)
                 .eq('status', 'APPROVED')
@@ -331,6 +341,34 @@ const AttendanceCalendarPage: React.FC = () => {
                 const endOfDay = new Date(day);
                 endOfDay.setHours(23, 59, 59, 999);
                 return s <= endOfDay && e >= startOfDay;
+            }).map(leave => {
+                const s = parseISO(leave.start_date);
+                const e = parseISO(leave.end_date);
+                const startOfDay = new Date(day);
+                startOfDay.setHours(0, 0, 0, 0);
+                const endOfDay = new Date(day);
+                endOfDay.setHours(23, 59, 59, 999);
+                const overlapStart = new Date(Math.max(s.getTime(), startOfDay.getTime()));
+                const overlapEnd = new Date(Math.min(e.getTime(), endOfDay.getTime()));
+                
+                let dayHours = 0;
+                if (overlapStart < overlapEnd) {
+                    const employee = employees.find(emp => emp.id === selectedEmployeeId);
+                    const isOvertimeApplication = leave.leave_type?.code === 'OT' || leave.leave_type?.code === 'CO' || leave.leave_type?.code === 'ALC' || (leave.leave_type?.name?.includes('加班') && !leave.leave_type?.name?.includes('補休餘額')) || leave.leave_type?.name?.includes('折現') || leave.leave_type?.name?.includes('折算');
+                    const detailed = calculateLeaveHoursDetailed(
+                        overlapStart,
+                        overlapEnd,
+                        employee || {},
+                        !!isOvertimeApplication,
+                        true,
+                        historicalSchedules,
+                        0,
+                        false,
+                        false
+                    );
+                    dayHours = detailed.finalHours;
+                }
+                return { ...leave, dayHours };
             });
 
             // Calculate advanced work hours
@@ -868,11 +906,15 @@ const AttendanceCalendarPage: React.FC = () => {
                                             {dayInfo?.leaves?.map(leave => (
                                                 <div
                                                     key={leave.id}
-                                                    className="px-2 py-1 rounded-md text-[10px] font-black text-white shadow-sm"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedLeaveForModification(leave);
+                                                    }}
+                                                    className="px-2 py-1 rounded-md text-[10px] font-black text-white shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
                                                     style={{ backgroundColor: leave.leave_type?.color || '#3b82f6' }}
                                                     title={leave.reason}
                                                 >
-                                                    {leave.leave_type?.name} {leave.hours ? `${leave.hours}H` : ''}
+                                                    {leave.leave_type?.name} {leave.dayHours !== undefined ? (leave.dayHours > 0 ? `${leave.dayHours}H` : '') : (leave.hours ? `${leave.hours}H` : '')}
                                                 </div>
                                             ))}
                                         </div>
@@ -1030,6 +1072,19 @@ const AttendanceCalendarPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Modification Modal */}
+            {selectedLeaveForModification && (
+                <ModificationRequestForm
+                    originalRequest={selectedLeaveForModification as any}
+                    employeeId={selectedEmployeeId}
+                    onClose={() => setSelectedLeaveForModification(null)}
+                    onSuccess={() => {
+                        setSelectedLeaveForModification(null);
+                        fetchData();
+                    }}
+                />
             )}
         </div>
     );
