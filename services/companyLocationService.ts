@@ -13,6 +13,7 @@ export interface CompanyLocation {
     radius_meters: number;
     is_active: boolean;
     description?: string;
+    trusted_ips?: string[]; // 新增：可信任的 IP 清單
 }
 
 /**

@@ -29,7 +29,8 @@ const CompanyManagementPage: React.FC = () => {
         latitude: '',
         longitude: '',
         radius_meters: '100',
-        description: ''
+        description: '',
+        trusted_ips: ''
     });
 
     useEffect(() => {
@@ -96,7 +97,8 @@ const CompanyManagementPage: React.FC = () => {
             latitude: '',
             longitude: '',
             radius_meters: '100',
-            description: ''
+            description: '',
+            trusted_ips: ''
         });
         setIsLocationModalOpen(true);
     };
@@ -108,7 +110,8 @@ const CompanyManagementPage: React.FC = () => {
             latitude: location.latitude.toString(),
             longitude: location.longitude.toString(),
             radius_meters: location.radius_meters.toString(),
-            description: location.description || ''
+            description: location.description || '',
+            trusted_ips: location.trusted_ips?.join(', ') || ''
         });
         setIsLocationModalOpen(true);
     };
@@ -133,7 +136,8 @@ const CompanyManagementPage: React.FC = () => {
             longitude: parseFloat(locationFormData.longitude),
             radius_meters: parseInt(locationFormData.radius_meters),
             description: locationFormData.description,
-            is_active: true
+            is_active: true,
+            trusted_ips: locationFormData.trusted_ips.split(',').map(ip => ip.trim()).filter(ip => ip !== '')
         };
 
         let result;
@@ -372,6 +376,12 @@ const CompanyManagementPage: React.FC = () => {
                                             {location.description && (
                                                 <div className="text-slate-400 italic line-clamp-1">{location.description}</div>
                                             )}
+                                            {location.trusted_ips && location.trusted_ips.length > 0 && (
+                                                <div className="flex items-center gap-1 text-blue-500 font-bold">
+                                                    <Info className="h-3 w-3" />
+                                                    <span>固定 IP 認證已啟用</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex gap-2 ml-4 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
@@ -474,6 +484,17 @@ const CompanyManagementPage: React.FC = () => {
                                     rows={2}
                                     placeholder="位置補充說明..."
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">公司固定 IP (選填)</label>
+                                <textarea
+                                    value={locationFormData.trusted_ips}
+                                    onChange={(e) => setLocationFormData({ ...locationFormData, trusted_ips: e.target.value })}
+                                    className="w-full px-4 py-3 bg-slate-50 border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 border font-bold text-slate-700 transition-all"
+                                    rows={2}
+                                    placeholder="多個 IP 請用逗號分隔，例如: 1.2.3.4, 5.6.7.8"
+                                />
+                                <p className="mt-1 text-[10px] text-slate-400 font-bold">若筆電定位失敗，將自動比對此 IP</p>
                             </div>
                             <div className="flex gap-3 justify-end pt-4">
                                 <button
