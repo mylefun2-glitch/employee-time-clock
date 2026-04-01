@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useEmployee } from '../../contexts/EmployeeContext';
 import { getSubordinates } from '../../services/supervisorService';
 import { getEmployeeLeaveBalances } from '../../services/employee';
 import { LeaveBalance } from '../../types';
+import { Calendar } from 'lucide-react';
 
 interface SubordinateLeaveStats {
     id: string;
@@ -72,12 +74,13 @@ const ManagerTeamLeavePage: React.FC = () => {
                                 <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest bg-slate-50">補休已用</th>
                                 <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest bg-slate-50">加班折算</th>
                                 <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest bg-slate-50 text-purple-600">補休剩餘</th>
+                                <th className="px-6 py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest">查看紀錄</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {subordinates.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} className="px-6 py-12 text-center text-slate-400 font-bold">
+                                    <td colSpan={11} className="px-6 py-12 text-center text-slate-400 font-bold">
                                         尚無屬員資料
                                     </td>
                                 </tr>
@@ -115,6 +118,15 @@ const ManagerTeamLeavePage: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-center font-mono font-bold text-purple-600 bg-slate-50/30">
                                             {person.leaveBalance ? person.leaveBalance.compensatory.remaining : '-'}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                            <Link
+                                                to={`/employee/calendar?id=${person.id}`}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-black hover:bg-blue-100 transition-all border border-blue-100 shadow-sm"
+                                            >
+                                                <Calendar className="h-3.5 w-3.5" />
+                                                查看
+                                            </Link>
                                         </td>
                                     </tr>
                                 ))
