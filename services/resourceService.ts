@@ -23,6 +23,7 @@ export const upsertResource = async (resource: Partial<Resource> & { name: strin
 
 export const getResourceRequests = async (params?: {
     employee_id?: string;
+    department?: string;
     status?: string;
 }): Promise<ResourceRequest[]> => {
     let query = supabase.from('resource_requests').select(`
@@ -31,7 +32,20 @@ export const getResourceRequests = async (params?: {
         resource:resources(id, name, type, location)
     `).order('created_at', { ascending: false });
 
-    if (params?.employee_id) {
+    if (params?.department) {
+        // 如果有提供部門，則查詢該部門所有同仁的紀錄
+        const { data: deptEmployees } = await supabase
+            .from('employees')
+            .select('id')
+            .eq('department', params.department);
+        
+        const deptIds = deptEmployees?.map(e => e.id) || [];
+        if (deptIds.length > 0) {
+            query = query.in('employee_id', deptIds);
+        } else if (params.employee_id) {
+            query = query.eq('employee_id', params.employee_id);
+        }
+    } else if (params?.employee_id) {
         query = query.eq('employee_id', params.employee_id);
     }
     if (params?.status && params.status !== 'ALL') {

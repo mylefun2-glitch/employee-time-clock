@@ -43,18 +43,35 @@ export const requestService = {
         }
     },
 
-    async getEmployeeRequests(employeeId: string, year?: number): Promise<LeaveRequest[]> {
+    async getEmployeeRequests(employeeId: string, year?: number, department?: string): Promise<LeaveRequest[]> {
         try {
             let query = supabase
                 .from('leave_requests')
                 .select(`
                     *,
                     leave_type:leave_types(*),
+                    employee:employees!leave_requests_employee_id_fkey(id, name, department),
                     deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
                 `)
-                .eq('employee_id', employeeId)
                 .neq('status', RequestStatus.WITHDRAWN)
                 .or('is_modified.is.null,is_modified.eq.false');
+
+            if (department) {
+                // 如果有提供部門，則查詢該部門所有同仁的紀錄
+                const { data: deptEmployees } = await supabase
+                    .from('employees')
+                    .select('id')
+                    .eq('department', department);
+                
+                const deptIds = deptEmployees?.map(e => e.id) || [];
+                if (deptIds.length > 0) {
+                    query = query.in('employee_id', deptIds);
+                } else {
+                    query = query.eq('employee_id', employeeId);
+                }
+            } else {
+                query = query.eq('employee_id', employeeId);
+            }
 
             if (year) {
                 const startDate = `${year}-01-01T00:00:00+08:00`;

@@ -27,10 +27,12 @@ const EmployeeRequestsPage: React.FC = () => {
         leaveType: string[];
         reason: string[];
         deputy: string[];
+        employeeName: string[];
     }>({
         leaveType: [],
         reason: [],
-        deputy: []
+        deputy: [],
+        employeeName: []
     });
 
     useEffect(() => {
@@ -58,8 +60,8 @@ const EmployeeRequestsPage: React.FC = () => {
         try {
             // 如果 year 為 null,不傳入 year 參數(查詢所有年度)
             const data = year === null
-                ? await requestService.getEmployeeRequests(employee.id)
-                : await requestService.getEmployeeRequests(employee.id, year);
+                ? await requestService.getEmployeeRequests(employee.id, undefined, employee.department)
+                : await requestService.getEmployeeRequests(employee.id, year, employee.department);
             setRequests(data || []);
 
             // 動態更新可用年度 list (基於實際抓取到的資料)
@@ -247,7 +249,12 @@ const EmployeeRequestsPage: React.FC = () => {
             const deputyMatch = columnFilters.deputy.length === 0 ||
                 columnFilters.deputy.map(v => v.trim()).includes(reqDeputy);
 
-            return leaveTypeMatch && reasonMatch && deputyMatch;
+            // 應用姓名篩選
+            const reqName = (req.employee?.name || '-').trim();
+            const nameMatch = columnFilters.employeeName.length === 0 ||
+                columnFilters.employeeName.map(v => v.trim()).includes(reqName);
+
+            return leaveTypeMatch && reasonMatch && deputyMatch && nameMatch;
         });
 
     const getCount = (status: 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED') => {
@@ -384,7 +391,7 @@ const EmployeeRequestsPage: React.FC = () => {
                         <p className="text-slate-500 font-bold mt-2 max-w-xs mx-auto text-sm">請嘗試調整篩選條件或清除目前的篩選。</p>
                         {hasAnyColumnFilter && (
                             <button
-                                onClick={() => setColumnFilters({ leaveType: [], reason: [], deputy: [] })}
+                                onClick={() => setColumnFilters({ leaveType: [], reason: [], deputy: [], employeeName: [] })}
                                 className="mt-6 px-6 py-2.5 bg-blue-50 text-blue-600 rounded-xl text-sm font-black hover:bg-blue-100 transition-all border border-blue-100"
                             >
                                 清除所有篩選
@@ -407,6 +414,13 @@ const EmployeeRequestsPage: React.FC = () => {
                                             />
                                         </th>
                                     )}
+                                    <TableHeaderFilter
+                                        columnKey="employeeName"
+                                        label="姓名"
+                                        values={requests.map(r => r.employee?.name || '-')}
+                                        selectedValues={columnFilters.employeeName}
+                                        onChange={(values) => setColumnFilters({ ...columnFilters, employeeName: values })}
+                                    />
                                     <TableHeaderFilter
                                         columnKey="leaveType"
                                         label="類型"
@@ -459,6 +473,17 @@ const EmployeeRequestsPage: React.FC = () => {
                                                     />
                                                 </td>
                                             )}
+                                            <td className="px-4 py-4">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black ${request.employee_id === employee?.id ? 'bg-blue-100 text-blue-600 border border-blue-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                                                        {(request.employee?.name || '-').charAt(0)}
+                                                    </div>
+                                                    <span className={`font-bold ${request.employee_id === employee?.id ? 'text-blue-600' : 'text-slate-900'}`}>
+                                                        {request.employee?.name || '-'}
+                                                        {request.employee_id === employee?.id && <span className="ml-1 text-[10px] bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-tighter">我</span>}
+                                                    </span>
+                                                </div>
+                                            </td>
                                             <td className="px-4 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 border border-blue-100 shrink-0">
@@ -529,7 +554,7 @@ const EmployeeRequestsPage: React.FC = () => {
             </div>
             </>
             ) : (
-                <EmployeeResourceRequestsList employeeId={employee.id} />
+                <EmployeeResourceRequestsList employeeId={employee.id} department={employee.department} />
             )}
 
             {/* Action Menu Modal */}
@@ -560,7 +585,9 @@ const EmployeeRequestsPage: React.FC = () => {
 
                         {/* 操作按鈕 */}
                         <div className="flex flex-col gap-4 mt-8">
-                            {(actionMenuRequest.status === 'PENDING' || actionMenuRequest.status === 'APPROVED') && !actionMenuRequest.is_modified && (
+                            {(actionMenuRequest.status === 'PENDING' || actionMenuRequest.status === 'APPROVED') && 
+                             !actionMenuRequest.is_modified && 
+                             actionMenuRequest.employee_id === employee?.id && (
                                 <button
                                     onClick={() => {
                                         setWithdrawingId(actionMenuRequest.id);
@@ -574,7 +601,10 @@ const EmployeeRequestsPage: React.FC = () => {
                                 </button>
                             )}
 
-                            {(actionMenuRequest.status === 'APPROVED' || actionMenuRequest.status === 'REJECTED') && !actionMenuRequest.is_modified && !actionMenuRequest.original_request_id && (
+                            {(actionMenuRequest.status === 'APPROVED' || actionMenuRequest.status === 'REJECTED') && 
+                             !actionMenuRequest.is_modified && 
+                             !actionMenuRequest.original_request_id && 
+                             actionMenuRequest.employee_id === employee?.id && (
                                 <button
                                     onClick={() => {
                                         setSelectedRequest(actionMenuRequest);
@@ -586,6 +616,12 @@ const EmployeeRequestsPage: React.FC = () => {
                                     <span className="material-symbols-outlined text-lg">edit</span>
                                     申請變更
                                 </button>
+                            )}
+
+                            {actionMenuRequest.employee_id !== employee?.id && (
+                                <div className="p-4 bg-slate-50 rounded-2xl text-slate-500 text-sm font-bold">
+                                    此紀錄為同部門同仁申請，您無權限修改。
+                                </div>
                             )}
                         </div>
                     </div>

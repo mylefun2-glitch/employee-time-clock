@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getResources, createResourceRequest, updateResourceRequest } from '../services/resourceService';
 import { Resource, ResourceRequest } from '../types';
+import TimeInput24h from './ui/TimeInput24h';
 
 interface Props {
     employeeId: string;
@@ -15,14 +16,37 @@ const ResourceRequestForm: React.FC<Props> = ({ employeeId, initialData, onSucce
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
 
-    const today = new Date();
-    const todayStr = today.toISOString().slice(0, 16);
+    // Helper to extract date and time from a date object or string
+    const parseDateTime = (d?: string | Date) => {
+        if (!d) return { date: '', time: '' };
+        const dt = new Date(d);
+        if (isNaN(dt.getTime())) return { date: '', time: '' };
+        
+        // Extract local date (YYYY-MM-DD)
+        const year = dt.getFullYear();
+        const month = String(dt.getMonth() + 1).padStart(2, '0');
+        const day = String(dt.getDate()).padStart(2, '0');
+        const date = `${year}-${month}-${day}`;
+        
+        // Extract local time (HH:mm)
+        const hours = String(dt.getHours()).padStart(2, '0');
+        const minutes = String(dt.getMinutes()).padStart(2, '0');
+        const time = `${hours}:${minutes}`;
+        
+        return { date, time };
+    };
+
+    const now = new Date();
+    const initialStart = initialData ? parseDateTime(initialData.start_time) : { ...parseDateTime(now), time: '08:00' };
+    const initialEnd = initialData ? parseDateTime(initialData.end_time) : { date: initialStart.date, time: '17:00' };
 
     const [formData, setFormData] = useState({
         resource_id: initialData?.resource_id || '',
         quantity: initialData?.quantity || 1,
-        start_time: initialData ? new Date(initialData.start_time).toISOString().slice(0, 16) : todayStr,
-        end_time: initialData ? new Date(initialData.end_time).toISOString().slice(0, 16) : '',
+        start_date: initialStart.date,
+        start_time: initialStart.time || '08:00',
+        end_date: initialEnd.date,
+        end_time: initialEnd.time || '17:00',
         purpose: initialData?.purpose || '',
     });
 
@@ -44,15 +68,18 @@ const ResourceRequestForm: React.FC<Props> = ({ employeeId, initialData, onSucce
         }
     };
 
-    const selectedResource = resources.find(r => r.id === formData.resource_id);
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
         if (!formData.resource_id) { setError('請選擇借用資源'); return; }
-        if (!formData.end_time) { setError('請填寫歸還時間'); return; }
-        if (new Date(formData.end_time) <= new Date(formData.start_time)) {
+        if (!formData.start_date || !formData.start_time) { setError('請填寫完整借用時間'); return; }
+        if (!formData.end_date || !formData.end_time) { setError('請填寫完整歸還時間'); return; }
+
+        const start = new Date(`${formData.start_date}T${formData.start_time}`);
+        const end = new Date(`${formData.end_date}T${formData.end_time}`);
+
+        if (end <= start) {
             setError('歸還時間必須在借用時間之後');
             return;
         }
@@ -60,22 +87,20 @@ const ResourceRequestForm: React.FC<Props> = ({ employeeId, initialData, onSucce
 
         setSubmitting(true);
         try {
+            const payload = {
+                resource_id: formData.resource_id,
+                quantity: formData.quantity,
+                start_time: start.toISOString(),
+                end_time: end.toISOString(),
+                purpose: formData.purpose.trim(),
+            };
+
             if (initialData) {
-                await updateResourceRequest(initialData.id, {
-                    resource_id: formData.resource_id,
-                    quantity: formData.quantity,
-                    start_time: new Date(formData.start_time).toISOString(),
-                    end_time: new Date(formData.end_time).toISOString(),
-                    purpose: formData.purpose.trim(),
-                });
+                await updateResourceRequest(initialData.id, payload);
             } else {
                 await createResourceRequest({
                     employee_id: employeeId,
-                    resource_id: formData.resource_id,
-                    quantity: formData.quantity,
-                    start_time: new Date(formData.start_time).toISOString(),
-                    end_time: new Date(formData.end_time).toISOString(),
-                    purpose: formData.purpose.trim(),
+                    ...payload,
                 });
             }
             onSuccess();
@@ -99,7 +124,7 @@ const ResourceRequestForm: React.FC<Props> = ({ employeeId, initialData, onSucce
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full p-8 animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full p-8 animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center gap-3 mb-6">
                     <div className="w-12 h-12 rounded-2xl bg-violet-100 flex items-center justify-center">
                         <span className="material-symbols-outlined text-violet-600">{initialData ? 'edit_square' : 'handshake'}</span>
@@ -125,7 +150,7 @@ const ResourceRequestForm: React.FC<Props> = ({ employeeId, initialData, onSucce
                             <select
                                 value={formData.resource_id}
                                 onChange={e => setFormData({ ...formData, resource_id: e.target.value, quantity: 1 })}
-                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all font-bold text-slate-700"
+                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all font-bold text-slate-700 appearance-none cursor-pointer"
                             >
                                 {itemResources.length > 0 && (
                                     <optgroup label="── 物品">
@@ -173,27 +198,44 @@ const ResourceRequestForm: React.FC<Props> = ({ employeeId, initialData, onSucce
                         )}
 
                         {/* Time range */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">借用時間 *</label>
-                                <input
-                                    type="datetime-local"
-                                    required
-                                    value={formData.start_time}
-                                    onChange={e => setFormData({ ...formData, start_time: e.target.value })}
-                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all font-bold text-slate-700 text-sm"
-                                />
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">借用時間 *</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="date"
+                                        required
+                                        value={formData.start_date}
+                                        onChange={e => setFormData({ ...formData, start_date: e.target.value, end_date: e.target.value })}
+                                        className="flex-1 p-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all font-bold text-slate-700 text-sm h-[44px]"
+                                    />
+                                    <TimeInput24h
+                                        value={formData.start_time}
+                                        onChange={val => setFormData({ ...formData, start_time: val })}
+                                        className="flex-1"
+                                        required
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">歸還時間 *</label>
-                                <input
-                                    type="datetime-local"
-                                    required
-                                    value={formData.end_time}
-                                    min={formData.start_time}
-                                    onChange={e => setFormData({ ...formData, end_time: e.target.value })}
-                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all font-bold text-slate-700 text-sm"
-                                />
+                            
+                            <div className="space-y-2">
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">歸還時間 *</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="date"
+                                        required
+                                        value={formData.end_date}
+                                        min={formData.start_date}
+                                        onChange={e => setFormData({ ...formData, end_date: e.target.value })}
+                                        className="flex-1 p-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500 transition-all font-bold text-slate-700 text-sm h-[44px]"
+                                    />
+                                    <TimeInput24h
+                                        value={formData.end_time}
+                                        onChange={val => setFormData({ ...formData, end_time: val })}
+                                        className="flex-1"
+                                        required
+                                    />
+                                </div>
                             </div>
                         </div>
 

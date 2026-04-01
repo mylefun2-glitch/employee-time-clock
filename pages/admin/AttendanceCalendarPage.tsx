@@ -422,16 +422,32 @@ const AttendanceCalendarPage: React.FC = () => {
                     const scheduledInDate = getDayTime(scheduleStart);
                     const scheduledOutDate = getDayTime(scheduleEnd);
 
-                    // 2. Apply 30-minute grace period logic
-                    let effectiveIn = actualIn;
-                    const thirtyMins = 30 * 60 * 1000;
+                    // 2. Apply 30-minute Flex Time logic
+                    let lateMs = 0;
+                    if (actualIn > scheduledInDate) {
+                        // 彈性時間上限 30 分鐘
+                        lateMs = Math.min(actualIn.getTime() - scheduledInDate.getTime(), 30 * 60 * 1000);
+                    }
 
-                    if (Math.abs(actualIn.getTime() - scheduledInDate.getTime()) <= thirtyMins) {
+                    // 基準時間：將到職時間與下班時間同步扣除彈性偏移量
+                    let effectiveIn = new Date(actualIn.getTime() - lateMs);
+                    let effectiveOut = new Date(actualOut.getTime() - lateMs);
+
+                    // 誤差校正：
+                    const jitterGraceMs = 5 * 60 * 1000; // 5 分鐘微小誤差（用於 jitter 或早退對齊）
+                    const extraWorkGraceMs = 30 * 60 * 1000; // 30 分鐘額外工時緩衝（依需求不計入）
+
+                    // 起始端對齊 (5 分鐘內)
+                    if (Math.abs(effectiveIn.getTime() - scheduledInDate.getTime()) <= jitterGraceMs) {
                         effectiveIn = scheduledInDate;
                     }
 
-                    let effectiveOut = actualOut;
-                    if (Math.abs(actualOut.getTime() - scheduledOutDate.getTime()) <= thirtyMins) {
+                    // 結束端對齊
+                    if (effectiveOut > scheduledOutDate && (effectiveOut.getTime() - scheduledOutDate.getTime()) <= extraWorkGraceMs) {
+                        // 若推移後的下班時間晚於規定時間且在 30 分鐘內，仍以 8 小時計（對齊回到 17:00）
+                        effectiveOut = scheduledOutDate;
+                    } else if (Math.abs(effectiveOut.getTime() - scheduledOutDate.getTime()) <= jitterGraceMs) {
+                        // 一般 5 分鐘內的微小誤差對齊
                         effectiveOut = scheduledOutDate;
                     }
 

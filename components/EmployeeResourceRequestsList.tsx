@@ -15,9 +15,10 @@ const TYPE_MAP: Record<string, string> = { ITEM: '物品', VENUE: '場地' };
 
 interface Props {
     employeeId: string;
+    department?: string;
 }
 
-const EmployeeResourceRequestsList: React.FC<Props> = ({ employeeId }) => {
+const EmployeeResourceRequestsList: React.FC<Props> = ({ employeeId, department }) => {
     const [requests, setRequests] = useState<ResourceRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
@@ -26,12 +27,16 @@ const EmployeeResourceRequestsList: React.FC<Props> = ({ employeeId }) => {
 
     useEffect(() => {
         fetchRequests();
-    }, [filterStatus]);
+    }, [filterStatus, department]);
 
     const fetchRequests = async () => {
         setLoading(true);
         try {
-            const data = await getResourceRequests({ employee_id: employeeId, status: filterStatus });
+            const data = await getResourceRequests({ 
+                employee_id: department ? undefined : employeeId, 
+                department,
+                status: filterStatus 
+            });
             setRequests(data);
         } catch (err) {
             console.error(err);
@@ -94,6 +99,7 @@ const EmployeeResourceRequestsList: React.FC<Props> = ({ employeeId }) => {
                     {requests.map(req => {
                         const statusInfo = STATUS_MAP[req.status] || STATUS_MAP.PENDING;
                         const isPending = req.status === 'PENDING';
+                        const isOwner = req.employee_id === employeeId;
 
                         return (
                             <div key={req.id} className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm p-6 flex flex-col sm:flex-row gap-4 sm:items-center justify-between hover:shadow-md transition-shadow">
@@ -112,8 +118,13 @@ const EmployeeResourceRequestsList: React.FC<Props> = ({ employeeId }) => {
                                                 {statusInfo.text}
                                             </span>
                                         </div>
-                                        <div className="text-xs text-slate-500 font-medium bg-slate-50 px-3 py-1.5 rounded-lg inline-block mb-2">
-                                            {formatDateTime(req.start_time)} – {formatDateTime(req.end_time)}
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${isOwner ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
+                                                {req.employee?.name || '未知'} {isOwner && '(我)'}
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 font-medium">
+                                                {formatDateTime(req.start_time)} – {formatDateTime(req.end_time)}
+                                            </div>
                                         </div>
                                         <div className="text-sm text-slate-600">用途：{req.purpose}</div>
                                         {req.review_comment && (
@@ -122,7 +133,7 @@ const EmployeeResourceRequestsList: React.FC<Props> = ({ employeeId }) => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0 sm:border-l sm:border-slate-100 sm:pl-6">
-                                    {isPending && (
+                                    {isPending && isOwner && (
                                         <>
                                             <button
                                                 onClick={() => setEditingRequest(req)}
@@ -140,6 +151,9 @@ const EmployeeResourceRequestsList: React.FC<Props> = ({ employeeId }) => {
                                                 {withdrawingId === req.id ? '撤回中...' : '撤回'}
                                             </button>
                                         </>
+                                    )}
+                                    {!isOwner && (
+                                        <span className="text-[10px] text-slate-400 font-bold italic">唯讀模式</span>
                                     )}
                                 </div>
                             </div>
