@@ -470,41 +470,56 @@ const AttendanceCalendarPage: React.FC = () => {
                     const actualOut = new Date(checkOutLog.timestamp);
                     
                     let effectiveIn = actualIn;
-                    
-                    // A. 端點對齊：起始端 (08:00)
+                    let flexOffsetMs = 0;
                     const flexWindowMs = 30 * 60 * 1000;
-                    const diffInMs = actualIn.getTime() - schedIn.getTime();
+                    
+                    // 檢查是否已有「公務區間 (家訪/公出)」涵蓋了早上的準點 (08:00)
+                    const startsWithWork = workIntervals.some(iv => iv.start <= schedIn);
 
-                    // 檢查打卡時間是否被假單覆蓋
-                    const coveredByLeave = dayLeaves.some(l => {
-                        if (l.status?.toUpperCase() !== 'APPROVED') return false;
-                        const leaveEnd = parseISO(l.end_date);
-                        return leaveEnd >= actualIn || (leaveEnd.getHours() === 12 && actualIn.getHours() <= 13);
-                    });
-
-                    if (coveredByLeave) {
+                    if (startsWithWork) {
+                        // 早上已在外公務，不產生遲地位移
+                        flexOffsetMs = 0;
                         effectiveIn = actualIn;
                     } else {
-                        if (diffInMs >= -flexWindowMs && diffInMs <= flexWindowMs) {
-                            // 在上下 30 分鐘內，對齊為 08:00
-                            effectiveIn = schedIn;
-                        } else if (diffInMs > flexWindowMs) {
-                            // 延期超過 30 分鐘，Offset 為 30 分鐘
-                            effectiveIn = new Date(actualIn.getTime() - flexWindowMs);
-                        } else {
-                            // 提前超過 30 分鐘，保留原打卡時間 (計入提早上班)
+                        // 檢查打卡時間是否被假單覆蓋 (原本的 coveredByLeave 邏輯)
+                        const coveredByLeave = dayLeaves.some(l => {
+                            if (l.status?.toUpperCase() !== 'APPROVED') return false;
+                            const leaveEnd = parseISO(l.end_date);
+                            return leaveEnd >= actualIn || (leaveEnd.getHours() === 12 && actualIn.getHours() <= 13);
+                        });
+
+                        if (coveredByLeave) {
                             effectiveIn = actualIn;
+                            flexOffsetMs = 0;
+                        } else {
+                            const diffInMs = actualIn.getTime() - schedIn.getTime();
+                            if (diffInMs >= -flexWindowMs && diffInMs <= 0) {
+                                effectiveIn = schedIn;
+                                flexOffsetMs = 0;
+                            } else if (diffInMs > 0 && diffInMs <= flexWindowMs) {
+                                effectiveIn = actualIn;
+                                flexOffsetMs = diffInMs;
+                            } else if (diffInMs > flexWindowMs) {
+                                effectiveIn = new Date(actualIn.getTime() - flexWindowMs);
+                                flexOffsetMs = flexWindowMs;
+                            } else {
+                                effectiveIn = actualIn;
+                                flexOffsetMs = 0;
+                            }
                         }
                     }
                     
-                    // B. 端點對齊：結束端 (17:00)
+                    // B. 動態標竿對齊：結束端 (17:00 + 位移) 與 30 分鐘單位化
+                    const expectedOut = new Date(schedOut.getTime() + flexOffsetMs);
                     let effectiveOut = actualOut;
-                    const diffOutMs = actualOut.getTime() - schedOut.getTime();
+                    const diffOutMs = actualOut.getTime() - expectedOut.getTime();
 
-                    // 如果下班在 17:00 ~ 17:30 之間，且不屬於補回遲到的情形，則對齊為 17:00
-                    if (diffOutMs >= 0 && diffOutMs <= flexWindowMs) {
-                        effectiveOut = schedOut;
+                    // 加班對齊規則：以 30 分鐘為一單位，不足一單位的「去尾」至標竿或最近的 30 分鐘點
+                    if (diffOutMs >= 0) {
+                        const blocks = Math.floor(diffOutMs / flexWindowMs);
+                        effectiveOut = new Date(expectedOut.getTime() + blocks * flexWindowMs);
                     } else {
+                        // 早退情況：保留實際簽退
                         effectiveOut = actualOut;
                     }
 
