@@ -254,39 +254,31 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                     let flexOffsetMs = 0;
                     const flexWindowMs = 30 * 60 * 1000;
                     
-                    // 檢查是否已有「公務區間 (家訪/公出)」涵蓋了早上的準點 (08:00)
-                    const startsWithWork = workIntervals.some(iv => iv.start <= schedIn);
+                    // A. 動態位移判定：以「全日最早起點」為基準
+                    const allStarts = workIntervals.map(iv => iv.start.getTime());
+                    allStarts.push(actualIn.getTime());
+                    const overallStartMs = Math.min(...allStarts);
+                    const diffInMs = overallStartMs - schedIn.getTime();
 
-                    if (startsWithWork) {
-                        // 早上已在外公務，不產生遲地位移
+                    // 檢查打卡時間是否被假單覆蓋
+                    const coveredByLeave = dayLeaves.some(l => {
+                        if (l.status?.toUpperCase() !== 'APPROVED') return false;
+                        const leaveEnd = parseISO(l.end_date);
+                        return leaveEnd >= actualIn || (leaveEnd.getHours() === 12 && actualIn.getHours() <= 13);
+                    });
+
+                    if (coveredByLeave || diffInMs <= 0) {
+                        // 早上有假單覆蓋，或起始時間早於準點
                         flexOffsetMs = 0;
-                        effectiveIn = actualIn;
+                        effectiveIn = (diffInMs <= 0 && diffInMs >= -flexWindowMs) ? schedIn : actualIn;
                     } else {
-                        // 檢查打卡時間是否被假單覆蓋 (原本的 coveredByLeave 邏輯)
-                        const coveredByLeave = dayLeaves.some(l => {
-                            if (l.status?.toUpperCase() !== 'APPROVED') return false;
-                            const leaveEnd = parseISO(l.end_date);
-                            return leaveEnd >= actualIn || (leaveEnd.getHours() === 12 && actualIn.getHours() <= 13);
-                        });
-
-                        if (coveredByLeave) {
+                        // 起時時間在準點後（且無公務覆蓋）
+                        if (diffInMs <= flexWindowMs) {
+                            flexOffsetMs = diffInMs;
                             effectiveIn = actualIn;
-                            flexOffsetMs = 0;
                         } else {
-                            const diffInMs = actualIn.getTime() - schedIn.getTime();
-                            if (diffInMs >= -flexWindowMs && diffInMs <= 0) {
-                                effectiveIn = schedIn;
-                                flexOffsetMs = 0;
-                            } else if (diffInMs > 0 && diffInMs <= flexWindowMs) {
-                                effectiveIn = actualIn;
-                                flexOffsetMs = diffInMs;
-                            } else if (diffInMs > flexWindowMs) {
-                                effectiveIn = new Date(actualIn.getTime() - flexWindowMs);
-                                flexOffsetMs = flexWindowMs;
-                            } else {
-                                effectiveIn = actualIn;
-                                flexOffsetMs = 0;
-                            }
+                            flexOffsetMs = flexWindowMs;
+                            effectiveIn = new Date(actualIn.getTime() - flexWindowMs);
                         }
                     }
                     
@@ -374,7 +366,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             const targetAgreedHours = Math.max(0, baseAgreedHours - totalNonWorkLeaveHours);
 
             if (targetAgreedHours > 0) {
-                if (finalHours >= targetAgreedHours - 0.4 && finalHours < targetAgreedHours) {
+                if (finalHours >= targetAgreedHours - 0.5 && finalHours < targetAgreedHours) {
                     finalHours = targetAgreedHours;
                 }
                 if (finalHours > targetAgreedHours && finalHours <= targetAgreedHours + 0.5) {
