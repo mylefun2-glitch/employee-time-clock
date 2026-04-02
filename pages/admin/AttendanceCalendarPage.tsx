@@ -3,20 +3,21 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, parseISO, addMonths, subMonths, startOfWeek } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X, CheckSquare, Square, Info, Search, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X, CheckSquare, Square, Info, Search, Plus, Pencil } from 'lucide-react';
 import TimeInput24h from '../../components/ui/TimeInput24h';
 import { sortByNameStroke } from '../../lib/nameStrokeSort';
-import { deleteAttendanceLog, deleteAttendanceLogs, createAttendanceLog, importAttendanceLogs, getEmployeeSchedules } from '../../services/admin';
+import { deleteAttendanceLog, deleteAttendanceLogs, createAttendanceLog, updateAttendanceLog, importAttendanceLogs, getEmployeeSchedules } from '../../services/admin';
 import { Employee, CheckType, EmployeeSchedule } from '../../types';
 import { isNationalHoliday } from '../../lib/holidays';
 import ModificationRequestForm from '../../components/ModificationRequestForm';
-import { calculateLeaveHoursDetailed } from '../../lib/leaveUtils';
+import { calculateLeaveHoursDetailed, calculateOTHours } from '../../lib/leaveUtils';
 
 interface AttendanceLog {
     id: string;
     employee_id: string;
     check_type: CheckType;
     timestamp: string;
+    note?: string;
 }
 
 interface LeaveRequest {
@@ -73,6 +74,8 @@ const AttendanceCalendarPage: React.FC = () => {
 
     // Add Log State
     const [isAddLogModalOpen, setIsAddLogModalOpen] = useState(false);
+    const [isEditLogModalOpen, setIsEditLogModalOpen] = useState(false);
+    const [editingLog, setEditingLog] = useState<AttendanceLog | null>(null);
     const [selectedLeaveForModification, setSelectedLeaveForModification] = useState<LeaveRequest | null>(null);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [newLogCheckType, setNewLogCheckType] = useState<CheckType>(CheckType.IN);
@@ -355,18 +358,29 @@ const AttendanceCalendarPage: React.FC = () => {
                 if (overlapStart < overlapEnd) {
                     const employee = employees.find(emp => emp.id === selectedEmployeeId);
                     const isOvertimeApplication = leave.leave_type?.code === 'OT' || leave.leave_type?.code === 'CO' || leave.leave_type?.code === 'ALC' || (leave.leave_type?.name?.includes('加班') && !leave.leave_type?.name?.includes('補休餘額')) || leave.leave_type?.name?.includes('折現') || leave.leave_type?.name?.includes('折算');
-                    const detailed = calculateLeaveHoursDetailed(
-                        overlapStart,
-                        overlapEnd,
-                        employee || {},
-                        !!isOvertimeApplication,
-                        true,
-                        historicalSchedules,
-                        0,
-                        false,
-                        false
-                    );
-                    dayHours = detailed.finalHours;
+                    if (isOvertimeApplication) {
+                        dayHours = calculateOTHours(
+                            overlapStart,
+                            overlapEnd,
+                            employee || {},
+                            historicalSchedules,
+                            leave.manual_break_hours || 0,
+                            !!leave.is_makeup_holiday
+                        );
+                    } else {
+                        const detailed = calculateLeaveHoursDetailed(
+                            overlapStart,
+                            overlapEnd,
+                            employee || {},
+                            false, // ignoreWorkWindow
+                            true, // deductBreaks
+                            historicalSchedules,
+                            leave.manual_break_hours || 0,
+                            !!leave.is_makeup_workday,
+                            !!leave.is_makeup_holiday
+                        );
+                        dayHours = detailed.finalHours;
+                    }
                 }
                 return { ...leave, dayHours };
             });
@@ -646,6 +660,48 @@ const AttendanceCalendarPage: React.FC = () => {
         }
     };
 
+    const handleEditClick = (log: AttendanceLog, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setEditingLog(log);
+        setNewLogCheckType(log.check_type);
+        setNewLogTime(format(parseISO(log.timestamp), 'HH:mm'));
+        setNewLogNote(log.note || '');
+        setIsEditLogModalOpen(true);
+    };
+
+    const handleSubmitEditLog = async () => {
+        if (!editingLog) return;
+
+        setIsSubmittingLog(true);
+        try {
+            // 組合日期和時間 (維持原本的日期)
+            const [hours, minutes] = newLogTime.split(':');
+            const timestamp = new Date(editingLog.timestamp);
+            timestamp.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+            const result = await updateAttendanceLog(
+                editingLog.id,
+                newLogCheckType,
+                timestamp.toISOString(),
+                newLogNote || undefined
+            );
+
+            if (result.success) {
+                await fetchData();
+                setIsEditLogModalOpen(false);
+                setEditingLog(null);
+            } else {
+                console.error('Edit attendace log error details:', result.error);
+                alert(`修正失敗: ${result.error || '可能是資料庫政策 (RLS) 限制，請執行 RLS 修復腳本'}`);
+            }
+        } catch (error) {
+            console.error('Error submitting edit log:', error);
+            alert('系統錯誤');
+        } finally {
+            setIsSubmittingLog(false);
+        }
+    };
+
     return (
         <div className="space-y-6 print:space-y-4 print:p-0">
             {/* Header & Filters */}
@@ -901,20 +957,32 @@ const AttendanceCalendarPage: React.FC = () => {
                                                                         {log.check_type === CheckType.IN ? 'login' : 'logout'}
                                                                     </span>
                                                                 )}
-                                                                {format(parseISO(log.timestamp), 'HH:mm')}
+                                                                    {format(parseISO(log.timestamp), 'HH:mm')}
+                                                                </div>
+                                                                <div className="flex items-center">
+                                                                    <button
+                                                                        onClick={(e) => handleEditClick(log, e)}
+                                                                        className={`opacity-0 group-hover/log:opacity-100 p-0.5 rounded transition-all mr-0.5 ${selectedLogIds.has(log.id)
+                                                                            ? 'hover:bg-white/20 text-white/70 hover:text-white'
+                                                                            : 'hover:bg-white text-slate-400 hover:text-blue-500'
+                                                                            }`}
+                                                                        title="編輯紀錄"
+                                                                    >
+                                                                        <Pencil className="h-3 w-3" />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={(e) => handleDeleteClick(log.id, e)}
+                                                                        className={`opacity-0 group-hover/log:opacity-100 p-0.5 rounded transition-all ${selectedLogIds.has(log.id)
+                                                                            ? 'hover:bg-white/20 text-white/70 hover:text-white'
+                                                                            : 'hover:bg-white text-slate-400 hover:text-rose-500'
+                                                                            }`}
+                                                                        title="刪除紀錄"
+                                                                    >
+                                                                        <Trash2 className="h-3 w-3" />
+                                                                    </button>
+                                                                </div>
                                                             </div>
-                                                            <button
-                                                                onClick={(e) => handleDeleteClick(log.id, e)}
-                                                                className={`opacity-0 group-hover/log:opacity-100 p-0.5 rounded transition-all ${selectedLogIds.has(log.id)
-                                                                    ? 'hover:bg-white/20 text-white/70 hover:text-white'
-                                                                    : 'hover:bg-white text-slate-400 hover:text-rose-500'
-                                                                    }`}
-                                                                title="刪除紀錄"
-                                                            >
-                                                                <Trash2 className="h-3 w-3" />
-                                                            </button>
-                                                        </div>
-                                                    ))}
+                                                        ))}
                                                 </div>
                                             )}
 
@@ -1084,6 +1152,113 @@ const AttendanceCalendarPage: React.FC = () => {
                                 className="flex-1 py-5 text-sm font-black text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50"
                             >
                                 {isSubmittingLog ? '處理中...' : '確定新增'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Log Modal */}
+            {isEditLogModalOpen && editingLog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-100">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                                        <Pencil className="h-5 w-5 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-slate-900">修正打卡紀錄</h3>
+                                        <p className="text-xs text-slate-500 font-medium">
+                                            {format(parseISO(editingLog.timestamp), 'yyyy年MM月dd日', { locale: zhTW })}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setIsEditLogModalOpen(false);
+                                        setEditingLog(null);
+                                    }}
+                                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                                >
+                                    <X className="h-5 w-5 text-slate-400" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            {/* 員工資訊 */}
+                            <div className="bg-slate-50 rounded-xl p-4">
+                                <div className="text-xs font-bold text-slate-500 mb-1">員工</div>
+                                <div className="text-sm font-black text-slate-900">{selectedEmployee?.name}</div>
+                            </div>
+
+                            {/* 打卡類型 */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-2">打卡類型</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        onClick={() => setNewLogCheckType(CheckType.IN)}
+                                        className={`py-3 px-4 rounded-xl text-sm font-black transition-all ${newLogCheckType === CheckType.IN
+                                            ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100'
+                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            }`}
+                                    >
+                                        上班
+                                    </button>
+                                    <button
+                                        onClick={() => setNewLogCheckType(CheckType.OUT)}
+                                        className={`py-3 px-4 rounded-xl text-sm font-black transition-all ${newLogCheckType === CheckType.OUT
+                                            ? 'bg-orange-500 text-white shadow-md shadow-orange-100'
+                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            }`}
+                                    >
+                                        下班
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* 時間 */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-2">時間</label>
+                                <TimeInput24h
+                                    value={newLogTime}
+                                    onChange={setNewLogTime}
+                                    required
+                                />
+                            </div>
+
+                            {/* 備註 */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-2">備註</label>
+                                <textarea
+                                    value={newLogNote}
+                                    onChange={(e) => setNewLogNote(e.target.value)}
+                                    placeholder="修改原因..."
+                                    rows={3}
+                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex border-t border-slate-100">
+                            <button
+                                onClick={() => {
+                                    setIsEditLogModalOpen(false);
+                                    setEditingLog(null);
+                                }}
+                                disabled={isSubmittingLog}
+                                className="flex-1 py-5 text-sm font-black text-slate-400 hover:bg-slate-50 transition-colors border-r border-slate-100"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleSubmitEditLog}
+                                disabled={isSubmittingLog}
+                                className="flex-1 py-5 text-sm font-black text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                            >
+                                {isSubmittingLog ? '處理中...' : '儲存修改'}
                             </button>
                         </div>
                     </div>

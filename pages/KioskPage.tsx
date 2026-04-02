@@ -60,6 +60,13 @@ const KioskPage: React.FC = () => {
     } | null>(null);
     const [companyLocations, setCompanyLocations] = useState<CompanyLocation[]>([]);
 
+    // --- 優化新增狀態 ---
+    const [activeEmployee, setActiveEmployee] = useState<Employee | null>(null);
+    const [lastLog, setLastLog] = useState<any>(null);
+    const [suggestedType, setSuggestedType] = useState<'IN' | 'OUT' | null>(null);
+    const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+    const [autoClearTimer, setAutoClearTimer] = useState<NodeJS.Timeout | null>(null);
+
     // 背景持續監測位置
     useEffect(() => {
         const isSecure = window.isSecureContext || window.location.hostname === 'localhost';
@@ -154,7 +161,61 @@ const KioskPage: React.FC = () => {
         loadLocations();
     }, []);
 
+    // 重置自動清空定時器
+    const resetAutoClear = useCallback(() => {
+        if (autoClearTimer) clearTimeout(autoClearTimer);
+        const timer = setTimeout(() => {
+            setPin('');
+            setActiveEmployee(null);
+            setLastLog(null);
+            setSuggestedType(null);
+        }, 15000); // 15秒無動作自動清空
+        setAutoClearTimer(timer);
+    }, [autoClearTimer]);
+
+    // 監控 PIN 碼輸入，滿 6 位自動驗證
+    useEffect(() => {
+        if (pin.length === 6) {
+            const verify = async () => {
+                setIsVerifyingPin(true);
+                try {
+                    const emp = await checkPin(pin);
+                    if (emp) {
+                        setActiveEmployee(emp);
+                        const logs = await getRecentAttendance(emp.id, 1);
+                        const latest = logs[0];
+                        setLastLog(latest);
+                        
+                        // 智慧建議邏輯：如果最後一筆是 IN，則建議 OUT；否則建議 IN
+                        if (latest && latest.check_type === 'IN') {
+                            setSuggestedType('OUT');
+                        } else {
+                            setSuggestedType('IN');
+                        }
+                        resetAutoClear();
+                    } else {
+                        // PIN 碼無效
+                        setSuggestedType(null);
+                        setActiveEmployee(null);
+                    }
+                } catch (err) {
+                    console.error('身份驗證失敗', err);
+                } finally {
+                    setIsVerifyingPin(false);
+                }
+            };
+            verify();
+        } else {
+            // 清除當前狀態
+            if (activeEmployee) setActiveEmployee(null);
+            if (suggestedType) setSuggestedType(null);
+        }
+        
+        if (pin.length > 0) resetAutoClear();
+    }, [pin]);
+
     const handleKeypadPress = useCallback((value: KeypadValue) => {
+        resetAutoClear();
         if (value === 'CLEAR') {
             setPin('');
             return;
@@ -167,7 +228,7 @@ const KioskPage: React.FC = () => {
             if (prev.length >= 6) return prev;
             return prev + value;
         });
-    }, []);
+    }, [resetAutoClear]);
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -197,7 +258,7 @@ const KioskPage: React.FC = () => {
         setIsLoading(true);
 
         try {
-            const employee = await checkPin(pin);
+            const employee = activeEmployee || await checkPin(pin);
             if (!employee) {
                 setFailureMessage('驗證失敗：找不到此 PIN 碼');
                 setShowFailure(true);
@@ -206,6 +267,17 @@ const KioskPage: React.FC = () => {
                 setTimeout(() => setIsAnimating(false), 500);
                 setIsLoading(false);
                 return;
+            }
+
+            // 防呆確認：如果員工選擇的操作與預期相反（重複打相同類型的卡）
+            const selectedType = type === 'in' ? 'IN' : 'OUT';
+            if (lastLog && lastLog.check_type === selectedType) {
+                const typeName = selectedType === 'IN' ? '上班' : '下班';
+                const confirmMsg = `偵測到您今日已於 ${new Date(lastLog.timestamp).toLocaleTimeString()} 進行過${typeName}打卡，確定要再次${typeName}嗎？`;
+                if (!window.confirm(confirmMsg)) {
+                    setIsLoading(false);
+                    return;
+                }
             }
 
             let locationData: { latitude: number; longitude: number; accuracy: number; origin?: string } | undefined;
@@ -234,7 +306,7 @@ const KioskPage: React.FC = () => {
                 setIsGettingLocation(false);
             }
 
-            const typeStr = type === 'in' ? 'IN' : 'OUT';
+            const typeStr = selectedType;
             const logResult = await logAttendance(employee.id, typeStr, locationData);
 
             if (logResult.success) {
@@ -242,6 +314,9 @@ const KioskPage: React.FC = () => {
                 setSuccessData({ employee, type: typeStr, time: formatTime(currentTime), recentLogs });
                 setShowSuccess(true);
                 setPin('');
+                setActiveEmployee(null);
+                setLastLog(null);
+                setSuggestedType(null);
             } else {
                 setFailureMessage(`打卡失敗：${logResult.error || '未知錯誤'}`);
                 setShowFailure(true);
@@ -256,119 +331,121 @@ const KioskPage: React.FC = () => {
     };
 
     return (
-        <div className="bg-[#eef6ff] dark:bg-background-dark text-slate-900 dark:text-white font-display min-h-screen flex flex-col items-center justify-center p-4 selection:bg-primary/20 relative overflow-hidden">
+        <div className="bg-[#eef6ff] dark:bg-background-dark text-slate-900 dark:text-white font-display h-[100dvh] flex flex-col items-center justify-center p-3 sm:p-4 selection:bg-primary/20 relative overflow-hidden">
             <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
                 <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-[100px]" />
                 <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] bg-blue-400/10 rounded-full blur-[100px]" />
             </div>
 
-            <main className="w-full max-w-[440px] bg-white dark:bg-[#1e293b] rounded-2xl shadow-xl overflow-hidden border border-slate-100 dark:border-slate-700 flex flex-col relative z-10">
-                <header className="bg-white dark:bg-[#1e293b] p-6 text-center border-b border-slate-100 dark:border-slate-700">
-                    <div className="flex flex-col items-center gap-2">
-                        <img src="/logo.jpg" alt="Y'ACC Logo" className="h-20 w-auto object-contain mb-1" />
-                        <h2 className="text-primary dark:text-blue-400 text-lg font-black tracking-[0.1em]">員 工 打 卡 系 統</h2>
+            <main className="w-full max-w-[420px] h-auto max-h-[720px] bg-white dark:bg-[#1e293b] rounded-3xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-700 flex flex-col relative z-10 shrink-0">
+                <header className="bg-white dark:bg-[#1e293b] p-4 text-center border-b border-slate-100 dark:border-slate-700">
+                    <div className="flex items-center justify-center gap-3">
+                        <img src="/logo.jpg" alt="Y'ACC Logo" className="h-10 w-auto object-contain" />
+                        <h2 className="text-primary dark:text-blue-400 text-base font-black tracking-widest">打 卡 系 統</h2>
                     </div>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium tracking-wide">{formatDate(currentTime)}</p>
                 </header>
 
-                <div className="py-6 text-center bg-gradient-to-b from-slate-50 to-white dark:from-[#1e293b] dark:to-[#1e293b]">
-                    <h1 className="text-[56px] leading-none font-bold text-slate-800 dark:text-slate-100 tracking-tight font-mono tabular-nums">{formatTime(currentTime)}</h1>
+                <div className="py-4 text-center bg-slate-50/50 dark:from-[#1e293b]">
+                    <h1 className="text-5xl leading-none font-bold text-slate-800 dark:text-slate-100 tracking-tight font-mono tabular-nums">{formatTime(currentTime)}</h1>
+                    <p className="text-slate-400 text-[10px] mt-1 font-bold">{formatDate(currentTime)}</p>
                 </div>
 
-                <div className={`px-6 pb-2 ${isAnimating ? 'animate-pulse' : ''}`}>
-                    <div className="flex justify-center gap-3 mb-4 mt-2">
+                <div className={`px-6 py-2 ${isAnimating ? 'animate-pulse' : ''}`}>
+                    <div className="flex justify-center gap-2 mb-2">
                         {Array.from({ length: 6 }).map((_, index) => (
-                            <div key={index} className={`h-14 w-11 flex items-center justify-center rounded-lg text-2xl font-bold transition-all duration-200 ${pin[index] !== undefined ? 'border-2 border-primary bg-primary/5 text-primary' : 'border-b-2 border-slate-200 bg-slate-50 text-slate-800'}`}>
+                            <div key={index} className={`h-11 w-9 flex items-center justify-center rounded-lg text-xl font-black transition-all duration-200 ${pin[index] !== undefined ? 'border-2 border-primary bg-primary/5 text-primary' : 'border-b-2 border-slate-200 bg-slate-50 text-slate-800'}`}>
                                 {pin[index]}
                             </div>
                         ))}
                     </div>
                 </div>
 
-                <div className="p-6 pt-2">
-                    <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="px-6 pb-4">
+                    <div className="grid grid-cols-3 gap-2 mb-3">
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                             <NumberButton key={num} value={num.toString() as KeypadValue} onClick={handleKeypadPress} />
                         ))}
-                        <button onClick={() => handleKeypadPress('BACKSPACE')} className="h-14 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center"><span className="material-symbols-outlined">backspace</span></button>
+                        <button onClick={() => handleKeypadPress('BACKSPACE')} className="h-11 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center shadow-sm"><span className="material-symbols-outlined text-lg">backspace</span></button>
                         <NumberButton value="0" onClick={handleKeypadPress} />
-                        <button onClick={() => handleKeypadPress('CLEAR')} className="h-14 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500">清除</button>
+                        <button onClick={() => handleKeypadPress('CLEAR')} className="h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-xs shadow-sm">清除</button>
                     </div>
 
-                    <div className="mb-4">
-                        {locationInfo ? (
-                            <div className={`p-3 border rounded-lg flex items-center gap-3 ${locationInfo.error ? 'bg-rose-50 border-rose-200' : locationInfo.withinRange ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
-                                <div className="flex flex-col items-center">
-                                    <span className={`material-symbols-outlined text-2xl ${
-                                        locationInfo.error ? 'text-rose-500' : 
-                                        locationInfo.origin === 'network' ? 'text-emerald-500 font-bold' :
-                                        locationInfo.origin === 'ip' ? 'text-blue-500' :
-                                        locationInfo.accuracy && locationInfo.accuracy < 100 ? 'text-green-500' : 'text-amber-500'
-                                    }`}>
-                                        {locationInfo.error ? 'location_off' : 
-                                         locationInfo.origin === 'network' ? 'verified_user' :
-                                         locationInfo.origin === 'ip' ? 'lan' :
-                                         locationInfo.accuracy && locationInfo.accuracy < 100 ? 'signal_cellular_4_bar' : 'signal_cellular_2_bar'}
-                                    </span>
-                                    {locationInfo.accuracy && <span className="text-[10px] font-bold opacity-60">{Math.round(locationInfo.accuracy)}m</span>}
+                    {/* 身分資訊區 - 壓縮高度 */}
+                    <div className="mb-2 h-[52px]">
+                        {isVerifyingPin ? (
+                            <div className="h-full bg-blue-50 border border-blue-100 rounded-xl px-4 flex items-center justify-center gap-2 animate-pulse">
+                                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                <span className="text-xs font-bold text-primary">驗證中...</span>
+                            </div>
+                        ) : activeEmployee ? (
+                            <div className="h-full bg-emerald-50 border border-emerald-100 rounded-xl px-3 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white">
+                                        <span className="material-symbols-outlined text-base">person</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-emerald-600 leading-none mb-0.5">Hello!</p>
+                                        <p className="text-sm font-black text-slate-800 leading-none">{activeEmployee.name}</p>
+                                    </div>
                                 </div>
-                                <div className="flex-1 text-sm">
-                                    <p className="font-bold">
-                                        {locationInfo.error ? '定位受限' : 
-                                         locationInfo.origin === 'network' ? '公司網路驗證通過' :
-                                         locationInfo.origin === 'ip' ? '網路位置 (備援)' :
-                                         (locationInfo.withinRange ? '位置正常' : '超出範圍')}
-                                    </p>
-                                    <p className="text-xs opacity-70">
-                                        {locationInfo.error || (
-                                            locationInfo.origin === 'network' ? '已偵測到公司公網 IP，位置合法' :
-                                            locationInfo.origin === 'ip' ? '已透過網路估算概略位置' : 
-                                            `距離 ${locationInfo.locationName} 約 ${formatDistance(locationInfo.distance)}`
-                                        )}
-                                    </p>
-                                </div>
-                                <div className="flex flex-col gap-1 items-end">
-                                    {isGettingLocation ? (
-                                        <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full"></div>
-                                    ) : (
-                                        <button 
-                                            onClick={() => {
-                                                setLocationInfo(null);
-                                                geolocationManager.stopWatching();
-                                                geolocationManager.startWatching();
-                                            }}
-                                            className="p-1.5 hover:bg-black/5 rounded-md text-slate-400 hover:text-primary transition-colors"
-                                            title="重新整理定位"
-                                        >
-                                            <span className="material-symbols-outlined text-lg">refresh</span>
-                                        </button>
-                                    )}
-                                </div>
+                                {suggestedType && (
+                                    <div className="bg-white/80 px-2 py-1 rounded-lg border border-emerald-200 text-center">
+                                        <p className="text-[8px] font-black text-emerald-600 uppercase">建議</p>
+                                        <p className="text-[10px] font-black text-slate-700 leading-none">{suggestedType === 'IN' ? '上班' : '下班'}</p>
+                                    </div>
+                                )}
                             </div>
                         ) : (
-                            <div className="p-3 bg-slate-50 border border-slate-100 rounded-lg flex items-center gap-3 animate-pulse">
-                                <span className="material-symbols-outlined text-slate-400">my_location</span>
-                                <span className="text-sm text-slate-500">正在獲取位置...</span>
+                            <div className="h-full flex items-center justify-center border border-dashed border-slate-200 rounded-xl">
+                                <p className="text-[10px] font-bold text-slate-300">請輸入員編 PIN 碼</p>
                             </div>
                         )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <ActionButton type="in" onClick={() => handleSubmit('in')} disabled={pin.length !== 6 || isLoading} />
-                        <ActionButton type="out" onClick={() => handleSubmit('out')} disabled={pin.length !== 6 || isLoading} />
+                    <div className="mb-3">
+                        {locationInfo ? (
+                            <div className={`py-1.5 px-3 border rounded-lg flex items-center gap-2 ${locationInfo.error ? 'bg-rose-50 border-rose-200' : locationInfo.withinRange ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                                <span className={`material-symbols-outlined text-lg ${locationInfo.error ? 'text-rose-500' : 'text-slate-500'}`}>
+                                    {locationInfo.error ? 'location_off' : 'my_location'}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] font-bold truncate">
+                                        {locationInfo.error ? '定位受限' : (locationInfo.withinRange ? '位置正常' : '超出範圍')} 
+                                        {!locationInfo.error && <span className="ml-1 opacity-60 font-normal">({locationInfo.locationName})</span>}
+                                    </p>
+                                </div>
+                                <button onClick={() => { setLocationInfo(null); geolocationManager.stopWatching(); geolocationManager.startWatching(); }} className="p-1 hover:bg-black/5 rounded">
+                                    <span className="material-symbols-outlined text-base text-slate-400">refresh</span>
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="py-1.5 px-3 bg-slate-50 border border-slate-100 rounded-lg flex items-center gap-2 animate-pulse">
+                                <span className="material-symbols-outlined text-base text-slate-400">hourglass_empty</span>
+                                <span className="text-[10px] text-slate-500">定位中...</span>
+                            </div>
+                        )}
                     </div>
 
-                    {/* 底部功能入口 */}
-                    <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-center gap-6">
-                        <Link to="/employee/login" className="flex items-center gap-1.5 text-slate-500 hover:text-primary transition-colors font-bold text-sm">
-                            <span className="material-symbols-outlined text-lg">person</span>
-                            員工入口
-                        </Link>
-                        <div className="w-px h-3 bg-slate-200 dark:bg-slate-600"></div>
-                        <Link to="/admin/login" className="flex items-center gap-1.5 text-slate-500 hover:text-primary transition-colors font-bold text-sm">
-                            <span className="material-symbols-outlined text-lg">admin_panel_settings</span>
-                            管理者入口
-                        </Link>
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                        <CompactActionButton 
+                            type="in" 
+                            onClick={() => handleSubmit('in')} 
+                            disabled={pin.length !== 6 || isLoading} 
+                            isSuggested={suggestedType === 'IN'}
+                            isDuplicated={lastLog?.check_type === 'IN'}
+                        />
+                        <CompactActionButton 
+                            type="out" 
+                            onClick={() => handleSubmit('out')} 
+                            disabled={pin.length !== 6 || isLoading} 
+                            isSuggested={suggestedType === 'OUT'}
+                            isDuplicated={lastLog?.check_type === 'OUT'}
+                        />
+                    </div>
+
+                    <div className="flex items-center justify-center gap-6 pt-2 border-t border-slate-100">
+                        <Link to="/employee/login" className="text-slate-400 hover:text-primary transition-colors font-bold text-[10px]">員工入口</Link>
+                        <Link to="/admin/login" className="text-slate-400 hover:text-primary transition-colors font-bold text-[10px]">管理者入口</Link>
                     </div>
                 </div>
             </main>
@@ -388,13 +465,42 @@ const KioskPage: React.FC = () => {
 };
 
 const NumberButton: React.FC<{ value: KeypadValue; onClick: (val: KeypadValue) => void }> = ({ value, onClick }) => (
-    <button onClick={() => onClick(value)} className="h-14 rounded-lg bg-slate-50 hover:bg-slate-100 text-xl font-semibold text-slate-700 border border-slate-100">{value}</button>
+    <button onClick={() => onClick(value)} className="h-11 rounded-xl bg-slate-50 hover:bg-slate-100 text-lg font-black text-slate-700 border border-slate-100 shadow-sm transition-all active:scale-95 active:bg-slate-200">{value}</button>
 );
 
-const ActionButton: React.FC<{ type: 'in' | 'out'; onClick: () => void; disabled: boolean }> = ({ type, onClick, disabled }) => (
-    <button onClick={onClick} className={`h-16 flex flex-col items-center justify-center rounded-xl text-white font-bold transition-all ${type === 'in' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-orange-500 hover:bg-orange-600'} ${disabled ? 'opacity-50' : 'opacity-100'}`}>
-        <span className="material-symbols-outlined">{type === 'in' ? 'login' : 'logout'}</span>
-        <span>{type === 'in' ? '上班打卡' : '下班打卡'}</span>
+const CompactActionButton: React.FC<{ 
+    type: 'in' | 'out'; 
+    onClick: () => void; 
+    disabled: boolean;
+    isSuggested?: boolean;
+    isDuplicated?: boolean;
+}> = ({ type, onClick, disabled, isSuggested, isDuplicated }) => (
+    <button 
+        onClick={onClick} 
+        disabled={disabled}
+        className={`h-20 flex flex-col items-center justify-center rounded-2xl text-white font-black transition-all relative overflow-hidden group
+            ${type === 'in' 
+                ? (isSuggested ? 'bg-emerald-500 shadow-lg shadow-emerald-200 ring-2 ring-emerald-100 scale-105 opacity-100 z-10' : 'bg-emerald-600/40 opacity-50') 
+                : (isSuggested ? 'bg-orange-500 shadow-lg shadow-orange-200 ring-2 ring-orange-100 scale-105 opacity-100 z-10' : 'bg-orange-600/40 opacity-50')
+            } 
+            ${disabled ? 'opacity-20 grayscale-100 cursor-not-allowed scale-100 ring-0' : 'hover:scale-[1.05] hover:opacity-100 active:scale-95'}
+        `}
+    >
+        {isSuggested && (
+            <div className="absolute top-0 right-0 p-1 flex items-center">
+                <span className="text-[8px] font-black bg-white/20 px-1 rounded-full animate-pulse">SUGGESTED</span>
+            </div>
+        )}
+        <span className={`material-symbols-outlined text-2xl mb-0.5 ${isSuggested ? 'animate-pulse' : ''}`}>
+            {type === 'in' ? 'login' : 'logout'}
+        </span>
+        <span className="text-xs tracking-widest">{type === 'in' ? '上班打卡' : '下班打卡'}</span>
+
+        {isDuplicated && !isSuggested && (
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <p className="text-[8px] font-black bg-black/60 px-1.5 py-0.5 rounded border border-white/10 text-white uppercase">Today OK</p>
+            </div>
+        )}
     </button>
 );
 

@@ -574,6 +574,34 @@ export const createAttendanceLog = async (
 };
 
 /**
+ * 管理者更新打卡紀錄
+ */
+export const updateAttendanceLog = async (
+    id: string,
+    checkType: CheckType,
+    timestamp: string,
+    note?: string
+): Promise<{ success: boolean; error?: string }> => {
+    try {
+        const { error } = await supabase
+            .from('attendance_logs')
+            .update({
+                check_type: checkType,
+                timestamp: timestamp,
+                is_makeup: true, // 管理者修正後標記為補登/修正
+                note: note || null
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error updating attendance log:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
  * 批量匯入打卡紀錄
  */
 export const importAttendanceLogs = async (logs: any[]): Promise<{ success: boolean; succeeded: number; skipped: number; failed: number; errors: any[] }> => {
