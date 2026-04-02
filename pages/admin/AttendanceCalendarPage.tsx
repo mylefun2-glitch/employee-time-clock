@@ -393,178 +393,155 @@ const AttendanceCalendarPage: React.FC = () => {
 
             // Calculate advanced work hours
             let hours = 0;
+            // -------------------------------------------------------------------------
+            // 採用「區間聯集法 (Interval Union)」計算總工時
+            // -------------------------------------------------------------------------
+            const workIntervals: { start: Date, end: Date }[] = [];
+            const employee = employees.find(e => e.id === selectedEmployeeId);
+
+            // 取得班表與工具函數
+            const getEffectiveSchedule = () => {
+                const dateStr = format(day, 'yyyy-MM-dd');
+                const schedule = historicalSchedules
+                    .filter(s => s.effective_date <= dateStr)
+                    .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
+
+                if (schedule) return schedule;
+                return {
+                    work_start_time: employee?.work_start_time || '08:00',
+                    work_end_time: employee?.work_end_time || '17:00',
+                    break_start_time: employee?.break_start_time || '12:00',
+                    break_end_time: employee?.break_end_time || '13:00',
+                    break2_start_time: employee?.break2_start_time,
+                    break2_end_time: employee?.break2_end_time,
+                    break3_start_time: employee?.break3_start_time,
+                    break3_end_time: employee?.break3_end_time,
+                    rest_days: employee?.rest_days || [0, 6]
+                };
+            };
+            const schedule = getEffectiveSchedule();
+            const getDayTime = (timeStr: string, baseDate: Date) => {
+                if (!timeStr) return null;
+                const [h, m] = timeStr.split(':').map(Number);
+                const d = new Date(baseDate);
+                d.setHours(h, m, 0, 0);
+                return d;
+            };
+
+            const schedIn = getDayTime(schedule.work_start_time, day)!;
+            const schedOut = getDayTime(schedule.work_end_time, day)!;
+
+            // 1. 收集打卡區間
             if (dayLogs.length >= 2) {
                 const checkInLog = dayLogs.find(l => l.check_type === CheckType.IN);
                 const checkOutLog = [...dayLogs].reverse().find(l => l.check_type === CheckType.OUT);
-
                 if (checkInLog && checkOutLog) {
-                    const employee = employees.find(e => e.id === selectedEmployeeId);
-
-                    // 取得當天有效的班表
-                    const getEffectiveSchedule = () => {
-                        const dateStr = format(day, 'yyyy-MM-dd');
-                        const schedule = historicalSchedules
-                            .filter(s => s.effective_date <= dateStr)
-                            .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
-
-                        if (schedule) return schedule;
-                        return {
-                            work_start_time: employee?.work_start_time || '08:00',
-                            work_end_time: employee?.work_end_time || '17:00',
-                            break_start_time: employee?.break_start_time || '12:00',
-                            break_end_time: employee?.break_end_time || '13:00',
-                            break2_start_time: employee?.break2_start_time,
-                            break2_end_time: employee?.break2_end_time,
-                            break3_start_time: employee?.break3_start_time,
-                            break3_end_time: employee?.break3_end_time,
-                            rest_days: employee?.rest_days || [0, 6]
-                        };
-                    };
-
-                    const schedule = getEffectiveSchedule();
-
-                    // 1. Get schedule times
-                    const scheduleStart = schedule.work_start_time;
-                    const scheduleEnd = schedule.work_end_time;
-                    const breakStart = schedule.break_start_time;
-                    const breakEnd = schedule.break_end_time;
-
                     const actualIn = new Date(checkInLog.timestamp);
                     const actualOut = new Date(checkOutLog.timestamp);
-
-                    const getDayTime = (timeStr: string) => {
-                        const [h, m] = timeStr.split(':').map(Number);
-                        const d = new Date(actualIn);
-                        d.setHours(h, m, 0, 0);
-                        return d;
-                    };
-
-                    const scheduledInDate = getDayTime(scheduleStart);
-                    const scheduledOutDate = getDayTime(scheduleEnd);
-
-                    // 2. Apply 30-minute Flex Time logic
+                    
+                    // 應用彈性時間位移補償
+                    let effectiveIn = actualIn;
                     let lateMs = 0;
-                    if (actualIn > scheduledInDate) {
-                        // 彈性時間上限 30 分鐘
-                        lateMs = Math.min(actualIn.getTime() - scheduledInDate.getTime(), 30 * 60 * 1000);
+                    if (actualIn > schedIn) {
+                        lateMs = Math.min(actualIn.getTime() - schedIn.getTime(), 30 * 60 * 1000);
+                        effectiveIn = new Date(actualIn.getTime() - lateMs);
                     }
-
-                    // 基準時間：將到職時間與下班時間同步扣除彈性偏移量
-                    const effectiveIn = new Date(actualIn.getTime() - lateMs);
-                    const effectiveOut = new Date(actualOut.getTime() - lateMs);
-
-                    // 暫存有效的打卡區間供後續扣除重疊時數使用
-                    let finalEffectiveIn = effectiveIn;
-                    let finalEffectiveOut = effectiveOut;
-
-                    // 誤差校正：
-                    const jitterGraceMs = 5 * 60 * 1000; // 5 分鐘微小誤差（用於 jitter 或早退對齊）
-                    const extraWorkGraceMs = 30 * 60 * 1000; // 30 分鐘額外工時緩衝（依需求不計入）
-
-                    // 起始端對齊 (5 分鐘內)
-                    if (Math.abs(finalEffectiveIn.getTime() - scheduledInDate.getTime()) <= jitterGraceMs) {
-                        finalEffectiveIn = scheduledInDate;
-                    }
-
-                    // 結束端對齊
-                    if (finalEffectiveOut > scheduledOutDate && (finalEffectiveOut.getTime() - scheduledOutDate.getTime()) <= extraWorkGraceMs) {
-                        // 若推移後的下班時間晚於規定時間且在 30 分鐘內，仍以 8 小時計（對齊回到 17:00）
-                        finalEffectiveOut = scheduledOutDate;
-                    } else if (Math.abs(finalEffectiveOut.getTime() - scheduledOutDate.getTime()) <= jitterGraceMs) {
-                        // 一般 5 分鐘內的微小誤差對齊
-                        finalEffectiveOut = scheduledOutDate;
-                    }
-
-                    // 3. Calculate gross duration
-                    let durationMs = finalEffectiveOut.getTime() - finalEffectiveIn.getTime();
-                    if (durationMs < 0) durationMs = 0;
-
-                    // 4. Precise break deduction (Support multiple breaks)
-                    const breaks = [
-                        { start: breakStart, end: breakEnd },
-                        { start: schedule.break2_start_time, end: schedule.break2_end_time },
-                        { start: schedule.break3_start_time, end: schedule.break3_end_time }
-                    ].filter(b => b.start && b.end);
-
-                    let totalBreakOverlapMs = 0;
-                    breaks.forEach(b => {
-                        const bStartDate = getDayTime(b.start!);
-                        const bEndDate = getDayTime(b.end!);
-                        const overlapStart = new Date(Math.max(finalEffectiveIn.getTime(), bStartDate.getTime()));
-                        const overlapEnd = new Date(Math.min(finalEffectiveOut.getTime(), bEndDate.getTime()));
-
-                        if (overlapStart < overlapEnd) {
-                            totalBreakOverlapMs += overlapEnd.getTime() - overlapStart.getTime();
-                        }
-                    });
-
-                    hours = (durationMs - totalBreakOverlapMs) / (1000 * 60 * 60);
-
-                    // 將最終有效的打卡區間存回外部作用域
-                    (day as any)._effectiveIn = finalEffectiveIn;
-                    (day as any)._effectiveOut = finalEffectiveOut;
+                    
+                    // 注意：若有打卡，系統仍會保留 30 分鐘偏移規則，但區間聯集會覆蓋掉遲到部分
+                    workIntervals.push({ start: effectiveIn, end: actualOut });
+                    
+                    // 暫存供 UI 使用
+                    (day as any)._effectiveIn = effectiveIn;
+                    (day as any)._effectiveOut = actualOut;
                 }
             }
 
-            // 累加公務與加班時數 (僅統計 APPROVED 項目)
-            const additionalHours = dayLeaves.reduce((sum, leave) => {
-                if (leave.status?.toUpperCase() !== 'APPROVED') return sum;
-                const typeName = leave.leave_type?.name || '';
+            // 2. 收集公務/加班申請區間 (僅 APPROVED)
+            dayLeaves.forEach(leave => {
+                if (leave.status?.toUpperCase() !== 'APPROVED') return;
                 
+                const typeName = leave.leave_type?.name || '';
                 const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|Official|Business|Visit|Meeting|Training|OT/i;
                 const leaveKeywords = /請假|特休|事假|病假|補休|折現|折算|Holiday|Annual|Leave|Sick|Personal/i;
                 const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
 
                 if (isWorkRelated) {
-                    let h = parseFloat(String(leave.hours || 0));
+                    const s = parseISO(leave.start_date);
+                    const e = parseISO(leave.end_date);
+                    const startOfDay = new Date(day); startOfDay.setHours(0, 0, 0, 0);
+                    const endOfDay = new Date(day); endOfDay.setHours(23, 59, 59, 999);
                     
-                    // 檢查重疊扣除
-                    const effIn = (day as any)._effectiveIn;
-                    const effOut = (day as any)._effectiveOut;
+                    const overlapStart = new Date(Math.max(s.getTime(), startOfDay.getTime()));
+                    const overlapEnd = new Date(Math.min(e.getTime(), endOfDay.getTime()));
                     
-                    if (effIn && effOut) {
-                        const s = parseISO(leave.start_date);
-                        const e = parseISO(leave.end_date);
-                        const overlapStart = new Date(Math.max(s.getTime(), effIn.getTime()));
-                        const overlapEnd = new Date(Math.min(e.getTime(), effOut.getTime()));
-                        
-                        if (overlapStart < overlapEnd) {
-                            const employee = employees.find(emp => emp.id === selectedEmployeeId);
-                            const isOvertimeApplication = leave.leave_type?.code === 'OT' || leave.leave_type?.code === 'CO' || leave.leave_type?.code === 'ALC' || (leave.leave_type?.name?.includes('加班') && !leave.leave_type?.name?.includes('補休餘額')) || leave.leave_type?.name?.includes('折現') || leave.leave_type?.name?.includes('折算');
-                            
-                            let overlapHours = 0;
-                            if (isOvertimeApplication) {
-                                overlapHours = calculateOTHours(
-                                    overlapStart,
-                                    overlapEnd,
-                                    employee || {},
-                                    historicalSchedules,
-                                    0, // 重疊部分不重複扣除 manual_break，由原本申請扣除即可
-                                    !!leave.is_makeup_holiday
-                                );
-                            } else {
-                                const detailed = calculateLeaveHoursDetailed(
-                                    overlapStart,
-                                    overlapEnd,
-                                    employee || {},
-                                    false,
-                                    true,
-                                    historicalSchedules,
-                                    0,
-                                    !!leave.is_makeup_workday,
-                                    !!leave.is_makeup_holiday
-                                );
-                                overlapHours = detailed.finalHours;
-                            }
-                            h = Math.max(0, h - overlapHours);
-                        }
+                    if (overlapStart < overlapEnd) {
+                        workIntervals.push({ start: overlapStart, end: overlapEnd });
                     }
-                    return sum + h;
                 }
-                return sum;
-            }, 0);
+            });
 
-            hours += additionalHours;
+            // 3. 執行聯集合併
+            workIntervals.sort((a, b) => a.start.getTime() - b.start.getTime());
+            const mergedIntervals: { start: Date, end: Date }[] = [];
+            workIntervals.forEach(interval => {
+                if (mergedIntervals.length === 0) {
+                    mergedIntervals.push({ ...interval });
+                } else {
+                    const last = mergedIntervals[mergedIntervals.length - 1];
+                    if (interval.start <= last.end) {
+                        last.end = new Date(Math.max(last.end.getTime(), interval.end.getTime()));
+                    } else {
+                        mergedIntervals.push({ ...interval });
+                    }
+                }
+            });
+
+            // 4. 計算總時數並扣除休息時間
+            let netTotalMs = 0;
+            const breakWindows = [
+                { s: getDayTime(schedule.break_start_time, day), e: getDayTime(schedule.break_end_time, day) },
+                { s: getDayTime(schedule.break2_start_time, day), e: getDayTime(schedule.break2_end_time, day) },
+                { s: getDayTime(schedule.break3_start_time, day), e: getDayTime(schedule.break3_end_time, day) }
+            ].filter(b => b.s && b.e);
+
+            mergedIntervals.forEach(m => {
+                let segmentMs = m.end.getTime() - m.start.getTime();
+                let breakOverlapMs = 0;
+                breakWindows.forEach(b => {
+                    const overlapS = Math.max(m.start.getTime(), b.s!.getTime());
+                    const overlapE = Math.min(m.end.getTime(), b.e!.getTime());
+                    if (overlapS < overlapE) {
+                        breakOverlapMs += (overlapE - overlapS);
+                    }
+                });
+                netTotalMs += (segmentMs - breakOverlapMs);
+            });
+
+            let finalHours = netTotalMs / (1000 * 60 * 60);
+
+            // 5. 特殊規則：溢出容緩與自動補齊
+            // 計算班表約定工時 (例如 17:00 - 08:00 - 1H = 8.0)
+            const schedDurationMs = schedOut.getTime() - schedIn.getTime();
+            let schedBreakMs = 0;
+            breakWindows.forEach(b => {
+                const overlapS = Math.max(schedIn.getTime(), b.s!.getTime());
+                const overlapE = Math.min(schedOut.getTime(), b.e!.getTime());
+                if (overlapS < overlapE) schedBreakMs += (overlapE - overlapS);
+            });
+            const targetAgreedHours = (schedDurationMs - schedBreakMs) / (1000 * 60 * 60);
+
+            // A. 低於標竿但接近：若在容放範圍 (如 7.6H~8.0H) 且工作區間確實涵蓋了主要班表，補齊至約定工時
+            const coversCore = mergedIntervals.some(m => m.start <= schedIn && m.end >= schedOut);
+            if (finalHours >= targetAgreedHours - 0.4 && finalHours < targetAgreedHours && coversCore) {
+                finalHours = targetAgreedHours;
+            }
+
+            // B. 高於標竿但未滿 30 分鐘：若溢出部分 <= 0.5H，直接以約定工時計算
+            if (finalHours > targetAgreedHours && finalHours <= targetAgreedHours + 0.5) {
+                finalHours = targetAgreedHours;
+            }
+
+            hours = parseFloat(finalHours.toFixed(2));
 
             data[dateKey] = { logs: dayLogs, leaves: dayLeaves, hours: parseFloat(hours.toFixed(2)), holidayName };
         });
@@ -1097,7 +1074,8 @@ const AttendanceCalendarPage: React.FC = () => {
                                                     style={{ backgroundColor: leave.leave_type?.color || '#3b82f6' }}
                                                     title={leave.reason}
                                                 >
-                                                    {leave.leave_type?.name} {leave.dayHours !== undefined ? (leave.dayHours > 0 ? `${leave.dayHours}H` : '') : (leave.hours ? `${leave.hours}H` : '')}
+                                                    {leave.leave_type?.name} {leave.dayHours !== undefined ? `${parseFloat(String(leave.dayHours)).toFixed(1)}H` : (leave.hours ? `${leave.hours}H` : '')}
+                                                    {leave.dayHours !== undefined && leave.hours !== undefined && Math.abs(leave.dayHours - leave.hours) > 0.01 ? ` (總計 ${leave.hours}H)` : ''}
                                                 </div>
                                             ))}
                                         </div>

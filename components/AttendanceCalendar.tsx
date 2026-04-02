@@ -3,13 +3,15 @@ import { supabase } from '../lib/supabase';
 import { format, startOfMonth, endOfMonth, isSameDay, parseISO, addMonths, subMonths, startOfWeek, getDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, FileText, Download, Plus } from 'lucide-react';
 import { isNationalHoliday } from '../lib/holidays';
-import { CheckType, Employee } from '../types';
 import MakeupRequestForm from './MakeupRequestForm';
 import LeaveRequestForm from './LeaveRequestForm';
 import ModificationRequestForm from './ModificationRequestForm';
 import { requestService } from '../services/requestService';
-import { formatDateTimeRange } from '../lib/hrUtils';
 import { getEmployeeInfo } from '../services/employee';
+import { calculateLeaveHoursDetailed, calculateOTHours } from '../lib/leaveUtils';
+import { formatDateTimeRange } from '../lib/hrUtils';
+import { getEmployeeSchedules } from '../services/admin';
+import { CheckType, Employee, EmployeeSchedule } from '../types';
 
 interface AttendanceLog {
     id: string;
@@ -26,6 +28,7 @@ interface LeaveRequest {
     reason: string;
     status: string;
     hours?: number;
+    dayHours?: number;
     leave_type?: {
         name: string;
         color: string;
@@ -42,6 +45,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
     const [logs, setLogs] = useState<AttendanceLog[]>([]);
     const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+    const [historicalSchedules, setHistoricalSchedules] = useState<EmployeeSchedule[]>([]);
     const [loading, setLoading] = useState(false);
     const [showMakeupForm, setShowMakeupForm] = useState(false);
     const [selectedDateStr, setSelectedDateStr] = useState<string>('');
@@ -100,6 +104,10 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
 
             setLogs(logsData || []);
             setLeaves(leavesData || []);
+
+            // Fetch historical schedules for accurate calculation
+            const schedules = await getEmployeeSchedules(targetEmployeeId);
+            setHistoricalSchedules(schedules || []);
         } catch (err) {
             console.error('Error fetching calendar data:', err);
         } finally {
@@ -149,71 +157,88 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 const endOfDay = new Date(day);
                 endOfDay.setHours(23, 59, 59, 999);
                 return s <= endOfDay && e >= startOfDay;
+            }).map(leave => {
+                const s = parseISO(leave.start_date);
+                const e = parseISO(leave.end_date);
+                const startOfDay = new Date(day);
+                startOfDay.setHours(0, 0, 0, 0);
+                const endOfDay = new Date(day);
+                endOfDay.setHours(23, 59, 59, 999);
+                const overlapStart = new Date(Math.max(s.getTime(), startOfDay.getTime()));
+                const overlapEnd = new Date(Math.min(e.getTime(), endOfDay.getTime()));
+                
+                let dayHours = 0;
+                if (overlapStart < overlapEnd && targetEmployee) {
+                    const typeName = leave.leave_type?.name || '';
+                    const isOvertimeApplication = typeName.includes('加班') || typeName.includes('折現') || typeName.includes('折算');
+                    
+                    if (isOvertimeApplication) {
+                        dayHours = calculateOTHours(
+                            overlapStart,
+                            overlapEnd,
+                            targetEmployee,
+                            historicalSchedules
+                        );
+                    } else {
+                        const detailed = calculateLeaveHoursDetailed(
+                            overlapStart,
+                            overlapEnd,
+                            targetEmployee,
+                            false,
+                            true,
+                            historicalSchedules
+                        );
+                        dayHours = detailed.finalHours;
+                    }
+                }
+                return { ...leave, dayHours };
             });
 
             let dayHours = 0;
-            if (dayLogs.length >= 2) {
+            // -------------------------------------------------------------------------
+            // 採用「區間聯集法 (Interval Union)」計算總工時
+            // -------------------------------------------------------------------------
+            const workIntervals: { start: Date, end: Date }[] = [];
+            
+            // 取得班表基準
+            const getDayTime = (timeStr: string, baseDate: Date) => {
+                if (!timeStr) return null;
+                const [h, m] = timeStr.split(':').map(Number);
+                const d = new Date(baseDate);
+                d.setHours(h, m, 0, 0);
+                return d;
+            };
+
+            const schedIn = getDayTime(targetEmployee?.work_start_time || '08:00', day)!;
+            const schedOut = getDayTime(targetEmployee?.work_end_time || '17:00', day)!;
+
+            // 1. 收集打卡區間
+            if (dayLogs.length >= 2 && targetEmployee) {
                 const checkInLog = dayLogs.find(l => l.check_type === CheckType.IN);
                 const checkOutLog = [...dayLogs].reverse().find(l => l.check_type === CheckType.OUT);
-
-                if (checkInLog && checkOutLog && targetEmployee) {
-                    const scheduleStart = targetEmployee.work_start_time || '08:00';
-                    const scheduleEnd = targetEmployee.work_end_time || '17:00';
-                    const breakStart = targetEmployee.break_start_time || '12:00';
-                    const breakEnd = targetEmployee.break_end_time || '13:00';
-
+                if (checkInLog && checkOutLog) {
                     const actualIn = new Date(checkInLog.timestamp);
                     const actualOut = new Date(checkOutLog.timestamp);
-
-                    const getDayTime = (timeStr: string) => {
-                        const [hours, minutes] = timeStr.split(':').map(Number);
-                        const d = new Date(actualIn);
-                        d.setHours(hours, minutes, 0, 0);
-                        return d;
-                    };
-
-                    const scheduledInDate = getDayTime(scheduleStart);
-                    const scheduledOutDate = getDayTime(scheduleEnd);
-                    const thirtyMins = 30 * 60 * 1000;
-
+                    
+                    // 應用彈性時間位移補償
                     let effectiveIn = actualIn;
-                    if (Math.abs(actualIn.getTime() - scheduledInDate.getTime()) <= thirtyMins) {
-                        effectiveIn = scheduledInDate;
+                    let lateMs = 0;
+                    if (actualIn > schedIn) {
+                        lateMs = Math.min(actualIn.getTime() - schedIn.getTime(), 30 * 60 * 1000);
+                        effectiveIn = new Date(actualIn.getTime() - lateMs);
                     }
-
-                    let effectiveOut = actualOut;
-                    if (Math.abs(actualOut.getTime() - scheduledOutDate.getTime()) <= thirtyMins) {
-                        effectiveOut = scheduledOutDate;
-                    }
-
-                    let durationMs = effectiveOut.getTime() - effectiveIn.getTime();
-                    if (durationMs < 0) durationMs = 0;
-
-                    const breaks = [
-                        { start: breakStart, end: breakEnd },
-                        { start: targetEmployee.break2_start_time, end: targetEmployee.break2_end_time },
-                        { start: targetEmployee.break3_start_time, end: targetEmployee.break3_end_time }
-                    ].filter(b => b.start && b.end);
-
-                    let totalBreakOverlapMs = 0;
-                    breaks.forEach(b => {
-                        const bStartDate = getDayTime(b.start!);
-                        const bEndDate = getDayTime(b.end!);
-                        const overlapStart = new Date(Math.max(effectiveIn.getTime(), bStartDate.getTime()));
-                        const overlapEnd = new Date(Math.min(effectiveOut.getTime(), bEndDate.getTime()));
-                        if (overlapStart < overlapEnd) {
-                            totalBreakOverlapMs += overlapEnd.getTime() - overlapStart.getTime();
-                        }
-                    });
-
-                    dayHours = (durationMs - totalBreakOverlapMs) / (1000 * 60 * 60);
+                    
+                    workIntervals.push({ start: effectiveIn, end: actualOut });
+                    
+                    // 暫存供 UI 使用
+                    (day as any)._effectiveIn = effectiveIn;
+                    (day as any)._effectiveOut = actualOut;
                 }
             }
 
-            // 累加公務與加班時數 (僅統計 APPROVED 項目)
-            // 修正：如果申請時間與打卡時間重疊，則不重複計入
-            const additionalHours = dayLeaves.reduce((sum, leave) => {
-                if (leave.status?.toUpperCase() !== 'APPROVED') return sum;
+            // 2. 收集公務/加班申請區間 (僅 APPROVED)
+            dayLeaves.forEach(leave => {
+                if (leave.status?.toUpperCase() !== 'APPROVED') return;
                 
                 const typeName = leave.leave_type?.name || '';
                 const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|Official|Business|Visit|Meeting|Training|OT/i;
@@ -221,82 +246,82 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
 
                 if (isWorkRelated) {
-                    let h = parseFloat(String(leave.hours || 0));
+                    const s = parseISO(leave.start_date);
+                    const e = parseISO(leave.end_date);
+                    const startOfDay = new Date(day); startOfDay.setHours(0, 0, 0, 0);
+                    const endOfDay = new Date(day); endOfDay.setHours(23, 59, 59, 999);
                     
-                    // 如果當天有打卡紀錄，檢查重疊
-                    if (dayLogs.length >= 2 && targetEmployee) {
-                        const checkInLog = dayLogs.find(l => l.check_type === CheckType.IN);
-                        const checkOutLog = [...dayLogs].reverse().find(l => l.check_type === CheckType.OUT);
-                        
-                        if (checkInLog && checkOutLog) {
-                            const actualIn = new Date(checkInLog.timestamp);
-                            const actualOut = new Date(checkOutLog.timestamp);
-                            
-                            const getDayTime = (timeStr: string) => {
-                                const [hours, minutes] = timeStr.split(':').map(Number);
-                                const d = new Date(actualIn);
-                                d.setHours(hours, minutes, 0, 0);
-                                return d;
-                            };
-
-                            const scheduledInDate = getDayTime(targetEmployee.work_start_time || '08:00');
-                            const scheduledOutDate = getDayTime(targetEmployee.work_end_time || '17:00');
-                            const thirtyMins = 30 * 60 * 1000;
-
-                            let effectiveIn = actualIn;
-                            if (Math.abs(actualIn.getTime() - scheduledInDate.getTime()) <= thirtyMins) {
-                                effectiveIn = scheduledInDate;
-                            }
-
-                            let effectiveOut = actualOut;
-                            if (Math.abs(actualOut.getTime() - scheduledOutDate.getTime()) <= thirtyMins) {
-                                effectiveOut = scheduledOutDate;
-                            }
-
-                            // 申請區段
-                            const leaveS = parseISO(leave.start_date);
-                            const leaveE = parseISO(leave.end_date);
-
-                            // 重疊區段
-                            const overlapS = new Date(Math.max(leaveS.getTime(), effectiveIn.getTime()));
-                            const overlapE = new Date(Math.min(leaveE.getTime(), effectiveOut.getTime()));
-
-                            if (overlapS < overlapE) {
-                                // 計算重疊小時數 (需扣除休息時間)
-                                const breaks = [
-                                    { start: targetEmployee.break_start_time || '12:00', end: targetEmployee.break_end_time || '13:00' },
-                                    { start: targetEmployee.break2_start_time, end: targetEmployee.break2_end_time },
-                                    { start: targetEmployee.break3_start_time, end: targetEmployee.break3_end_time }
-                                ].filter(b => b.start && b.end);
-
-                                let overlapMs = overlapE.getTime() - overlapS.getTime();
-                                let overlapBreakMs = 0;
-                                breaks.forEach(b => {
-                                    const bS = getDayTime(b.start!);
-                                    const bE = getDayTime(b.end!);
-                                    const oS = new Date(Math.max(overlapS.getTime(), bS.getTime()));
-                                    const oE = new Date(Math.min(overlapE.getTime(), bE.getTime()));
-                                    if (oS < oE) {
-                                        overlapBreakMs += oE.getTime() - oS.getTime();
-                                    }
-                                });
-
-                                const overlapHours = (overlapMs - overlapBreakMs) / (1000 * 60 * 60);
-                                h = Math.max(0, h - overlapHours);
-                                console.log(`[Debug] Day ${dateKey}: ${typeName} ${leave.hours}H, Overlap ${overlapHours.toFixed(2)}H, Adding ${h.toFixed(2)}H`);
-                            }
-                        }
+                    const overlapStart = new Date(Math.max(s.getTime(), startOfDay.getTime()));
+                    const overlapEnd = new Date(Math.min(e.getTime(), endOfDay.getTime()));
+                    
+                    if (overlapStart < overlapEnd) {
+                        workIntervals.push({ start: overlapStart, end: overlapEnd });
                     }
-                    return sum + h;
                 }
-                return sum;
-            }, 0);
+            });
 
-            dayHours += additionalHours;
-            if (additionalHours > 0 || dayLogs.length >= 2) {
-                console.log(`[Debug] Day ${dateKey}: Final Hours = ${dayHours}`);
+            // 3. 執行聯集合併
+            workIntervals.sort((a, b) => a.start.getTime() - b.start.getTime());
+            const mergedIntervals: { start: Date, end: Date }[] = [];
+            workIntervals.forEach(interval => {
+                if (mergedIntervals.length === 0) {
+                    mergedIntervals.push({ ...interval });
+                } else {
+                    const last = mergedIntervals[mergedIntervals.length - 1];
+                    if (interval.start <= last.end) {
+                        last.end = new Date(Math.max(last.end.getTime(), interval.end.getTime()));
+                    } else {
+                        mergedIntervals.push({ ...interval });
+                    }
+                }
+            });
+
+            // 4. 計算總時數並扣除休息時間
+            let netTotalMs = 0;
+            const breakWindows = [
+                { s: getDayTime(targetEmployee?.break_start_time || '12:00', day), e: getDayTime(targetEmployee?.break_end_time || '13:00', day) },
+                { s: getDayTime(targetEmployee?.break2_start_time || '', day), e: getDayTime(targetEmployee?.break2_end_time || '', day) },
+                { s: getDayTime(targetEmployee?.break3_start_time || '', day), e: getDayTime(targetEmployee?.break3_end_time || '', day) }
+            ].filter(b => b.s && b.e);
+
+            mergedIntervals.forEach(m => {
+                let segmentMs = m.end.getTime() - m.start.getTime();
+                let breakOverlapMs = 0;
+                breakWindows.forEach(b => {
+                    const overlapS = Math.max(m.start.getTime(), b.s!.getTime());
+                    const overlapE = Math.min(m.end.getTime(), b.e!.getTime());
+                    if (overlapS < overlapE) {
+                        breakOverlapMs += (overlapE - overlapS);
+                    }
+                });
+                netTotalMs += (segmentMs - breakOverlapMs);
+            });
+
+            let finalHours = netTotalMs / (1000 * 60 * 60);
+
+            // 5. 特殊規則：溢出容換與自動補齊
+            // 計算班表約定工時 (例如 17:00 - 08:00 - 1H = 8.0)
+            const schedDurationMs = schedOut.getTime() - schedIn.getTime();
+            let schedBreakMs = 0;
+            breakWindows.forEach(b => {
+                const overlapS = Math.max(schedIn.getTime(), b.s!.getTime());
+                const overlapE = Math.min(schedOut.getTime(), b.e!.getTime());
+                if (overlapS < overlapE) schedBreakMs += (overlapE - overlapS);
+            });
+            const targetAgreedHours = (schedDurationMs - schedBreakMs) / (1000 * 60 * 60);
+
+            // A. 低於標竿但接近：若在容放範圍 (如 7.6H~8.0H) 且工作區間確實涵蓋了主要班表，補齊至約定工時
+            const coversCore = mergedIntervals.some(m => m.start <= schedIn && m.end >= schedOut);
+            if (finalHours >= targetAgreedHours - 0.4 && finalHours < targetAgreedHours && coversCore) {
+                finalHours = targetAgreedHours;
             }
 
+            // B. 高於標竿但未滿 30 分鐘：若溢出部分 <= 0.5H，直接以約定工時計算
+            if (finalHours > targetAgreedHours && finalHours <= targetAgreedHours + 0.5) {
+                finalHours = targetAgreedHours;
+            }
+
+            dayHours = parseFloat(finalHours.toFixed(2));
             data[dateKey] = { logs: dayLogs, leaves: dayLeaves, hours: parseFloat(dayHours.toFixed(2)), holidayName };
         });
 
@@ -502,7 +527,8 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                                                     title={leave.reason}
                                                 >
                                                     <span className="truncate flex-1">
-                                                        {leave.leave_type?.name} {leave.hours ? `${leave.hours}H` : ''}
+                                                        {leave.leave_type?.name} {leave.dayHours ? `${parseFloat(String(leave.dayHours)).toFixed(1)}H` : leave.hours ? `${leave.hours}H` : ''}
+                                                        {leave.dayHours && leave.hours && Math.abs(leave.dayHours - leave.hours) > 0.01 ? ` (總計 ${leave.hours}H)` : ''}
                                                     </span>
                                                     {leave.status !== 'APPROVED' && (
                                                         <span className="shrink-0 bg-white/20 px-1 rounded-[4px] text-[8px]">
