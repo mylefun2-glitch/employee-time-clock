@@ -212,8 +212,10 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             const schedIn = getDayTime(targetEmployee?.work_start_time || '08:00', day)!;
             const schedOut = getDayTime(targetEmployee?.work_end_time || '17:00', day)!;
 
-            // 1. 收集假單資訊 (區分公出與私假)
+            // 1. 收集工作與扣除區間
+            const nonWorkIntervals: { start: Date, end: Date }[] = [];
             let totalNonWorkLeaveHours = 0;
+
             dayLeaves.forEach(leave => {
                 if (leave.status?.toUpperCase() !== 'APPROVED') return;
                 
@@ -222,7 +224,6 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 const leaveKeywords = /請假|特休|事假|病假|補休|折現|折算|Holiday|Annual|Leave|Sick|Personal/i;
                 const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
 
-                // 計算並收集有效區間 (用於工時計算)
                 const s = parseISO(leave.start_date);
                 const e = parseISO(leave.end_date);
                 const startOfDay = new Date(day); startOfDay.setHours(0, 0, 0, 0);
@@ -234,7 +235,8 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                     if (isWorkRelated) {
                         workIntervals.push({ start: overlapStart, end: overlapEnd });
                     } else {
-                        // 統計純「私假/補休」時數，以便調整當日約定工時基準
+                        // 私假/補休區間：待從總工時中扣除
+                        nonWorkIntervals.push({ start: overlapStart, end: overlapEnd });
                         totalNonWorkLeaveHours += (leave.dayHours || 0);
                     }
                 }
@@ -248,25 +250,45 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                     const actualIn = new Date(checkInLog.timestamp);
                     const actualOut = new Date(checkOutLog.timestamp);
                     
-                    // 應用彈性時間位移補償 (考慮假單覆蓋)
                     let effectiveIn = actualIn;
-                    let lateMs = 0;
                     
-                    // 檢查打卡時間是否被假單覆蓋，或是剛好在假單結束後的合理範圍內
+                    // A. 端點對齊：起始端 (08:00)
+                    const flexWindowMs = 30 * 60 * 1000;
+                    const diffInMs = actualIn.getTime() - schedIn.getTime();
+
+                    // 檢查打卡時間是否被假單覆蓋
                     const coveredByLeave = dayLeaves.some(l => {
                         if (l.status?.toUpperCase() !== 'APPROVED') return false;
                         const leaveEnd = parseISO(l.end_date);
-                        // 如果假單結束時間在打卡時間之後，或者假單結束在 12:00/13:00 且員工在 13:00 前打卡
                         return leaveEnd >= actualIn || (leaveEnd.getHours() === 12 && actualIn.getHours() <= 13);
                     });
 
-                    if (actualIn > schedIn && !coveredByLeave) {
-                        lateMs = Math.min(actualIn.getTime() - schedIn.getTime(), 30 * 60 * 1000);
-                        effectiveIn = new Date(actualIn.getTime() - lateMs);
+                    if (coveredByLeave) {
+                        effectiveIn = actualIn;
+                    } else {
+                        if (diffInMs >= -flexWindowMs && diffInMs <= flexWindowMs) {
+                            // 在上下 30 分鐘內，對齊為 08:00
+                            effectiveIn = schedIn;
+                        } else if (diffInMs > flexWindowMs) {
+                            // 延期超過 30 分鐘，Offset 為 30 分鐘
+                            effectiveIn = new Date(actualIn.getTime() - flexWindowMs);
+                        } else {
+                            // 提前超過 30 分鐘，保留原打卡時間 (計入提早上班)
+                            effectiveIn = actualIn;
+                        }
                     }
                     
-                    const effectiveOut = new Date(actualOut.getTime() - lateMs);
-                    
+                    // B. 端點對齊：結束端 (17:00)
+                    let effectiveOut = actualOut;
+                    const diffOutMs = actualOut.getTime() - schedOut.getTime();
+
+                    // 如果下班在 17:00 ~ 17:30 之間，且不屬於補回遲到的情形，則對齊為 17:00
+                    if (diffOutMs >= 0 && diffOutMs <= flexWindowMs) {
+                        effectiveOut = schedOut;
+                    } else {
+                        effectiveOut = actualOut;
+                    }
+
                     workIntervals.push({ start: effectiveIn, end: effectiveOut });
                     
                     (day as any)._effectiveIn = effectiveIn;
@@ -275,40 +297,45 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             }
 
             // 3. 執行聯集合併
-            workIntervals.sort((a, b) => a.start.getTime() - b.start.getTime());
-            const mergedIntervals: { start: Date, end: Date }[] = [];
-            workIntervals.forEach(interval => {
-                if (mergedIntervals.length === 0) {
-                    mergedIntervals.push({ ...interval });
-                } else {
-                    const last = mergedIntervals[mergedIntervals.length - 1];
-                    if (interval.start <= last.end) {
-                        last.end = new Date(Math.max(last.end.getTime(), interval.end.getTime()));
+            const merge = (ivs: { start: Date, end: Date }[]) => {
+                if (ivs.length === 0) return [];
+                const sorted = [...ivs].sort((a, b) => a.start.getTime() - b.start.getTime());
+                const result = [{ ...sorted[0] }];
+                for (let i = 1; i < sorted.length; i++) {
+                    const last = result[result.length - 1];
+                    if (sorted[i].start <= last.end) {
+                        last.end = new Date(Math.max(last.end.getTime(), sorted[i].end.getTime()));
                     } else {
-                        mergedIntervals.push({ ...interval });
+                        result.push({ ...sorted[i] });
                     }
                 }
-            });
+                return result;
+            };
 
-            // 4. 計算總時數並扣除休息時間
+            const mergedWork = merge(workIntervals);
+
+            // 準備扣除區間 (休息時間 + 私假區間)
+            const subtractiveIvs: { start: Date, end: Date }[] = [
+                { start: getDayTime(targetEmployee?.break_start_time || '12:00', day)!, end: getDayTime(targetEmployee?.break_end_time || '13:00', day)! },
+                { start: getDayTime(targetEmployee?.break2_start_time || '', day)!, end: getDayTime(targetEmployee?.break2_end_time || '', day)! },
+                { start: getDayTime(targetEmployee?.break3_start_time || '', day)!, end: getDayTime(targetEmployee?.break3_end_time || '', day)! },
+                ...nonWorkIntervals
+            ].filter(iv => iv.start && iv.end);
+            const mergedSubtractive = merge(subtractiveIvs);
+
+            // 4. 計算淨工時
             let netTotalMs = 0;
-            const breakWindows = [
-                { s: getDayTime(targetEmployee?.break_start_time || '12:00', day), e: getDayTime(targetEmployee?.break_end_time || '13:00', day) },
-                { s: getDayTime(targetEmployee?.break2_start_time || '', day), e: getDayTime(targetEmployee?.break2_end_time || '', day) },
-                { s: getDayTime(targetEmployee?.break3_start_time || '', day), e: getDayTime(targetEmployee?.break3_end_time || '', day) }
-            ].filter(b => b.s && b.e);
-
-            mergedIntervals.forEach(m => {
-                let segmentMs = m.end.getTime() - m.start.getTime();
-                let breakOverlapMs = 0;
-                breakWindows.forEach(b => {
-                    const overlapS = Math.max(m.start.getTime(), b.s!.getTime());
-                    const overlapE = Math.min(m.end.getTime(), b.e!.getTime());
+            mergedWork.forEach(w => {
+                let segmentMs = w.end.getTime() - w.start.getTime();
+                let overlapMs = 0;
+                mergedSubtractive.forEach(s => {
+                    const overlapS = Math.max(w.start.getTime(), s.start.getTime());
+                    const overlapE = Math.min(w.end.getTime(), s.end.getTime());
                     if (overlapS < overlapE) {
-                        breakOverlapMs += (overlapE - overlapS);
+                        overlapMs += (overlapE - overlapS);
                     }
                 });
-                netTotalMs += (segmentMs - breakOverlapMs);
+                netTotalMs += (segmentMs - overlapMs);
             });
 
             let finalHours = netTotalMs / (1000 * 60 * 60);
@@ -316,22 +343,25 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             // 5. 特殊規則：溢出容換與動態標竿對齊
             const fullDaySchedMs = schedOut.getTime() - schedIn.getTime();
             let fullDayBreakMs = 0;
-            breakWindows.forEach(b => {
-                const overlapS = Math.max(schedIn.getTime(), b.s!.getTime());
-                const overlapE = Math.min(schedOut.getTime(), b.e!.getTime());
+            const mergedBreaks = merge([
+                { start: getDayTime(targetEmployee?.break_start_time || '12:00', day)!, end: getDayTime(targetEmployee?.break_end_time || '13:00', day)! },
+                { start: getDayTime(targetEmployee?.break2_start_time || '', day)!, end: getDayTime(targetEmployee?.break2_end_time || '', day)! },
+                { start: getDayTime(targetEmployee?.break3_start_time || '', day)!, end: getDayTime(targetEmployee?.break3_end_time || '', day)! }
+            ].filter(iv => iv.start && iv.end));
+
+            mergedBreaks.forEach(b => {
+                const overlapS = Math.max(schedIn.getTime(), b.start.getTime());
+                const overlapE = Math.min(schedOut.getTime(), b.end.getTime());
                 if (overlapS < overlapE) fullDayBreakMs += (overlapE - overlapS);
             });
 
-            // 動態基準 = (班表總工時) - (當日已請私假時數)
             const baseAgreedHours = (fullDaySchedMs - fullDayBreakMs) / (1000 * 60 * 60);
             const targetAgreedHours = Math.max(0, baseAgreedHours - totalNonWorkLeaveHours);
 
-            // A. 低於標竿補齊 (針對剩餘應工作時數對齊)
             if (targetAgreedHours > 0) {
                 if (finalHours >= targetAgreedHours - 0.4 && finalHours < targetAgreedHours) {
                     finalHours = targetAgreedHours;
                 }
-                // B. 溢出容緩 (30分鐘內)
                 if (finalHours > targetAgreedHours && finalHours <= targetAgreedHours + 0.5) {
                     finalHours = targetAgreedHours;
                 }
