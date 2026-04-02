@@ -121,5 +121,33 @@ export const leaveTypeService = {
      */
     async toggleLeaveType(id: string, isActive: boolean): Promise<{ success: boolean; error?: string }> {
         return this.updateLeaveType(id, { is_active: isActive });
+    },
+
+    /**
+     * 取得差勤類型的使用頻率統計 (全體員工)
+     */
+    async getLeaveTypeUsageCounts(): Promise<Record<string, number>> {
+        try {
+            // 只取得必要的欄位以優化效能
+            const { data, error } = await supabase
+                .from('leave_requests')
+                .select('leave_type_id');
+
+            if (error) {
+                console.error('Error fetching usage counts:', error);
+                return {};
+            }
+
+            const counts: Record<string, number> = {};
+            data?.forEach(req => {
+                if (req.leave_type_id) {
+                    counts[req.leave_type_id] = (counts[req.leave_type_id] || 0) + 1;
+                }
+            });
+            return counts;
+        } catch (err) {
+            console.error('Unexpected error fetching usage counts:', err);
+            return {};
+        }
     }
 };

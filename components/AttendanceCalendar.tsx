@@ -210,6 +210,32 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 }
             }
 
+            // 累加公務與加班時數 (僅統計 APPROVED 項目)
+            const additionalHours = dayLeaves.reduce((sum, leave) => {
+                // 檢查狀態 (不分大小寫)
+                if (leave.status?.toUpperCase() !== 'APPROVED') return sum;
+                
+                const typeName = leave.leave_type?.name || '';
+                
+                // 更寬鬆的關鍵字匹配 (涵蓋 公出、出差、加班、會議、家訪、訓練 等)
+                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|Official|Business|Visit|Meeting|Training|OT/i;
+                const leaveKeywords = /請假|特休|事假|病假|補休|折現|折算|Holiday|Annual|Leave|Sick|Personal/i;
+
+                const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
+
+                if (isWorkRelated) {
+                    const hours = parseFloat(String(leave.hours || 0));
+                    console.log(`[Debug] Day ${dateKey}: Adding ${typeName} (${hours}H)`);
+                    return sum + hours;
+                }
+                return sum;
+            }, 0);
+
+            dayHours += additionalHours;
+            if (additionalHours > 0) {
+                console.log(`[Debug] Day ${dateKey}: Total Adjusted Hours = ${dayHours}`);
+            }
+
             data[dateKey] = { logs: dayLogs, leaves: dayLeaves, hours: parseFloat(dayHours.toFixed(2)), holidayName };
         });
 

@@ -127,20 +127,31 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
 
     const loadLeaveTypes = async () => {
         setIsLoading(true);
-        const types = await leaveTypeService.getActiveLeaveTypes();
-        
+        // 並行取得類型與頻率統計
+        const [types, usageCounts] = await Promise.all([
+            leaveTypeService.getActiveLeaveTypes(),
+            leaveTypeService.getLeaveTypeUsageCounts()
+        ]);
+
         let filteredTypes = types || [];
         if (!isAdmin) {
-            filteredTypes = filteredTypes.filter(t => 
-                !t.name.includes('加班折算') && 
+            filteredTypes = filteredTypes.filter(t =>
+                !t.name.includes('加班折算') &&
                 !t.name.includes('特休折現')
             );
         }
 
-        // 按中文筆劃/字典順序排序 (使用 zh-Hant)
-        const sortedTypes = [...filteredTypes].sort((a, b) =>
-            a.name.localeCompare(b.name, 'zh-Hant')
-        );
+        // 排序邏輯：1. 次數降序 (最常用) 2. 名稱筆劃 (zh-Hant)
+        const sortedTypes = [...filteredTypes].sort((a, b) => {
+            const countA = usageCounts[a.id] || 0;
+            const countB = usageCounts[b.id] || 0;
+
+            if (countB !== countA) {
+                return countB - countA;
+            }
+            return a.name.localeCompare(b.name, 'zh-Hant');
+        });
+
         setLeaveTypes(sortedTypes);
         // 預設不選取任何類型，讓使用者自選
         setSelectedTypeId('');

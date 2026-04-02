@@ -11,6 +11,7 @@ import { Employee, CheckType, EmployeeSchedule } from '../../types';
 import { isNationalHoliday } from '../../lib/holidays';
 import ModificationRequestForm from '../../components/ModificationRequestForm';
 import { calculateLeaveHoursDetailed, calculateOTHours } from '../../lib/leaveUtils';
+import { formatDateTimeRange } from '../../lib/hrUtils';
 
 interface AttendanceLog {
     id: string;
@@ -77,6 +78,11 @@ const AttendanceCalendarPage: React.FC = () => {
     const [isEditLogModalOpen, setIsEditLogModalOpen] = useState(false);
     const [editingLog, setEditingLog] = useState<AttendanceLog | null>(null);
     const [selectedLeaveForModification, setSelectedLeaveForModification] = useState<LeaveRequest | null>(null);
+    const [selectedLeaveForAction, setSelectedLeaveForAction] = useState<LeaveRequest | null>(null);
+    const [showActionMenu, setShowActionMenu] = useState(false);
+    const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
+    const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
+    const [isWithdrawing, setIsWithdrawing] = useState(false);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [newLogCheckType, setNewLogCheckType] = useState<CheckType>(CheckType.IN);
     const [newLogTime, setNewLogTime] = useState('08:00');
@@ -492,6 +498,26 @@ const AttendanceCalendarPage: React.FC = () => {
                 }
             }
 
+            // 累加公務與加班時數 (僅統計 APPROVED 項目)
+            const additionalHours = dayLeaves.reduce((sum, leave) => {
+                if (leave.status?.toUpperCase() !== 'APPROVED') return sum;
+                const typeName = leave.leave_type?.name || '';
+                
+                // 更寬鬆的關鍵字匹配 (涵蓋 公出、出差、加班、會議、家訪、訓練 等)
+                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|Official|Business|Visit|Meeting|Training|OT/i;
+                const leaveKeywords = /請假|特休|事假|病假|補休|折現|折算|Holiday|Annual|Leave|Sick|Personal/i;
+
+                const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
+
+                if (isWorkRelated) {
+                    const h = parseFloat(String(leave.hours || 0));
+                    return sum + h;
+                }
+                return sum;
+            }, 0);
+
+            hours += additionalHours;
+
             data[dateKey] = { logs: dayLogs, leaves: dayLeaves, hours: parseFloat(hours.toFixed(2)), holidayName };
         });
 
@@ -699,6 +725,30 @@ const AttendanceCalendarPage: React.FC = () => {
             alert('系統錯誤');
         } finally {
             setIsSubmittingLog(false);
+        }
+    };
+
+    const handleWithdrawRequest = async () => {
+        if (!withdrawingId) return;
+
+        setIsWithdrawing(true);
+        try {
+            const { requestService } = await import('../../services/requestService');
+            const result = await requestService.withdrawRequest(withdrawingId, selectedEmployeeId);
+            
+            if (result.success) {
+                alert('已成功發起撤回申請，請等待主管審核。');
+                await fetchData();
+                setShowWithdrawConfirm(false);
+                setWithdrawingId(null);
+            } else {
+                alert(`撤回失敗: ${result.error || '未知錯誤'}`);
+            }
+        } catch (error) {
+            console.error('Error withdrawing request:', error);
+            alert('系統錯誤');
+        } finally {
+            setIsWithdrawing(false);
         }
     };
 
@@ -992,7 +1042,8 @@ const AttendanceCalendarPage: React.FC = () => {
                                                     key={leave.id}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setSelectedLeaveForModification(leave);
+                                                        setSelectedLeaveForAction(leave);
+                                                        setShowActionMenu(true);
                                                     }}
                                                     className="px-2 py-1 rounded-md text-[10px] font-black text-white shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
                                                     style={{ backgroundColor: leave.leave_type?.color || '#3b82f6' }}
@@ -1276,6 +1327,96 @@ const AttendanceCalendarPage: React.FC = () => {
                         fetchData();
                     }}
                 />
+            )}
+
+            {/* Action Menu Modal */}
+            {showActionMenu && selectedLeaveForAction && (
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
+                    onClick={() => setShowActionMenu(false)}
+                >
+                    <div
+                        className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm p-8 animate-in zoom-in-95 duration-300 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* 紀錄資訊 */}
+                        <div className="mb-8 items-center flex flex-col">
+                            <div className="w-20 h-20 bg-blue-50 rounded-3xl flex items-center justify-center text-blue-600 border border-blue-100 mb-6 font-black uppercase tracking-widest text-xs">
+                                {selectedLeaveForAction.leave_type?.name?.charAt(0) || '差'}
+                            </div>
+                            <h2 className="text-2xl font-black text-slate-900 mb-2">{selectedLeaveForAction.leave_type?.name || '差勤申請'}</h2>
+                            <div className="text-[10px] text-slate-500 font-black bg-slate-50 px-4 py-2 rounded-full uppercase tracking-widest">
+                                {formatDateTimeRange(selectedLeaveForAction.start_date, selectedLeaveForAction.end_date)}
+                            </div>
+                            {selectedLeaveForAction.reason && (
+                                <div className="text-sm text-slate-600 mt-4 px-4 line-clamp-2 italic">
+                                    "{selectedLeaveForAction.reason}"
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 操作按鈕 */}
+                        <div className="flex flex-col gap-4 mt-8">
+                            <button
+                                onClick={() => {
+                                    setWithdrawingId(selectedLeaveForAction.id);
+                                    setShowWithdrawConfirm(true);
+                                    setShowActionMenu(false);
+                                }}
+                                className="w-full py-4 bg-rose-50 text-rose-600 rounded-2xl font-black hover:bg-rose-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-lg">cancel</span>
+                                協助撤回本申請
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    setSelectedLeaveForModification(selectedLeaveForAction);
+                                    setShowActionMenu(false);
+                                }}
+                                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-lg">edit</span>
+                                協助變更內容
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Withdraw Confirmation Dialog */}
+            {showWithdrawConfirm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 px-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center">
+                                <span className="material-symbols-outlined text-amber-600 text-2xl">warning</span>
+                            </div>
+                            <h3 className="text-xl font-black text-slate-900">確認發起撤回？</h3>
+                        </div>
+                        <p className="text-slate-500 font-medium leading-relaxed mb-6">
+                            您正以管理員身分協助員工發起撤回申請。撤回後需由主管審核生效，且無法復原。
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowWithdrawConfirm(false);
+                                    setWithdrawingId(null);
+                                }}
+                                className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-black hover:bg-slate-200 transition-colors"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleWithdrawRequest}
+                                disabled={isWithdrawing}
+                                className="flex-1 px-6 py-3 bg-rose-600 text-white rounded-xl font-black hover:bg-rose-700 transition-colors disabled:opacity-50"
+                            >
+                                {isWithdrawing ? '處理中...' : '確認撤回'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
