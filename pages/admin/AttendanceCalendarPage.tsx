@@ -450,29 +450,33 @@ const AttendanceCalendarPage: React.FC = () => {
                     }
 
                     // 基準時間：將到職時間與下班時間同步扣除彈性偏移量
-                    let effectiveIn = new Date(actualIn.getTime() - lateMs);
-                    let effectiveOut = new Date(actualOut.getTime() - lateMs);
+                    const effectiveIn = new Date(actualIn.getTime() - lateMs);
+                    const effectiveOut = new Date(actualOut.getTime() - lateMs);
+
+                    // 暫存有效的打卡區間供後續扣除重疊時數使用
+                    let finalEffectiveIn = effectiveIn;
+                    let finalEffectiveOut = effectiveOut;
 
                     // 誤差校正：
                     const jitterGraceMs = 5 * 60 * 1000; // 5 分鐘微小誤差（用於 jitter 或早退對齊）
                     const extraWorkGraceMs = 30 * 60 * 1000; // 30 分鐘額外工時緩衝（依需求不計入）
 
                     // 起始端對齊 (5 分鐘內)
-                    if (Math.abs(effectiveIn.getTime() - scheduledInDate.getTime()) <= jitterGraceMs) {
-                        effectiveIn = scheduledInDate;
+                    if (Math.abs(finalEffectiveIn.getTime() - scheduledInDate.getTime()) <= jitterGraceMs) {
+                        finalEffectiveIn = scheduledInDate;
                     }
 
                     // 結束端對齊
-                    if (effectiveOut > scheduledOutDate && (effectiveOut.getTime() - scheduledOutDate.getTime()) <= extraWorkGraceMs) {
+                    if (finalEffectiveOut > scheduledOutDate && (finalEffectiveOut.getTime() - scheduledOutDate.getTime()) <= extraWorkGraceMs) {
                         // 若推移後的下班時間晚於規定時間且在 30 分鐘內，仍以 8 小時計（對齊回到 17:00）
-                        effectiveOut = scheduledOutDate;
-                    } else if (Math.abs(effectiveOut.getTime() - scheduledOutDate.getTime()) <= jitterGraceMs) {
+                        finalEffectiveOut = scheduledOutDate;
+                    } else if (Math.abs(finalEffectiveOut.getTime() - scheduledOutDate.getTime()) <= jitterGraceMs) {
                         // 一般 5 分鐘內的微小誤差對齊
-                        effectiveOut = scheduledOutDate;
+                        finalEffectiveOut = scheduledOutDate;
                     }
 
                     // 3. Calculate gross duration
-                    let durationMs = effectiveOut.getTime() - effectiveIn.getTime();
+                    let durationMs = finalEffectiveOut.getTime() - finalEffectiveIn.getTime();
                     if (durationMs < 0) durationMs = 0;
 
                     // 4. Precise break deduction (Support multiple breaks)
@@ -486,8 +490,8 @@ const AttendanceCalendarPage: React.FC = () => {
                     breaks.forEach(b => {
                         const bStartDate = getDayTime(b.start!);
                         const bEndDate = getDayTime(b.end!);
-                        const overlapStart = new Date(Math.max(effectiveIn.getTime(), bStartDate.getTime()));
-                        const overlapEnd = new Date(Math.min(effectiveOut.getTime(), bEndDate.getTime()));
+                        const overlapStart = new Date(Math.max(finalEffectiveIn.getTime(), bStartDate.getTime()));
+                        const overlapEnd = new Date(Math.min(finalEffectiveOut.getTime(), bEndDate.getTime()));
 
                         if (overlapStart < overlapEnd) {
                             totalBreakOverlapMs += overlapEnd.getTime() - overlapStart.getTime();
@@ -495,6 +499,10 @@ const AttendanceCalendarPage: React.FC = () => {
                     });
 
                     hours = (durationMs - totalBreakOverlapMs) / (1000 * 60 * 60);
+
+                    // 將最終有效的打卡區間存回外部作用域
+                    (day as any)._effectiveIn = finalEffectiveIn;
+                    (day as any)._effectiveOut = finalEffectiveOut;
                 }
             }
 
@@ -503,14 +511,54 @@ const AttendanceCalendarPage: React.FC = () => {
                 if (leave.status?.toUpperCase() !== 'APPROVED') return sum;
                 const typeName = leave.leave_type?.name || '';
                 
-                // 更寬鬆的關鍵字匹配 (涵蓋 公出、出差、加班、會議、家訪、訓練 等)
                 const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|Official|Business|Visit|Meeting|Training|OT/i;
                 const leaveKeywords = /請假|特休|事假|病假|補休|折現|折算|Holiday|Annual|Leave|Sick|Personal/i;
-
                 const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
 
                 if (isWorkRelated) {
-                    const h = parseFloat(String(leave.hours || 0));
+                    let h = parseFloat(String(leave.hours || 0));
+                    
+                    // 檢查重疊扣除
+                    const effIn = (day as any)._effectiveIn;
+                    const effOut = (day as any)._effectiveOut;
+                    
+                    if (effIn && effOut) {
+                        const s = parseISO(leave.start_date);
+                        const e = parseISO(leave.end_date);
+                        const overlapStart = new Date(Math.max(s.getTime(), effIn.getTime()));
+                        const overlapEnd = new Date(Math.min(e.getTime(), effOut.getTime()));
+                        
+                        if (overlapStart < overlapEnd) {
+                            const employee = employees.find(emp => emp.id === selectedEmployeeId);
+                            const isOvertimeApplication = leave.leave_type?.code === 'OT' || leave.leave_type?.code === 'CO' || leave.leave_type?.code === 'ALC' || (leave.leave_type?.name?.includes('加班') && !leave.leave_type?.name?.includes('補休餘額')) || leave.leave_type?.name?.includes('折現') || leave.leave_type?.name?.includes('折算');
+                            
+                            let overlapHours = 0;
+                            if (isOvertimeApplication) {
+                                overlapHours = calculateOTHours(
+                                    overlapStart,
+                                    overlapEnd,
+                                    employee || {},
+                                    historicalSchedules,
+                                    0, // 重疊部分不重複扣除 manual_break，由原本申請扣除即可
+                                    !!leave.is_makeup_holiday
+                                );
+                            } else {
+                                const detailed = calculateLeaveHoursDetailed(
+                                    overlapStart,
+                                    overlapEnd,
+                                    employee || {},
+                                    false,
+                                    true,
+                                    historicalSchedules,
+                                    0,
+                                    !!leave.is_makeup_workday,
+                                    !!leave.is_makeup_holiday
+                                );
+                                overlapHours = detailed.finalHours;
+                            }
+                            h = Math.max(0, h - overlapHours);
+                        }
+                    }
                     return sum + h;
                 }
                 return sum;

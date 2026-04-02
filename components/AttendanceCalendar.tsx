@@ -211,29 +211,90 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             }
 
             // 累加公務與加班時數 (僅統計 APPROVED 項目)
+            // 修正：如果申請時間與打卡時間重疊，則不重複計入
             const additionalHours = dayLeaves.reduce((sum, leave) => {
-                // 檢查狀態 (不分大小寫)
                 if (leave.status?.toUpperCase() !== 'APPROVED') return sum;
                 
                 const typeName = leave.leave_type?.name || '';
-                
-                // 更寬鬆的關鍵字匹配 (涵蓋 公出、出差、加班、會議、家訪、訓練 等)
                 const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|Official|Business|Visit|Meeting|Training|OT/i;
                 const leaveKeywords = /請假|特休|事假|病假|補休|折現|折算|Holiday|Annual|Leave|Sick|Personal/i;
-
                 const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
 
                 if (isWorkRelated) {
-                    const hours = parseFloat(String(leave.hours || 0));
-                    console.log(`[Debug] Day ${dateKey}: Adding ${typeName} (${hours}H)`);
-                    return sum + hours;
+                    let h = parseFloat(String(leave.hours || 0));
+                    
+                    // 如果當天有打卡紀錄，檢查重疊
+                    if (dayLogs.length >= 2 && targetEmployee) {
+                        const checkInLog = dayLogs.find(l => l.check_type === CheckType.IN);
+                        const checkOutLog = [...dayLogs].reverse().find(l => l.check_type === CheckType.OUT);
+                        
+                        if (checkInLog && checkOutLog) {
+                            const actualIn = new Date(checkInLog.timestamp);
+                            const actualOut = new Date(checkOutLog.timestamp);
+                            
+                            const getDayTime = (timeStr: string) => {
+                                const [hours, minutes] = timeStr.split(':').map(Number);
+                                const d = new Date(actualIn);
+                                d.setHours(hours, minutes, 0, 0);
+                                return d;
+                            };
+
+                            const scheduledInDate = getDayTime(targetEmployee.work_start_time || '08:00');
+                            const scheduledOutDate = getDayTime(targetEmployee.work_end_time || '17:00');
+                            const thirtyMins = 30 * 60 * 1000;
+
+                            let effectiveIn = actualIn;
+                            if (Math.abs(actualIn.getTime() - scheduledInDate.getTime()) <= thirtyMins) {
+                                effectiveIn = scheduledInDate;
+                            }
+
+                            let effectiveOut = actualOut;
+                            if (Math.abs(actualOut.getTime() - scheduledOutDate.getTime()) <= thirtyMins) {
+                                effectiveOut = scheduledOutDate;
+                            }
+
+                            // 申請區段
+                            const leaveS = parseISO(leave.start_date);
+                            const leaveE = parseISO(leave.end_date);
+
+                            // 重疊區段
+                            const overlapS = new Date(Math.max(leaveS.getTime(), effectiveIn.getTime()));
+                            const overlapE = new Date(Math.min(leaveE.getTime(), effectiveOut.getTime()));
+
+                            if (overlapS < overlapE) {
+                                // 計算重疊小時數 (需扣除休息時間)
+                                const breaks = [
+                                    { start: targetEmployee.break_start_time || '12:00', end: targetEmployee.break_end_time || '13:00' },
+                                    { start: targetEmployee.break2_start_time, end: targetEmployee.break2_end_time },
+                                    { start: targetEmployee.break3_start_time, end: targetEmployee.break3_end_time }
+                                ].filter(b => b.start && b.end);
+
+                                let overlapMs = overlapE.getTime() - overlapS.getTime();
+                                let overlapBreakMs = 0;
+                                breaks.forEach(b => {
+                                    const bS = getDayTime(b.start!);
+                                    const bE = getDayTime(b.end!);
+                                    const oS = new Date(Math.max(overlapS.getTime(), bS.getTime()));
+                                    const oE = new Date(Math.min(overlapE.getTime(), bE.getTime()));
+                                    if (oS < oE) {
+                                        overlapBreakMs += oE.getTime() - oS.getTime();
+                                    }
+                                });
+
+                                const overlapHours = (overlapMs - overlapBreakMs) / (1000 * 60 * 60);
+                                h = Math.max(0, h - overlapHours);
+                                console.log(`[Debug] Day ${dateKey}: ${typeName} ${leave.hours}H, Overlap ${overlapHours.toFixed(2)}H, Adding ${h.toFixed(2)}H`);
+                            }
+                        }
+                    }
+                    return sum + h;
                 }
                 return sum;
             }, 0);
 
             dayHours += additionalHours;
-            if (additionalHours > 0) {
-                console.log(`[Debug] Day ${dateKey}: Total Adjusted Hours = ${dayHours}`);
+            if (additionalHours > 0 || dayLogs.length >= 2) {
+                console.log(`[Debug] Day ${dateKey}: Final Hours = ${dayHours}`);
             }
 
             data[dateKey] = { logs: dayLogs, leaves: dayLeaves, hours: parseFloat(dayHours.toFixed(2)), holidayName };
