@@ -1139,10 +1139,6 @@ const AttendanceCalendarPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Footer Info */}
-            <div className="text-center text-slate-400 text-xs font-medium pb-8 print:hidden">
-                * 工時計算僅供參考，系統自動扣除超過 5 小時工時中之 1 小時休息時間。
-            </div>
 
             {/* Delete Confirmation Modal */}
             {isDeleteModalOpen && (
