@@ -148,7 +148,7 @@ const AttendanceCalendarPage: React.FC = () => {
           leave_type:leave_types(name, color, code)
         `)
                 .eq('employee_id', selectedEmployeeId)
-                .eq('status', 'APPROVED')
+                .neq('status', 'WITHDRAWN')
                 .or('is_modified.is.null,is_modified.eq.false')
                 .or(`start_date.lte.${end},end_date.gte.${start}`);
 
@@ -1123,11 +1123,20 @@ const AttendanceCalendarPage: React.FC = () => {
                                                         setSelectedLeaveForAction(leave);
                                                         setShowActionMenu(true);
                                                     }}
-                                                    className="px-2 py-1 rounded-md text-[10px] font-black text-white shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                                                    className="px-2 py-1 rounded-md text-[10px] font-black text-white shadow-sm cursor-pointer hover:opacity-90 transition-opacity flex items-center justify-between gap-1"
                                                     style={{ backgroundColor: leave.leave_type?.color || '#3b82f6' }}
                                                     title={leave.reason}
                                                 >
-                                                    {leave.leave_type?.name} {leave.dayHours !== undefined ? `${parseFloat(String(leave.dayHours)).toFixed(1)}H` : (leave.hours ? `${leave.hours}H` : '')}
+                                                    <span className="truncate flex-1">
+                                                        {leave.leave_type?.name} {leave.dayHours !== undefined ? `${parseFloat(String(leave.dayHours)).toFixed(1)}H` : (leave.hours ? `${leave.hours}H` : '')}
+                                                    </span>
+                                                    {leave.status !== 'APPROVED' && (
+                                                        <span className="shrink-0 bg-white/20 px-1 rounded-[4px] text-[8px]">
+                                                            {leave.status === 'PENDING' ? '待審' :
+                                                                leave.status === 'REJECTED' ? '駁回' :
+                                                                    leave.status === 'WITHDRAW_PENDING' ? '撤回中' : ''}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>

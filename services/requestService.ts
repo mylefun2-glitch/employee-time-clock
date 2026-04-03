@@ -892,7 +892,7 @@ export const requestService = {
                     leave_type:leave_types(*)
                 `)
                 .eq('employee_id', employeeId)
-                .eq('status', RequestStatus.APPROVED)
+                .neq('status', RequestStatus.WITHDRAWN)
                 .eq('type', 'LEAVE')
                 .neq('is_modified', true) // 排除已被變更的舊紀錄
                 .gte('start_date', startDate)

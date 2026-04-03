@@ -345,7 +345,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                 hours: submitHours,
                 manual_break_hours: parseFloat(manualBreakHours) || 0,
                 car_id: needCar ? selectedCarId : undefined,
-                deputy_id: selectedDeputyId || undefined,
+                deputy_id: (selectedDeputyId && selectedDeputyId !== 'NONE') ? selectedDeputyId : undefined,
                 is_makeup_workday: isMakeupWorkday,
                 is_makeup_holiday: isMakeupHoliday,
                 ...attachmentInfo
@@ -730,6 +730,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                         className="w-full p-3 pl-10 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-bold appearance-none cursor-pointer"
                                     >
                                         <option value="">請選擇職務代理人</option>
+                                        <option value="NONE">無代理人</option>
                                         {employees.map((emp) => (
                                             <option key={emp.id} value={emp.id}>
                                                 {emp.name} - {emp.department}

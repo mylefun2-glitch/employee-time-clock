@@ -285,7 +285,7 @@ const EmployeeAttendancePage: React.FC = () => {
                     deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
                 `)
                 .in('employee_id', targetIds)
-                .eq('status', 'APPROVED')
+                .neq('status', 'WITHDRAWN')
                 .gte('start_date', startOfMonth.toISOString())
                 .lt('start_date', endOfMonth.toISOString())
                 .order('start_date', { ascending: false });
@@ -670,12 +670,38 @@ const EmployeeAttendancePage: React.FC = () => {
                                                                 </td>
                                                                 <td className="px-6 py-5">
                                                                     <div className="flex flex-wrap items-center gap-4">
-                                                                        {data.leaves.length > 0 && (
-                                                                            <div className="px-4 py-2 bg-purple-50 border border-purple-100 rounded-xl flex items-center gap-2">
-                                                                                <span className="material-symbols-outlined text-purple-600 text-lg">event_available</span>
-                                                                                <span className="text-sm font-black text-purple-700">{data.leaves[0].leave_type?.name}</span>
+                                                                        {data.leaves.map(leave => (
+                                                                            <div key={leave.id} className={`px-4 py-2 border rounded-xl flex items-center gap-2 ${
+                                                                              leave.status === 'APPROVED' ? 'bg-purple-50 border-purple-100' :
+                                                                              leave.status === 'PENDING' ? 'bg-amber-50 border-amber-100' :
+                                                                              leave.status === 'REJECTED' ? 'bg-rose-50 border-rose-100' :
+                                                                              'bg-slate-50 border-slate-100'
+                                                                            }`}>
+                                                                                <span className={`material-symbols-outlined text-lg ${
+                                                                                  leave.status === 'APPROVED' ? 'text-purple-600' :
+                                                                                  leave.status === 'PENDING' ? 'text-amber-600' :
+                                                                                  leave.status === 'REJECTED' ? 'text-rose-600' :
+                                                                                  'text-slate-600'
+                                                                                }`}>
+                                                                                  {leave.status === 'APPROVED' ? 'event_available' : 'event_note'}
+                                                                                </span>
+                                                                                <span className={`text-sm font-black ${
+                                                                                  leave.status === 'APPROVED' ? 'text-purple-700' :
+                                                                                  leave.status === 'PENDING' ? 'text-amber-700' :
+                                                                                  leave.status === 'REJECTED' ? 'text-rose-700' :
+                                                                                  'text-slate-700'
+                                                                                }`}>
+                                                                                  {leave.leave_type?.name}
+                                                                                  {leave.status !== 'APPROVED' && (
+                                                                                    <span className="ml-1 opacity-70 text-[10px]">
+                                                                                      ({leave.status === 'PENDING' ? '待審' : 
+                                                                                        leave.status === 'REJECTED' ? '駁回' : 
+                                                                                        leave.status === 'WITHDRAW_PENDING' ? '撤回中' : leave.status})
+                                                                                    </span>
+                                                                                  )}
+                                                                                </span>
                                                                             </div>
-                                                                        )}
+                                                                        ))}
 
                                                                         {pairs.map((pair, pIdx) => (
                                                                             <React.Fragment key={pIdx}>
@@ -1220,7 +1246,20 @@ const EmployeeAttendancePage: React.FC = () => {
                                                                         </span>
                                                                     </div>
                                                                     <div>
-                                                                        <div className="font-black text-slate-900">{req.leave_type?.name || (isConversion ? '加班折算' : '特休')}</div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="font-black text-slate-900">{req.leave_type?.name || (isConversion ? '加班折算' : '特休')}</div>
+                                                                            {req.status !== 'APPROVED' && (
+                                                                                <span className={`px-2 py-0.5 text-[10px] font-black rounded-md border ${
+                                                                                    req.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                                                    req.status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                                                    'bg-slate-50 text-slate-700 border-slate-200'
+                                                                                }`}>
+                                                                                    {req.status === 'PENDING' ? '待審核' : 
+                                                                                     req.status === 'REJECTED' ? '駁回' : 
+                                                                                     req.status === 'WITHDRAW_PENDING' ? '撤回待審' : req.status}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                         <div className="text-xs text-slate-500 font-bold">
                                                                             {new Date(req.start_date).toLocaleDateString('zh-TW')} {new Date(req.start_date).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
                                                                         </div>
