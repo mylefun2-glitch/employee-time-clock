@@ -10,6 +10,7 @@ import { deleteAttendanceLog, deleteAttendanceLogs, createAttendanceLog, updateA
 import { Employee, CheckType, EmployeeSchedule } from '../../types';
 import { isNationalHoliday } from '../../lib/holidays';
 import ModificationRequestForm from '../../components/ModificationRequestForm';
+import LeaveRequestForm from '../../components/LeaveRequestForm';
 import { calculateLeaveHoursDetailed, calculateOTHours } from '../../lib/leaveUtils';
 import { formatDateTimeRange } from '../../lib/hrUtils';
 
@@ -88,6 +89,8 @@ const AttendanceCalendarPage: React.FC = () => {
     const [newLogTime, setNewLogTime] = useState('08:00');
     const [newLogNote, setNewLogNote] = useState('漏卡補登');
     const [isSubmittingLog, setIsSubmittingLog] = useState(false);
+    const [showQuickActionMenu, setShowQuickActionMenu] = useState(false);
+    const [isLeaveRequestModalOpen, setIsLeaveRequestModalOpen] = useState(false);
 
     // 民國年度轉換
     const rocYear = currentDate.getFullYear() - 1911;
@@ -725,10 +728,7 @@ const AttendanceCalendarPage: React.FC = () => {
     const handleDateClick = (day: Date, e: React.MouseEvent) => {
         e.stopPropagation();
         setSelectedDate(day);
-        setNewLogCheckType(CheckType.IN);
-        setNewLogTime('08:00');
-        setNewLogNote('漏卡補登');
-        setIsAddLogModalOpen(true);
+        setShowQuickActionMenu(true);
     };
 
     const handleSubmitNewLog = async () => {
@@ -1128,7 +1128,6 @@ const AttendanceCalendarPage: React.FC = () => {
                                                     title={leave.reason}
                                                 >
                                                     {leave.leave_type?.name} {leave.dayHours !== undefined ? `${parseFloat(String(leave.dayHours)).toFixed(1)}H` : (leave.hours ? `${leave.hours}H` : '')}
-                                                    {leave.dayHours !== undefined && leave.hours !== undefined && Math.abs(leave.dayHours - leave.hours) > 0.01 ? ` (總計 ${leave.hours}H)` : ''}
                                                 </div>
                                             ))}
                                         </div>
@@ -1403,6 +1402,76 @@ const AttendanceCalendarPage: React.FC = () => {
                     onClose={() => setSelectedLeaveForModification(null)}
                     onSuccess={() => {
                         setSelectedLeaveForModification(null);
+                        fetchData();
+                    }}
+                />
+            )}
+
+            {/* Quick Action Selection Modal */}
+            {showQuickActionMenu && selectedDate && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+                        <div className="p-8 text-center">
+                            <div className="w-20 h-20 bg-blue-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-blue-600">
+                                <CalendarIcon className="h-10 w-10" />
+                            </div>
+                            <h3 className="text-xl font-black text-slate-900 mb-2">選擇操作項目</h3>
+                            <p className="text-slate-500 font-medium mb-8">
+                                您想為 {selectedEmployee?.name} 在 {format(selectedDate, 'MM/dd')} 執行哪項操作？
+                            </p>
+                            
+                            <div className="grid grid-cols-1 gap-3">
+                                <button
+                                    onClick={() => {
+                                        setShowQuickActionMenu(false);
+                                        setNewLogCheckType(CheckType.IN);
+                                        setNewLogTime('08:00');
+                                        setNewLogNote('漏卡補登');
+                                        setIsAddLogModalOpen(true);
+                                    }}
+                                    className="w-full py-4 bg-blue-50 text-blue-700 rounded-2xl font-black hover:bg-blue-100 transition-all flex items-center justify-center gap-3"
+                                >
+                                    <Plus className="h-5 w-5" />
+                                    補登打卡紀錄
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowQuickActionMenu(false);
+                                        setIsLeaveRequestModalOpen(true);
+                                    }}
+                                    className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-3"
+                                >
+                                    <FileText className="h-5 w-5" />
+                                    代理申請差勤 (請假/公出/加班)
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowQuickActionMenu(false);
+                                        setSelectedDate(null);
+                                    }}
+                                    className="w-full py-4 text-slate-400 font-black hover:text-slate-600 transition-all"
+                                >
+                                    取消
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Agent Leave Request Modal */}
+            {isLeaveRequestModalOpen && selectedDate && selectedEmployeeId && (
+                <LeaveRequestForm
+                    employeeId={selectedEmployeeId}
+                    initialDate={format(selectedDate, 'yyyy-MM-dd')}
+                    isAdmin={true}
+                    onClose={() => {
+                        setIsLeaveRequestModalOpen(false);
+                        setSelectedDate(null);
+                    }}
+                    onSuccess={() => {
+                        setIsLeaveRequestModalOpen(false);
+                        setSelectedDate(null);
                         fetchData();
                     }}
                 />

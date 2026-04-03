@@ -11,11 +11,7 @@ const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const DashboardPage = lazy(() => import('./pages/admin/DashboardPage'));
 const EmployeesPage = lazy(() => import('./pages/admin/EmployeesPage'));
 const MakeupRequestsPage = lazy(() => import('./pages/admin/MakeupRequestsPage'));
-const CarManagementPage = React.lazy(() => import('./pages/admin/CarManagementPage'));
-const CarRequestsPage = React.lazy(() => import('./pages/admin/CarRequestsPage'));
-const ResourceManagementPage = React.lazy(() => import('./pages/admin/ResourceManagementPage'));
-const ResourceRequestsPage = React.lazy(() => import('./pages/admin/ResourceRequestsPage'));
-const AdminResourceCalendarPage = React.lazy(() => import('./pages/admin/ResourceCalendarPage'));
+const ResourceManagerPage = lazy(() => import('./pages/admin/ResourceManagerPage'));
 const RequestsPage = lazy(() => import('./pages/admin/RequestsPage'));
 const LeaveTypesPage = lazy(() => import('./pages/admin/LeaveTypesPage'));
 const CompanyManagementPage = lazy(() => import('./pages/admin/CompanyManagementPage'));
@@ -55,10 +51,12 @@ const App: React.FC = () => {
                 <Route path="attendance-calendar" element={<AttendanceCalendarPage />} />
                 <Route path="makeup-requests" element={<MakeupRequestsPage />} />
                 <Route path="requests" element={<RequestsPage />} />
-                <Route path="cars" element={<CarManagementPage />} />
-                <Route path="resources" element={<ResourceManagementPage />} />
-                <Route path="resource-requests" element={<ResourceRequestsPage />} />
-                <Route path="resource-calendar" element={<AdminResourceCalendarPage />} />
+                <Route path="resource-manager" element={<ResourceManagerPage />} />
+                {/* Redirects for legacy paths */}
+                <Route path="cars" element={<Navigate to="../resource-manager" replace />} />
+                <Route path="resources" element={<Navigate to="../resource-manager" replace />} />
+                <Route path="resource-requests" element={<Navigate to="../resource-manager" replace />} />
+                <Route path="resource-calendar" element={<Navigate to="../resource-manager" replace />} />
                 <Route path="leave-types" element={<LeaveTypesPage />} />
                 <Route path="company" element={<CompanyManagementPage />} />
               </Route>

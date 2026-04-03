@@ -45,10 +45,7 @@ const AdminLayout: React.FC = () => {
         { path: '/admin/attendance-calendar', icon: 'calendar_month', label: '出勤月曆' },
         { path: '/admin/makeup-requests', label: '補登審核', icon: 'edit_calendar' },
         { path: '/admin/requests', label: '差勤/公務車', icon: 'fact_check' },
-        { path: '/admin/cars', label: '公務車管理', icon: 'directions_car' },
-        { path: '/admin/resources', label: '資源管理', icon: 'inventory_2' },
-        { path: '/admin/resource-requests', label: '借用審核', icon: 'handshake' },
-        { path: '/admin/resource-calendar', label: '資源月曆', icon: 'event_available' },
+        { path: '/admin/resource-manager', label: '公務資源管理', icon: 'inventory_2' },
         { path: '/admin/leave-types', label: '假別設定', icon: 'settings_applications' },
         { path: '/admin/company', icon: 'business', label: '公司管理' }
     ];

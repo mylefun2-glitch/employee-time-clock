@@ -23,6 +23,12 @@ interface DeptStats {
     avgCheckInTime: string;
     avgCheckOutTime: string;
     leaveTypeStats: Record<string, number>;
+    employeeLeaveDetails: {
+        employeeName: string;
+        department: string;
+        leaveType: string;
+        hours: number;
+    }[];
 }
 
 const COLORS = [
@@ -193,10 +199,15 @@ const StatisticsPage: React.FC = () => {
             positions: {},
             avgCheckInTime: '--:--',
             avgCheckOutTime: '--:--',
-            leaveTypeStats: {}
+            leaveTypeStats: {},
+            employeeLeaveDetails: []
         };
 
         const filteredIds = new Set(filtered.map(e => e.id));
+        const employeeMap = new Map(filtered.map(e => [e.id, e]));
+
+        // 扣薪假別清單
+        const deductionLeaveNames = ['事假', '家庭照顧', '家庭照顧假', '病假', '生理假'];
 
         filtered.forEach(e => {
             if (e.gender === 'MALE') stats.gender.male++;
@@ -248,14 +259,47 @@ const StatisticsPage: React.FC = () => {
 
         // 計算差勤時數統計
         const relevantLeaves = leaveRequests.filter(req => filteredIds.has(req.employee_id));
+        
+        // 暫存每位員工各假別的時數加總
+        const empLeaveTotals: Record<string, Record<string, number>> = {};
+
         relevantLeaves.forEach(req => {
             const typeName = req.leave_type?.name || '未知假別';
-            stats.leaveTypeStats[typeName] = (stats.leaveTypeStats[typeName] || 0) + (req.hours || 0);
+            const hours = req.hours || 0;
+            
+            // 全體統計
+            stats.leaveTypeStats[typeName] = (stats.leaveTypeStats[typeName] || 0) + hours;
+
+            // 個別統計 (僅針對扣薪假別)
+            if (deductionLeaveNames.some(d => typeName.includes(d))) {
+                if (!empLeaveTotals[req.employee_id]) {
+                    empLeaveTotals[req.employee_id] = {};
+                }
+                empLeaveTotals[req.employee_id][typeName] = (empLeaveTotals[req.employee_id][typeName] || 0) + hours;
+            }
         });
 
-        // 將差勤時數四捨五入至整數
+        // 構建員工假別明細列表
+        Object.entries(empLeaveTotals).forEach(([empId, types]) => {
+            const emp = employeeMap.get(empId);
+            if (emp) {
+                Object.entries(types).forEach(([leaveType, hours]) => {
+                    stats.employeeLeaveDetails.push({
+                        employeeName: emp.name,
+                        department: emp.department || '未分配',
+                        leaveType,
+                        hours: parseFloat(hours.toFixed(1))
+                    });
+                });
+            }
+        });
+
+        // 按時數降序排序明細
+        stats.employeeLeaveDetails.sort((a, b) => b.hours - a.hours);
+
+        // 將差勤時數百分比顯示保留一位小數
         Object.keys(stats.leaveTypeStats).forEach(key => {
-            stats.leaveTypeStats[key] = Math.round(stats.leaveTypeStats[key]);
+            stats.leaveTypeStats[key] = parseFloat(stats.leaveTypeStats[key].toFixed(1));
         });
 
         return stats;
@@ -543,6 +587,70 @@ const StatisticsPage: React.FC = () => {
                         ))}
                     </div>
                 </div>
+            </div>
+
+            {/* 員工扣薪假別統計明細 */}
+            <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                    <div className="flex items-center gap-3">
+                        <div className="p-1.5 bg-slate-900 rounded-lg">
+                            <span className="material-symbols-outlined text-white text-xl font-black">table_chart</span>
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black text-slate-900 tracking-tight">員工扣薪假別明細統計</h3>
+                            <p className="text-xs font-bold text-slate-400 mt-0.5">事假、病假、生理假、家庭照顧假統計明細</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto -mx-8 px-8">
+                    <table className="w-full text-left border-separate border-spacing-y-2">
+                        <thead>
+                            <tr className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                                <th className="px-6 py-3">員工姓名</th>
+                                <th className="px-6 py-3">部門</th>
+                                <th className="px-6 py-3 text-center">扣薪假別</th>
+                                <th className="px-6 py-3 text-right">累計時數 (HR)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-sm">
+                            {currentStats.employeeLeaveDetails.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="px-6 py-12 text-center text-slate-400 font-bold italic bg-slate-50/50 rounded-2xl">
+                                        本月尚無相關扣薪差勤紀錄
+                                    </td>
+                                </tr>
+                            ) : (
+                                currentStats.employeeLeaveDetails.map((detail, idx) => (
+                                    <tr key={idx} className="group hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-4 bg-slate-50/50 group-hover:bg-white rounded-l-2xl border-y border-transparent group-hover:border-slate-100 transition-all">
+                                            <div className="font-black text-slate-900">{detail.employeeName}</div>
+                                        </td>
+                                        <td className="px-6 py-4 bg-slate-50/50 group-hover:bg-white border-y border-transparent group-hover:border-slate-100 transition-all">
+                                            <div className="font-bold text-slate-500">{detail.department}</div>
+                                        </td>
+                                        <td className="px-6 py-4 bg-slate-50/50 group-hover:bg-white border-y border-transparent group-hover:border-slate-100 transition-all text-center">
+                                            <span className="px-4 py-1.5 bg-rose-50 text-rose-600 rounded-full text-sm font-black tracking-tight">
+                                                {detail.leaveType}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 bg-slate-50/50 group-hover:bg-white rounded-r-2xl border-y border-transparent group-hover:border-slate-100 transition-all text-right">
+                                            <span className="font-black text-rose-600 tabular-nums">
+                                                {detail.hours.toFixed(1)}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                {currentStats.employeeLeaveDetails.length > 0 && (
+                    <div className="mt-6 flex items-center gap-2 text-[10px] font-bold text-slate-400 italic">
+                        <span className="material-symbols-outlined text-xs">info</span>
+                        此表格僅列出在本月有「扣薪假別」核准紀錄的員工，方便人事進行薪資計算。
+                    </div>
+                )}
             </div>
         </div>
     );
