@@ -154,7 +154,12 @@ const StatisticsPage: React.FC = () => {
             const [empRes, logRes, leaveRes, typeRes] = await Promise.all([
                 supabase.from('employees').select('*').eq('is_active', true),
                 supabase.from('attendance_logs').select('*').gte('timestamp', startOfMonth.toISOString()).lt('timestamp', endOfMonth.toISOString()),
-                supabase.from('leave_requests').select('*, leave_type:leave_types(*)').eq('status', 'APPROVED').gte('start_date', startOfMonth.toISOString()).lt('start_date', endOfMonth.toISOString()),
+                supabase.from('leave_requests')
+                    .select('*, leave_type:leave_types(*)')
+                    .eq('status', 'APPROVED')
+                    .or('is_modified.is.null,is_modified.eq.false') // 排除已被變更的舊紀錄，避免時數重複計算
+                    .gte('start_date', startOfMonth.toISOString())
+                    .lt('start_date', endOfMonth.toISOString()),
                 supabase.from('leave_types').select('*')
             ]);
 
@@ -271,7 +276,9 @@ const StatisticsPage: React.FC = () => {
             stats.leaveTypeStats[typeName] = (stats.leaveTypeStats[typeName] || 0) + hours;
 
             // 個別統計 (僅針對扣薪假別)
-            if (deductionLeaveNames.some(d => typeName.includes(d))) {
+            // 排除名稱中包含「公」字頭的（如公事假），並確保包含關鍵扣薪假別名稱
+            const isOfficial = typeName.startsWith('公') || typeName.includes('公務') || typeName.includes('公假');
+            if (!isOfficial && deductionLeaveNames.some(d => typeName.includes(d))) {
                 if (!empLeaveTotals[req.employee_id]) {
                     empLeaveTotals[req.employee_id] = {};
                 }
