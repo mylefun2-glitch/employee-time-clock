@@ -268,7 +268,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
     }, [startDate, startTime, endDate, endTime]);
 
     // 判斷是否需要理事長審核
-    const requiresChairmanApproval = totalDays >= 3;
+    const requiresChairmanApproval = totalDays >= 5;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -691,7 +691,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                             此申請需要 <span className="font-black">主管及理事長</span> 雙重審核
                                         </p>
                                         <p className="text-xs text-amber-700 mt-1">
-                                            請假 {totalDays} 日 ≥ 3 日，將由主管審核後轉送理事長核准
+                                            請假 {totalDays} 日 ≥ 5 日，將由主管審核後轉送理事長核准
                                         </p>
                                     </div>
                                 </div>

@@ -21,7 +21,51 @@ export enum RequestStatus {
 
 export enum RequestType {
   LEAVE = 'LEAVE',
-  BUSINESS_TRIP = 'BUSINESS_TRIP'
+  BUSINESS_TRIP = 'BUSINESS_TRIP',
+  SHIFT = 'SHIFT' // 新增：挪移申請
+}
+
+export enum ShiftType {
+  SWAP_REST_DAY = 'SWAP_REST_DAY',
+  HOURS_ADJUSTMENT = 'HOURS_ADJUSTMENT'
+}
+
+export enum DayOverrideType {
+  WORKDAY = 'WORKDAY',
+  REST_DAY = 'REST_DAY',
+  CUSTOM_HOURS = 'CUSTOM_HOURS'
+}
+
+export interface EmployeeDayOverride {
+  id: string;
+  employee_id: string;
+  override_date: string;
+  day_type: DayOverrideType;
+  work_start_time?: string;
+  work_end_time?: string;
+  break_start_time?: string;
+  break_end_time?: string;
+  request_id?: string;
+}
+
+export interface ShiftRequest {
+  id: string;
+  created_at: string;
+  employee_id: string;
+  type: ShiftType;
+  original_rest_date?: string;
+  new_rest_date?: string;
+  target_date?: string;
+  new_work_start_time?: string;
+  new_work_end_time?: string;
+  new_break_start_time?: string;
+  new_break_end_time?: string;
+  reason?: string;
+  status: RequestStatus;
+  approver_id?: string;
+  approved_at?: string;
+  review_comment?: string;
+  employee?: { name: string; department: string };
 }
 
 // 差勤類型介面

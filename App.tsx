@@ -13,6 +13,7 @@ const EmployeesPage = lazy(() => import('./pages/admin/EmployeesPage'));
 const MakeupRequestsPage = lazy(() => import('./pages/admin/MakeupRequestsPage'));
 const ResourceManagerPage = lazy(() => import('./pages/admin/ResourceManagerPage'));
 const RequestsPage = lazy(() => import('./pages/admin/RequestsPage'));
+const ShiftRequestsPage = lazy(() => import('./pages/admin/ShiftRequestsPage'));
 const LeaveTypesPage = lazy(() => import('./pages/admin/LeaveTypesPage'));
 const CompanyManagementPage = lazy(() => import('./pages/admin/CompanyManagementPage'));
 const StatisticsPage = lazy(() => import('./pages/admin/StatisticsPage'));
@@ -50,6 +51,7 @@ const App: React.FC = () => {
                 <Route path="leave-stats" element={<AdminLeaveStatsPage />} />
                 <Route path="attendance-calendar" element={<AttendanceCalendarPage />} />
                 <Route path="makeup-requests" element={<MakeupRequestsPage />} />
+                <Route path="shift-requests" element={<ShiftRequestsPage />} />
                 <Route path="requests" element={<RequestsPage />} />
                 <Route path="resource-manager" element={<ResourceManagerPage />} />
                 {/* Redirects for legacy paths */}

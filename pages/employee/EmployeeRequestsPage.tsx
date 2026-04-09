@@ -4,10 +4,12 @@ import { requestService } from '../../services/requestService';
 import LeaveRequestForm from '../../components/LeaveRequestForm';
 import ModificationRequestForm from '../../components/ModificationRequestForm';
 import ResourceRequestForm from '../../components/ResourceRequestForm';
+import ShiftRequestForm from '../../components/ShiftRequestForm';
 import { LeaveRequest } from '../../types';
 import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 import { formatDateTimeRange } from '../../lib/hrUtils';
 import EmployeeResourceRequestsList from '../../components/EmployeeResourceRequestsList';
+import { shiftService } from '../../services/shiftService';
 
 const EmployeeRequestsPage: React.FC = () => {
     const { employee } = useEmployee();
@@ -18,6 +20,7 @@ const EmployeeRequestsPage: React.FC = () => {
     const [showForm, setShowForm] = useState(false);
     const [showModificationForm, setShowModificationForm] = useState(false);
     const [showResourceForm, setShowResourceForm] = useState(false);
+    const [showShiftForm, setShowShiftForm] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
     const [selectedYear, setSelectedYear] = useState<number | null>(null);
     const [availableYears, setAvailableYears] = useState<number[]>([]);
@@ -58,28 +61,46 @@ const EmployeeRequestsPage: React.FC = () => {
         if (!employee) return;
         setLoading(true);
         try {
-            // 如果 year 為 null,不傳入 year 參數(查詢所有年度)
-            const data = year === null
+            const leaveData = year === null
                 ? await requestService.getEmployeeRequests(employee.id, undefined, employee.department)
                 : await requestService.getEmployeeRequests(employee.id, year, employee.department);
-            setRequests(data || []);
+            
+            // 獲取挪移申請
+            const shiftData = await shiftService.getEmployeeShiftRequests(employee.id);
+            
+            // 標記類型並合併
+            const formattedLeave = (leaveData || []).map(r => ({ ...r, __type: 'LEAVE' }));
+            const formattedShift = (shiftData || []).map(r => ({ 
+                ...r, 
+                __type: 'SHIFT',
+                // 為了排序與過濾一致性，將挪移日期映射到 start_date
+                start_date: r.type === 'SWAP_REST_DAY' ? r.original_rest_date : r.target_date
+            }));
+
+            const combined = [...formattedLeave, ...formattedShift].sort(
+                (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            );
+
+            setRequests(combined);
 
             // 動態更新可用年度 list (基於實際抓取到的資料)
-            if (data && data.length > 0) {
-                const years = Array.from(new Set(data.map(req => new Date(req.start_date).getFullYear())));
+            if (combined && combined.length > 0) {
+                const years = Array.from(new Set(combined.map(req => 
+                    new Date(req.start_date).getFullYear()
+                )));
                 const currentYear = new Date().getFullYear();
                 if (!years.includes(currentYear)) years.push(currentYear);
 
                 setAvailableYears(prev => {
-                    const combined = Array.from(new Set([...prev, ...years])).sort((a, b) => b - a);
-                    return combined;
+                    const combinedYears = Array.from(new Set([...prev, ...years])).map(Number).sort((a, b) => b - a);
+                    return combinedYears;
                 });
             } else if (availableYears.length === 0) {
                 // 如果沒資料，至少顯示今年
                 setAvailableYears([new Date().getFullYear()]);
             }
 
-            if (!data || data.length === 0) {
+            if (!combined || combined.length === 0) {
                 console.log('No requests found for employee:', employee.id, 'year:', year);
             }
         } catch (error) {
@@ -117,7 +138,16 @@ const EmployeeRequestsPage: React.FC = () => {
     const handleWithdrawRequest = async () => {
         if (!employee || !withdrawingId) return;
 
-        const result = await requestService.withdrawRequest(withdrawingId, employee.id);
+        // 根據類型選擇服務
+        const request = requests.find(r => r.id === withdrawingId);
+        let result;
+        
+        if (request?.__type === 'SHIFT') {
+            result = await shiftService.withdrawShiftRequest(withdrawingId, employee.id);
+        } else {
+            result = await requestService.withdrawRequest(withdrawingId, employee.id);
+        }
+
         setShowWithdrawConfirm(false);
         setWithdrawingId(null);
 
@@ -136,12 +166,33 @@ const EmployeeRequestsPage: React.FC = () => {
 
         setIsBatchWithdrawing(true);
         try {
-            const result = await requestService.batchWithdrawRequests(selectedIds, employee.id);
-            if (result.success) {
-                alert(`已成功送出 ${result.succeeded} 筆撤回申請，請等待主管審核`);
-            } else {
-                alert(`部分撤回失敗：\n成功 ${result.succeeded} 筆，失敗 ${result.failed} 筆\n\n失敗原因：\n${result.errors.join('\n')}`);
+            // 由於不同類型的撤回邏輯不同，我們分開處理並收集結果
+            const successes: string[] = [];
+            const failures: string[] = [];
+            
+            for (const id of selectedIds) {
+                const req = requests.find(r => r.id === id);
+                let result;
+                
+                if (req?.__type === 'SHIFT') {
+                    result = await shiftService.withdrawShiftRequest(id, employee.id);
+                } else {
+                    result = await requestService.withdrawRequest(id, employee.id);
+                }
+                
+                if (result.success) {
+                    successes.push(id);
+                } else {
+                    failures.push(`${req?.leave_type?.name || '挪移'}: ${result.error || '失敗'}`);
+                }
             }
+
+            if (failures.length === 0) {
+                alert(`已成功送出 ${successes.length} 筆撤回申請，請等待主管審核`);
+            } else {
+                alert(`部分撤回完成：\n成功 ${successes.length} 筆，失敗 ${failures.length} 筆\n\n失敗原因：\n${failures.join('\n')}`);
+            }
+            
             setSelectedIds([]);
             fetchData(selectedYear);
         } catch (error: any) {
@@ -284,6 +335,13 @@ const EmployeeRequestsPage: React.FC = () => {
                     借用申請
                 </button>
                 <button
+                    onClick={() => setShowShiftForm(true)}
+                    className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all hover:-translate-y-1 active:scale-95"
+                >
+                    <span className="material-symbols-outlined text-lg">swap_calls</span>
+                    挪移申請
+                </button>
+                <button
                     onClick={() => setShowForm(true)}
                     className="flex items-center justify-center gap-2 px-8 py-3.5 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all hover:-translate-y-1 active:scale-95"
                 >
@@ -424,7 +482,7 @@ const EmployeeRequestsPage: React.FC = () => {
                                     <TableHeaderFilter
                                         columnKey="leaveType"
                                         label="類型"
-                                        values={requests.map(r => r.leave_type?.name || '差勤申請')}
+                                        values={requests.map(r => r.__type === 'SHIFT' ? '挪移申請' : (r.leave_type?.name || '差勤申請'))}
                                         selectedValues={columnFilters.leaveType}
                                         onChange={(values) => setColumnFilters({ ...columnFilters, leaveType: values })}
                                     />
@@ -490,9 +548,25 @@ const EmployeeRequestsPage: React.FC = () => {
                                                         <span className="material-symbols-outlined text-lg">edit_calendar</span>
                                                     </div>
                                                     <div>
-                                                        <div className="font-bold text-slate-900">{request.leave_type?.name || '差勤申請'}</div>
+                                                        <div className="font-bold text-slate-900">
+                                                            {request.__type === 'SHIFT' ? '挪移申請' : (request.leave_type?.name || '差勤申請')}
+                                                        </div>
                                                         <div className="text-xs font-mono text-slate-500 mt-1">
-                                                            {formatDateTimeRange(request.start_date, request.end_date)}
+                                                            {request.__type === 'SHIFT' ? (
+                                                                request.type === 'SWAP_REST_DAY' ? (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <span className="text-amber-600">原休息 {request.original_rest_date}</span>
+                                                                        <span className="material-symbols-outlined text-[12px] text-slate-400">swap_horiz</span>
+                                                                        <span className="text-blue-600">對調日 {request.new_rest_date}</span>
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <span>{request.target_date} 調整為 {request.new_work_start_time}-{request.new_work_end_time}</span>
+                                                                    </span>
+                                                                )
+                                                            ) : (
+                                                                formatDateTimeRange(request.start_date, request.end_date)
+                                                            )}
                                                         </div>
                                                         {request.car && (
                                                             <div className="flex items-center gap-1 text-blue-600 text-xs mt-1">
@@ -653,6 +727,19 @@ const EmployeeRequestsPage: React.FC = () => {
                     onSuccess={() => {
                         setShowModificationForm(false);
                         setSelectedRequest(null);
+                        fetchData(selectedYear);
+                    }}
+                />
+            )}
+
+            {/* Shift Request Form Modal */}
+            {showShiftForm && employee && (
+                <ShiftRequestForm
+                    employeeId={employee.id}
+                    onClose={() => setShowShiftForm(false)}
+                    onSuccess={() => {
+                        setShowShiftForm(false);
+                        alert('挪移申請已送出，請等待審核！');
                         fetchData(selectedYear);
                     }}
                 />

@@ -3,6 +3,7 @@ import { useEmployee } from '../../contexts/EmployeeContext';
 import { getPendingApprovalsForSupervisor, getAllSubordinateRequests } from '../../services/supervisorService';
 import { requestService } from '../../services/requestService';
 import { getMakeupRequests, approveMakeupRequest, rejectMakeupRequest, batchApproveMakeupRequests, batchRejectMakeupRequests } from '../../services/admin';
+import { shiftService } from '../../services/shiftService';
 import { RequestStatus } from '../../types';
 import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 import { formatDateTimeRange } from '../../lib/hrUtils';
@@ -84,8 +85,12 @@ const EmployeeApprovalsPage: React.FC = () => {
             const makeupRequests = await getMakeupRequests('ALL', employee.id);
             const formattedMakeupRequests = (makeupRequests || []).map((r: any) => ({ ...r, __type: 'MAKEUP' }));
 
+            // 載入所有狀態的下屬挪移申請記錄
+            const shiftRequests = await shiftService.getSubordinateShiftRequests(employee.id);
+            const formattedShiftRequests = (shiftRequests || []).map((r: any) => ({ ...r, __type: 'SHIFT' }));
+
             // 標記並合併
-            let allUnifiedRequests = [...formattedLeaveRequests, ...formattedMakeupRequests].sort(
+            let allUnifiedRequests = [...formattedLeaveRequests, ...formattedMakeupRequests, ...formattedShiftRequests].sort(
                 (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
             );
 
@@ -100,6 +105,14 @@ const EmployeeApprovalsPage: React.FC = () => {
                     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
                 );
             }
+
+            console.log('[ApprovalsPage] Fetched all requests:', allUnifiedRequests.length);
+            console.table(allUnifiedRequests.map(r => ({
+                id: r.id.slice(0, 8),
+                type: r.__type,
+                status: r.status,
+                employee: r.employee?.name || r.employee_name
+            })));
 
             setAllRequests(allUnifiedRequests);
 
@@ -130,12 +143,15 @@ const EmployeeApprovalsPage: React.FC = () => {
             if (request?.__type === 'LEAVE') {
                 const status = type === 'approve' ? RequestStatus.APPROVED : RequestStatus.REJECTED;
                 result = await requestService.updateRequestStatus(requestId, status, employee.id);
-            } else {
+            } else if (request?.__type === 'MAKEUP') {
                 if (type === 'approve') {
                     result = await approveMakeupRequest(requestId, employee.id, comment);
                 } else {
                     result = await rejectMakeupRequest(requestId, employee.id, comment);
                 }
+            } else if (request?.__type === 'SHIFT') {
+                const status = type === 'approve' ? RequestStatus.APPROVED : RequestStatus.REJECTED;
+                result = await shiftService.updateShiftStatus(requestId, status, employee.id, comment);
             }
 
             if (!result.success) throw new Error(result.error);
@@ -185,7 +201,9 @@ const EmployeeApprovalsPage: React.FC = () => {
             // 應用表格欄位篩選 (加上 trim 確保比對精確)
             const empName = (r.employee?.name || '未知員工').trim();
             const deptName = (r.employee?.department || '未分配').trim();
-            const typeName = (r.__type === 'MAKEUP' ? `補登(${r.check_type === 'IN' ? '上班' : '下班'})` : (r.leave_type?.name || '請假')).trim();
+            const typeName = (r.__type === 'MAKEUP' ? `補登(${r.check_type === 'IN' ? '上班' : '下班'})` :
+                r.__type === 'SHIFT' ? '挪移申請' :
+                (r.leave_type?.name || '請假')).trim();
 
             const employeeMatch = columnFilters.employee.length === 0 ||
                 columnFilters.employee.map(v => v.trim()).includes(empName);
@@ -246,11 +264,13 @@ const EmployeeApprovalsPage: React.FC = () => {
         try {
             const leaveIds: string[] = [];
             const makeupIds: string[] = [];
+            const shiftIds: string[] = [];
 
             selectedIds.forEach(id => {
                 const req = allRequests.find(r => r.id === id);
                 if (req?.__type === 'LEAVE') leaveIds.push(id);
                 else if (req?.__type === 'MAKEUP') makeupIds.push(id);
+                else if (req?.__type === 'SHIFT') shiftIds.push(id);
             });
 
             let totalSucceeded = 0;
@@ -279,6 +299,20 @@ const EmployeeApprovalsPage: React.FC = () => {
                 totalSucceeded += result.succeeded;
                 totalFailed += result.failed;
                 if (result.errors) errors.push(...result.errors);
+            }
+
+            if (shiftIds.length > 0) {
+                // 挪移申請目前採循環處理 (若後期有量大需求可改為 RPC 批量)
+                const status = type === 'approve' ? RequestStatus.APPROVED : RequestStatus.REJECTED;
+                for (const id of shiftIds) {
+                    const result = await shiftService.updateShiftStatus(id, status, employee.id, comment);
+                    if (result.success) {
+                        totalSucceeded++;
+                    } else {
+                        totalFailed++;
+                        errors.push(`挪移申請 ${id.slice(0, 8)}: ${result.error || '未知錯誤'}`);
+                    }
+                }
             }
 
             setBatchResultDialog({
@@ -472,7 +506,11 @@ const EmployeeApprovalsPage: React.FC = () => {
                                     <TableHeaderFilter
                                         columnKey="leaveType"
                                         label="假別/類型"
-                                        values={Array.from(new Set(activeRequests.map(r => r.__type === 'MAKEUP' ? `補登(${r.check_type === 'IN' ? '上班' : '下班'})` : (r.leave_type?.name || '請假'))))}
+                                        values={Array.from(new Set(activeRequests.map(r => 
+                                            r.__type === 'MAKEUP' ? `補登(${r.check_type === 'IN' ? '上班' : '下班'})` : 
+                                            r.__type === 'SHIFT' ? '挪移申請' :
+                                            (r.leave_type?.name || '請假')
+                                        )))}
                                         selectedValues={columnFilters.leaveType}
                                         onChange={(values) => setColumnFilters({ ...columnFilters, leaveType: values })}
                                     />
@@ -540,13 +578,25 @@ const EmployeeApprovalsPage: React.FC = () => {
                                             </td>
                                             <td className="px-4 py-4">
                                                 <div className="text-sm font-bold text-slate-700">
-                                                    {request.__type === 'MAKEUP' ? `補登(${request.check_type === 'IN' ? '上班' : '下班'})` : (request.leave_type?.name || '請假')}
+                                                    {request.__type === 'MAKEUP' ? `補登(${request.check_type === 'IN' ? '上班' : '下班'})` : 
+                                                     request.__type === 'SHIFT' ? '挪移申請' :
+                                                     (request.leave_type?.name || '請假')}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4 text-nowrap">
                                                 <div className="text-sm font-mono text-slate-700">
                                                     {request.__type === 'MAKEUP' ? 
                                                         `${new Date(request.request_date).toLocaleDateString('zh-TW')} ${request.request_time}` 
+                                                        : request.__type === 'SHIFT' ? (
+                                                            request.type === 'SWAP_REST_DAY' ? (
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <div className="text-amber-600 text-[10px]">原休: {request.original_rest_date}</div>
+                                                                    <div className="text-blue-600 text-[10px]">對調: {request.new_rest_date}</div>
+                                                                </div>
+                                                            ) : (
+                                                                <div>{request.target_date} 工時調整</div>
+                                                            )
+                                                        )
                                                         : formatDateTimeRange(request.start_date, request.end_date)
                                                     }
                                                 </div>
@@ -555,6 +605,8 @@ const EmployeeApprovalsPage: React.FC = () => {
                                                 <div className="text-sm font-black text-slate-900">
                                                     {request.__type === 'MAKEUP' ? (
                                                         '-'
+                                                    ) : request.__type === 'SHIFT' ? (
+                                                        request.type === 'SWAP_REST_DAY' ? '休息日對調' : `${request.new_work_start_time}-${request.new_work_end_time}`
                                                     ) : (
                                                         <>{request.hours || 0} <span className="text-[10px] text-slate-400 font-bold">小時</span></>
                                                     )}
@@ -690,7 +742,7 @@ const EmployeeApprovalsPage: React.FC = () => {
                                             <span className="text-slate-400">-</span>
                                             <span className="text-slate-500 text-xs">{info.type}</span>
                                             <span className="text-blue-600 font-black ml-1">{info.count}筆</span>
-                                            {pendingRequests.find(r => selectedIds.has(r.id) && r.employee?.name === info.name && r.leave_type?.name === info.type && r.status === 'WITHDRAW_PENDING') && (
+                                            {pendingRequests.find(r => selectedIds.has(r.id) && r.employee?.name === info.name && (r.leave_type?.name === info.type || (r.__type === 'SHIFT' && info.type === '挪移申請')) && r.status === 'WITHDRAW_PENDING') && (
                                                 <span className="px-2 py-0.5 bg-orange-100 text-orange-600 text-[10px] rounded-full font-black ml-1">撤回</span>
                                             )}
                                         </div>

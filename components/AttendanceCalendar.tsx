@@ -11,7 +11,8 @@ import { getEmployeeInfo } from '../services/employee';
 import { calculateLeaveHoursDetailed, calculateOTHours } from '../lib/leaveUtils';
 import { formatDateTimeRange } from '../lib/hrUtils';
 import { getEmployeeSchedules } from '../services/admin';
-import { CheckType, Employee, EmployeeSchedule } from '../types';
+import { shiftService } from '../services/shiftService';
+import { CheckType, Employee, EmployeeSchedule, EmployeeDayOverride, ShiftRequest } from '../types';
 
 interface AttendanceLog {
     id: string;
@@ -45,7 +46,9 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
     const [logs, setLogs] = useState<AttendanceLog[]>([]);
     const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+    const [shiftRequests, setShiftRequests] = useState<ShiftRequest[]>([]);
     const [historicalSchedules, setHistoricalSchedules] = useState<EmployeeSchedule[]>([]);
+    const [dayOverrides, setDayOverrides] = useState<EmployeeDayOverride[]>([]);
     const [loading, setLoading] = useState(false);
     const [showMakeupForm, setShowMakeupForm] = useState(false);
     const [selectedDateStr, setSelectedDateStr] = useState<string>('');
@@ -105,6 +108,18 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             setLogs(logsData || []);
             setLeaves(leavesData || []);
 
+            // 獲取挪移申請 (顯示標籤用)
+            const shifts = await shiftService.getEmployeeShiftRequests(targetEmployeeId);
+            setShiftRequests(shifts || []);
+
+            // 獲取生效的挪移紀錄 (影響底色/計算用)
+            const overrides = await shiftService.getEmployeeDayOverrides(
+                targetEmployeeId, 
+                format(startOfMonth(currentDate), 'yyyy-MM-dd'),
+                format(endOfMonth(currentDate), 'yyyy-MM-dd')
+            );
+            setDayOverrides(overrides || []);
+
             // Fetch historical schedules for accurate calculation
             const schedules = await getEmployeeSchedules(targetEmployeeId);
             setHistoricalSchedules(schedules || []);
@@ -141,13 +156,30 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
     }, [weeks, currentDate]);
 
     const monthData = useMemo(() => {
-        const data: { [key: string]: { logs: AttendanceLog[], leaves: LeaveRequest[], hours: number, holidayName?: string } } = {};
+        const data: { [key: string]: { 
+            logs: AttendanceLog[], 
+            leaves: LeaveRequest[], 
+            shifts: ShiftRequest[],
+            override?: EmployeeDayOverride,
+            hours: number, 
+            holidayName?: string 
+        } } = {};
 
         days.forEach(day => {
-            const dateKey = format(day, 'yyyy-MM-dd');
+            const dateStr = format(day, 'yyyy-MM-dd');
+            const dateKey = dateStr;
             const holidayName = isNationalHoliday(day);
+            const dayOverride = dayOverrides.find(o => o.override_date === dateStr);
+            
             const dayLogs = logs.filter(log => isSameDay(parseISO(log.timestamp), day))
                 .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+            // 顯示該日相關的挪移申請
+            const dayShifts = shiftRequests.filter(s => 
+                s.original_rest_date === dateStr || 
+                s.new_rest_date === dateStr || 
+                s.target_date === dateStr
+            );
 
             const dayLeaves = leaves.filter(leave => {
                 const s = parseISO(leave.start_date);
@@ -377,11 +409,18 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             }
 
             dayHours = parseFloat(finalHours.toFixed(2));
-            data[dateKey] = { logs: dayLogs, leaves: dayLeaves, hours: parseFloat(dayHours.toFixed(2)), holidayName };
+            data[dateKey] = { 
+                logs: dayLogs, 
+                leaves: dayLeaves, 
+                shifts: dayShifts || [],
+                override: dayOverride,
+                hours: parseFloat(dayHours.toFixed(2)), 
+                holidayName 
+            };
         });
 
         return data;
-    }, [days, logs, leaves, targetEmployee]);
+    }, [days, logs, leaves, targetEmployee, dayOverrides, shiftRequests, historicalSchedules]);
 
     const totalMonthlyHours = Object.values(monthData).reduce((acc, curr) => acc + curr.hours, 0);
     const weekDays = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
@@ -510,36 +549,67 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                                 const dayInfo = monthData[dateKey];
                                 const isToday = isSameDay(day, new Date());
                                 const holidayName = dayInfo?.holidayName;
+                                const override = dayInfo?.override;
+                                
+                                // 判斷是否為工作日/休息日 (考慮挪移 override)
                                 const isSaturday = getDay(day) === 6;
                                 const isSunday = getDay(day) === 0;
+                                const isNaturalWeekend = isSaturday || isSunday;
+                                const isNaturalHoliday = !!holidayName;
+                                const isNaturalRestDay = isNaturalWeekend || isNaturalHoliday;
+                                
+                                let isWorkDay = !isNaturalRestDay;
+                                let isRestDay = isNaturalRestDay;
+                                let overrideLabel = '';
+                                
+                                if (override) {
+                                    if (override.work_start_time) {
+                                        isWorkDay = true;
+                                        isRestDay = false;
+                                        overrideLabel = '挪移：上班';
+                                    } else {
+                                        isWorkDay = false;
+                                        isRestDay = true;
+                                        overrideLabel = '挪移：休息';
+                                    }
+                                }
 
                                 return (
                                     <div
                                         key={dateKey}
                                         onClick={() => handleDateClick(day)}
-                                        className={`min-h-[80px] p-3 border-r last:border-r-0 border-slate-100 flex flex-col transition-colors relative group 
+                                        className={`min-h-[120px] p-3 border-r last:border-r-0 border-slate-100 flex flex-col transition-colors relative group 
                                             ${!readOnly ? 'cursor-pointer hover:bg-slate-50' : ''}
-                                            ${holidayName ? 'bg-rose-50/30' : ''} 
-                                            ${isSaturday && !holidayName ? 'bg-amber-50/30' : ''} 
-                                            ${isSunday && !holidayName ? 'bg-slate-100/40' : ''}`}
+                                            ${isRestDay ? (holidayName || (override && !override.work_start_time) ? 'bg-rose-50/40' : isSaturday ? 'bg-amber-50/40' : 'bg-slate-50/60') : ''}
+                                            ${override?.work_start_time ? 'bg-blue-50/30' : ''}`}
                                     >
                                         <div className="flex justify-between items-start mb-2">
                                             <div className="flex flex-col gap-0.5">
                                                 <span className={`w-7 h-7 flex items-center justify-center text-sm font-black rounded-lg 
                                                     ${isToday ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' :
-                                                        holidayName ? 'text-rose-600' :
+                                                        (holidayName || (override && !override.work_start_time)) ? 'text-rose-600' :
                                                             isSunday ? 'text-slate-400' :
+                                                            isSaturday ? 'text-amber-600' :
                                                                 'text-slate-600'
                                                     }`}>
                                                     {format(day, 'd')}
                                                 </span>
-                                                {holidayName && (
-                                                    <span className="text-[10px] font-bold text-rose-500 truncate max-w-[60px]" title={holidayName}>
-                                                        {holidayName}
-                                                    </span>
+                                                {(holidayName || overrideLabel) && (
+                                                    <div className="flex flex-col">
+                                                        {holidayName && (
+                                                            <span className="text-[10px] font-bold text-rose-500 truncate max-w-[60px]" title={holidayName}>
+                                                                {holidayName}
+                                                            </span>
+                                                        )}
+                                                        {overrideLabel && (
+                                                            <span className={`text-[10px] font-black ${override?.work_start_time ? 'text-blue-600' : 'text-rose-500'} truncate max-w-[60px]`}>
+                                                                {overrideLabel}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
-                                            <div className="flex gap-2 items-center">
+                                            <div className="flex gap-2 items-center text-nowrap">
                                                 {!readOnly && (
                                                     <button
                                                         className="opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all text-blue-500 hover:bg-blue-50"
@@ -556,22 +626,23 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                                             </div>
                                         </div>
 
-                                        <div className="flex-1 space-y-1.5">
-                                            {dayInfo?.logs?.map(log => (
-                                                <div
-                                                    key={log.id}
-                                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-black border transition-all ${log.check_type === CheckType.IN
-                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                                        : 'bg-orange-50 text-orange-700 border-orange-100'
-                                                        }`}
-                                                >
-                                                    <span className="material-symbols-outlined text-[12px]">
-                                                        {log.check_type === CheckType.IN ? 'login' : 'logout'}
-                                                    </span>
-                                                    {format(parseISO(log.timestamp), 'HH:mm')}
-                                                </div>
-                                            ))}
+                                        <div className="flex-1 space-y-1.5 overflow-hidden">
+                                            {/* 打卡紀錄 */}
+                                            <div className="flex flex-wrap gap-1">
+                                                {dayInfo?.logs?.map(log => (
+                                                    <div
+                                                        key={log.id}
+                                                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black border ${log.check_type === CheckType.IN
+                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                                            : 'bg-orange-50 text-orange-700 border-orange-100'
+                                                            }`}
+                                                    >
+                                                        {format(parseISO(log.timestamp), 'HH:mm')}
+                                                    </div>
+                                                ))}
+                                            </div>
 
+                                            {/* 請假申請 */}
                                             {dayInfo?.leaves?.map(leave => (
                                                 <div
                                                     key={leave.id}
@@ -583,7 +654,6 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                                                 >
                                                     <span className="truncate flex-1">
                                                         {leave.leave_type?.name} {leave.dayHours ? `${parseFloat(String(leave.dayHours)).toFixed(1)}H` : leave.hours ? `${leave.hours}H` : ''}
-                                                        {leave.dayHours && leave.hours && Math.abs(leave.dayHours - leave.hours) > 0.01 ? ` (總計 ${leave.hours}H)` : ''}
                                                     </span>
                                                     {leave.status !== 'APPROVED' && (
                                                         <span className="shrink-0 bg-white/20 px-1 rounded-[4px] text-[8px]">
@@ -592,6 +662,32 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                                                                     leave.status === 'WITHDRAW_PENDING' ? '撤回中' : ''}
                                                         </span>
                                                     )}
+                                                </div>
+                                            ))}
+
+                                            {/* 挪移申請樣式 */}
+                                            {dayInfo?.shifts?.map(shift => (
+                                                <div
+                                                    key={shift.id}
+                                                    className={`px-2 py-1 rounded-md text-[10px] font-black text-white shadow-sm flex flex-col gap-0.5
+                                                        ${shift.status === 'APPROVED' ? 'bg-indigo-600' : 'bg-slate-500/80'}`}
+                                                    title={shift.reason}
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="flex items-center gap-1">
+                                                            <span className="material-symbols-outlined text-[12px]">swap_horiz</span>
+                                                            挪移
+                                                        </span>
+                                                        {shift.status !== 'APPROVED' && (
+                                                            <span className="bg-white/20 px-1 rounded text-[8px]">{shift.status === 'PENDING' ? '待審' : '駁回'}</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[8px] opacity-90 truncate leading-tight">
+                                                        {shift.type === 'SWAP_REST_DAY' ? 
+                                                            (shift.original_rest_date === dateKey ? `休➜工(${shift.new_rest_date})` : `工➜休(${shift.original_rest_date})`) :
+                                                            `${shift.new_work_start_time}-${shift.new_work_end_time}`
+                                                        }
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>

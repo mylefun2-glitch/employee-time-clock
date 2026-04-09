@@ -1,17 +1,7 @@
-import { Employee, EmployeeSchedule } from '../types';
+import { Employee, EmployeeSchedule, EmployeeDayOverride, DayOverrideType } from '../types';
 import { isNationalHoliday } from './holidays';
 import { format } from 'date-fns';
 
-/**
- * 計算請假/出差時數
- * @param startDate 開始時間
- * @param endDate 結束時間
- * @param employee 員工資料 (包含預設班表)
- * @param ignoreWorkWindow 是否忽略工作時間限制 (通常用於加班)
- * @param deductBreaks 是否扣除休息時間
- * @param historicalSchedules 歷史班表紀錄 (若提供，則依日期查找有效班表)
- * @returns 總時數 (1 位小數)
- */
 /**
  * 計算請假/出差時數詳情
  */
@@ -22,6 +12,19 @@ export interface DetailedLeaveHours {
     finalHours: number;
 }
 
+/**
+ * 計算請假/出差時數
+ * @param startDate 開始時間
+ * @param endDate 結束時間
+ * @param employee 員工資料
+ * @param ignoreWorkWindow 是否忽略工作時間限制
+ * @param deductBreaks 是否扣除休息時間
+ * @param historicalSchedules 歷史班表紀錄
+ * @param manualBreak 手動扣除休息
+ * @param isMakeupWorkday 補班標記 (舊)
+ * @param isMakeupHoliday 補假標記 (舊)
+ * @param dayOverrides 挪移覆蓋紀錄
+ */
 export const calculateLeaveHoursDetailed = (
     startDate: Date,
     endDate: Date,
@@ -31,7 +34,8 @@ export const calculateLeaveHoursDetailed = (
     historicalSchedules?: EmployeeSchedule[],
     manualBreak: number = 0,
     isMakeupWorkday: boolean = false,
-    isMakeupHoliday: boolean = false
+    isMakeupHoliday: boolean = false,
+    dayOverrides?: EmployeeDayOverride[]
 ): DetailedLeaveHours => {
     if (endDate <= startDate) return { totalHours: 0, rawHours: 0, breakHours: 0, finalHours: 0 };
 
@@ -39,46 +43,59 @@ export const calculateLeaveHoursDetailed = (
     let totalRawMinutes = 0;
     let totalBreakMinutes = 0;
 
-    // 取得指定日期的有效班表設定
     const getEffectiveSchedule = (date: Date) => {
-        // 檢查日期是否合法，避免 format 報錯
         if (!date || isNaN(date.getTime())) {
             return {
                 work_start_time: '08:00',
                 work_end_time: '17:00',
                 break_start_time: '12:00',
                 break_end_time: '13:00',
-                break2_start_time: employee.break2_start_time,
-                break2_end_time: employee.break2_end_time,
-                break3_start_time: employee.break3_start_time,
-                break3_end_time: employee.break3_end_time,
                 rest_days: employee.rest_days || [0, 6],
                 salary_type: employee.salary_type || 'MONTHLY',
-                standard_daily_hours: employee.standard_daily_hours || 8.0
-            };
+                standard_daily_hours: employee.standard_daily_hours || 8.0,
+                is_override: false
+            } as any;
         }
 
+        const dateStr = format(date, 'yyyy-MM-dd');
+
+        // 1. 優先檢查挪移覆蓋
+        if (dayOverrides && dayOverrides.length > 0) {
+            const override = dayOverrides.find(o => o.override_date === dateStr);
+            if (override) {
+                return {
+                    work_start_time: override.work_start_time || employee.work_start_time || '08:00',
+                    work_end_time: override.work_end_time || employee.work_end_time || '17:00',
+                    break_start_time: override.break_start_time || employee.break_start_time || '12:00',
+                    break_end_time: override.break_end_time || employee.break_end_time || '13:00',
+                    rest_days: employee.rest_days || [0, 6],
+                    salary_type: employee.salary_type || 'MONTHLY',
+                    standard_daily_hours: employee.standard_daily_hours || 8.0,
+                    is_override: true,
+                    override_type: override.day_type
+                } as any;
+            }
+        }
+
+        // 2. 檢查歷史班表
         if (historicalSchedules && historicalSchedules.length > 0) {
-            const dateStr = format(date, 'yyyy-MM-dd');
             const schedule = historicalSchedules
                 .filter(s => s.effective_date <= dateStr)
                 .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
-            if (schedule) return schedule;
+            if (schedule) return { ...schedule, is_override: false };
         }
 
+        // 3. 使用預設班表
         return {
             work_start_time: employee.work_start_time || '08:00',
             work_end_time: employee.work_end_time || '17:00',
             break_start_time: employee.break_start_time || '12:00',
             break_end_time: employee.break_end_time || '13:00',
-            break2_start_time: employee.break2_start_time,
-            break2_end_time: employee.break2_end_time,
-            break3_start_time: employee.break3_start_time,
-            break3_end_time: employee.break3_end_time,
             rest_days: employee.rest_days || [0, 6],
             salary_type: employee.salary_type || 'MONTHLY',
-            standard_daily_hours: employee.standard_daily_hours || 8.0
-        };
+            standard_daily_hours: employee.standard_daily_hours || 8.0,
+            is_override: false
+        } as any;
     };
 
     let currentDayHead = new Date(startDate);
@@ -91,13 +108,16 @@ export const calculateLeaveHoursDetailed = (
         const schedule = getEffectiveSchedule(currentDayHead);
         const holidayName = isNationalHoliday(currentDayHead);
         const dayOfWeek = currentDayHead.getDay();
-        const isRestDay = schedule.rest_days.includes(dayOfWeek);
+        
+        let isActuallyRestDay = false;
+        if (schedule.is_override) {
+            isActuallyRestDay = schedule.override_type === DayOverrideType.REST_DAY;
+        } else {
+            const isBaseRestDay = schedule.rest_days.includes(dayOfWeek);
+            isActuallyRestDay = !!holidayName || isMakeupHoliday || (isBaseRestDay && !isMakeupWorkday);
+        }
 
-        // 如果不是忽略工作時間(ignoreWorkWindow=true，通常是加班)，
-        // 則檢查是否為休息日。
-        // 如果標記為補行上班日(isMakeupWorkday=true)，則不視為休息日。
-        // 如果標記為補假(isMakeupHoliday=true)，則視為國定假日。
-        if (!ignoreWorkWindow && (holidayName || isMakeupHoliday || (isRestDay && !isMakeupWorkday))) {
+        if (!ignoreWorkWindow && isActuallyRestDay) {
             currentDayHead.setDate(currentDayHead.getDate() + 1);
             continue;
         }
@@ -179,7 +199,7 @@ export const calculateLeaveHoursDetailed = (
     const finalHours = Math.max(0, (totalMinutes / 60) - manualBreak);
 
     return {
-        totalHours: finalHours, // For compatibility
+        totalHours: finalHours,
         rawHours: parseFloat(rawHours.toFixed(1)),
         breakHours: parseFloat(breakHours.toFixed(1)),
         finalHours: parseFloat(finalHours.toFixed(1))
@@ -198,7 +218,8 @@ export const calculateLeaveHours = (
     historicalSchedules?: EmployeeSchedule[],
     manualBreak: number = 0,
     isMakeupWorkday: boolean = false,
-    isMakeupHoliday: boolean = false
+    isMakeupHoliday: boolean = false,
+    dayOverrides?: EmployeeDayOverride[]
 ): number => {
     const result = calculateLeaveHoursDetailed(
         startDate,
@@ -209,32 +230,29 @@ export const calculateLeaveHours = (
         historicalSchedules,
         manualBreak,
         isMakeupWorkday,
-        isMakeupHoliday
+        isMakeupHoliday,
+        dayOverrides
     );
     return result.finalHours;
 };
 
 /**
- * 檢查指定日期是否為休息日（週末或國定假日）
- * @param date 日期
- * @param restDays 休息日陣列 (0=週日, 6=週六)
- * @returns 是否為休息日
+ * 檢查指定日期是否為休息日
  */
-export const isRestDay = (date: Date, restDays: number[] = [0, 6]): boolean => {
+export const isRestDay = (date: Date, restDays: number[] = [0, 6], dayOverrides?: EmployeeDayOverride[]): boolean => {
+    if (dayOverrides && dayOverrides.length > 0) {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const override = dayOverrides.find(o => o.override_date === dateStr);
+        if (override) {
+            return override.day_type === DayOverrideType.REST_DAY;
+        }
+    }
+
     const dayOfWeek = date.getDay();
     const holidayName = isNationalHoliday(date);
     return restDays.includes(dayOfWeek) || !!holidayName;
 };
 
-/**
- * 驗證加班時數是否符合勞基法規定
- * @param startDate 開始時間
- * @param endDate 結束時間
- * @param employee 員工資料
- * @param historicalSchedules 歷史班表紀錄
- * @param manualBreak 手動扣除的休息時數
- * @returns 驗證結果
- */
 export interface OTValidationResult {
     isValid: boolean;
     error?: string;
@@ -243,17 +261,19 @@ export interface OTValidationResult {
     breakDeducted?: number;
 }
 
+/**
+ * 驗證加班時數
+ */
 export const validateOTHours = (
     startDate: Date,
     endDate: Date,
     employee: Partial<Employee>,
     historicalSchedules?: EmployeeSchedule[],
     manualBreak: number = 0,
-    isMakeupHoliday: boolean = false
+    isMakeupHoliday: boolean = false,
+    dayOverrides?: EmployeeDayOverride[]
 ): OTValidationResult => {
-    // 1. 取得指定日期的有效班表設定
     const getEffectiveSchedule = (date: Date) => {
-        // 檢查日期是否合法，避免 format 報錯
         if (!date || isNaN(date.getTime())) {
             return {
                 work_start_time: '08:00',
@@ -261,16 +281,33 @@ export const validateOTHours = (
                 break_start_time: '12:00',
                 break_end_time: '13:00',
                 rest_days: [0, 6],
-                standard_daily_hours: 8.0
-            };
+                standard_daily_hours: 8.0,
+                is_override: false
+            } as any;
+        }
+
+        const dateStr = format(date, 'yyyy-MM-dd');
+        if (dayOverrides && dayOverrides.length > 0) {
+            const override = dayOverrides.find(o => o.override_date === dateStr);
+            if (override) {
+                return {
+                    work_start_time: override.work_start_time || employee.work_start_time || '08:00',
+                    work_end_time: override.work_end_time || employee.work_end_time || '17:00',
+                    break_start_time: override.break_start_time || employee.break_start_time || '12:00',
+                    break_end_time: override.break_end_time || override.work_end_time || '13:00',
+                    rest_days: employee.rest_days || [0, 6],
+                    standard_daily_hours: employee.standard_daily_hours || 8.0,
+                    is_override: true,
+                    override_type: override.day_type
+                } as any;
+            }
         }
 
         if (historicalSchedules && historicalSchedules.length > 0) {
-            const dateStr = format(date, 'yyyy-MM-dd');
             const schedule = historicalSchedules
                 .filter(s => s.effective_date <= dateStr)
                 .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
-            if (schedule) return schedule;
+            if (schedule) return { ...schedule, is_override: false };
         }
 
         return {
@@ -279,56 +316,51 @@ export const validateOTHours = (
             break_start_time: employee.break_start_time || '12:00',
             break_end_time: employee.break_end_time || '13:00',
             rest_days: employee.rest_days || [0, 6],
-            standard_daily_hours: employee.standard_daily_hours || 8.0
-        };
+            standard_daily_hours: employee.standard_daily_hours || 8.0,
+            is_override: false
+        } as any;
     };
 
     const schedule = getEffectiveSchedule(startDate);
     const standardDailyHours = schedule.standard_daily_hours || 8.0;
 
-    // 計算原始時數（不扣除班表內的休息時間，由 overtime 規則統一處理）
     const originalHours = calculateLeaveHours(
         startDate,
         endDate,
         employee,
-        true, // ignoreWorkWindow = true (加班可以在工作時間外)
-        false, // deductBreaks = false (加班期間不依據班表扣除休息)
+        true, // ignoreWorkWindow
+        false, // deductBreaks
         historicalSchedules,
         0,
         false,
-        isMakeupHoliday
+        isMakeupHoliday,
+        dayOverrides
     );
 
     if (originalHours === 0) {
-        return {
-            isValid: false,
-            error: '加班時數不得為 0'
-        };
+        return { isValid: false, error: '加班時數不得為 0' };
     }
 
-    // 檢查是否為國定假日
-    const holidayName = isNationalHoliday(startDate);
-    const dayOfWeek = startDate.getDay();
-    // 依據有效班表判斷是否為休息日 (防止排班人員誤判)
-    const restDays = schedule.rest_days || [0, 6];
-    const isRest = restDays.includes(dayOfWeek) || !!holidayName;
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    let isRest = false;
+    if (schedule.is_override) {
+        isRest = schedule.override_type === DayOverrideType.REST_DAY;
+    } else {
+        const holidayName = isNationalHoliday(startDate);
+        const dayOfWeek = startDate.getDay();
+        const restDays = schedule.rest_days || [0, 6];
+        isRest = restDays.includes(dayOfWeek) || !!holidayName;
+    }
 
-    // 計算扣除休息後的時數
-    // 規則：連續工作超過 4 小時扣除 0.5 小時。
-    // 每滿 4 小時扣 0.5 小時 (例如 4.1h 扣 0.5h, 8.1h 扣 1.0h)
-    // 8:00 ~ 17:00 (9.0h) 會扣除 1.0h = 8.0h
+    const dayOfWeek = startDate.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const breakDeducted = Math.floor(originalHours / 4.0001) * 0.5;
     let baseAdjustedHours = parseFloat((originalHours - breakDeducted - manualBreak).toFixed(1));
     if (baseAdjustedHours < 0) baseAdjustedHours = 0;
 
-    // 判斷是否應採計為「國定假日」邏輯
+    const holidayName = isNationalHoliday(startDate);
     const isHolidayLogic = isMakeupHoliday || (!!holidayName && (!isWeekend || holidayName.includes('補假')));
 
     if (isHolidayLogic) {
-        // 國定假日加班：不論工時統一以 1 日工時（通常 8 小時）計，若實際加班超過則按實際計
-        // 修正：這裡的「實際計」也要套用休息扣除後的時數。
-        // 例如 8:00~17:00 (9h)，扣除後是 8h，Math.max(8, 8) = 8
         return {
             isValid: true,
             adjustedHours: Math.max(standardDailyHours, baseAdjustedHours),
@@ -337,10 +369,8 @@ export const validateOTHours = (
         };
     }
 
-    // 檢查時數限制（平日最多 4，休息日最多 12）
     const maxHours = isRest ? 12.0 : 4.0;
     const dayType = isRest ? '休息日' : '平日';
-
     const adjustedHours = Math.min(baseAdjustedHours, maxHours);
 
     return {
@@ -355,13 +385,7 @@ export const validateOTHours = (
 };
 
 /**
- * 計算加班時數（自動扣除休息時間）
- * @param startDate 開始時間
- * @param endDate 結束時間
- * @param employee 員工資料
- * @param historicalSchedules 歷史班表紀錄
- * @param manualBreak 手動扣除的休息時數
- * @returns 加班時數（已扣除休息時間）
+ * 計算加班時數
  */
 export const calculateOTHours = (
     startDate: Date,
@@ -369,8 +393,9 @@ export const calculateOTHours = (
     employee: Partial<Employee>,
     historicalSchedules?: EmployeeSchedule[],
     manualBreak: number = 0,
-    isMakeupHoliday: boolean = false
+    isMakeupHoliday: boolean = false,
+    dayOverrides?: EmployeeDayOverride[]
 ): number => {
-    const result = validateOTHours(startDate, endDate, employee, historicalSchedules, manualBreak, isMakeupHoliday);
+    const result = validateOTHours(startDate, endDate, employee, historicalSchedules, manualBreak, isMakeupHoliday, dayOverrides);
     return result.adjustedHours || 0;
 };

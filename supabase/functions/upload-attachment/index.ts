@@ -20,8 +20,8 @@ async function getGoogleAccessToken(clientId: string, clientSecret: string, refr
 
     const data = await res.json();
     if (data.error) {
-        console.error('OAuth token exchange error:', data);
-        throw new Error(`Google Auth Error: ${data.error_description || data.error}`);
+        console.error('OAuth token exchange error from Google:', data);
+        throw new Error(`Google Auth Error: ${data.error_description || data.error} (Status: ${res.status})`);
     }
 
     console.log('Step 2: Access Token acquired successfully.');
@@ -42,10 +42,10 @@ Deno.serve(async (req) => {
             throw new Error('No file found in request');
         }
 
-        const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
-        const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
-        const refreshToken = Deno.env.get('GOOGLE_REFRESH_TOKEN');
-        const folderId = Deno.env.get('GOOGLE_DRIVE_FOLDER_ID');
+        const clientId = Deno.env.get('GOOGLE_CLIENT_ID')?.trim();
+        const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')?.trim();
+        const refreshToken = Deno.env.get('GOOGLE_REFRESH_TOKEN')?.trim();
+        const folderId = Deno.env.get('GOOGLE_DRIVE_FOLDER_ID')?.trim();
 
         if (!clientId || !clientSecret || !refreshToken || !folderId) {
             console.error('Missing secrets:', {
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
                 refreshToken: !!refreshToken,
                 folderId: !!folderId
             });
-            throw new Error('Server configuration missing (OAuth2 Secrets not set)');
+            throw new Error('Server configuration missing (OAuth2 Secrets not set or empty)');
         }
 
         console.log(`Processing file: ${file.name} (${file.size} bytes)`);

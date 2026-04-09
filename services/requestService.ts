@@ -15,8 +15,8 @@ export const requestService = {
             const endDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
             const daysDiff = Math.round((endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-            // 判斷是否需要理事長審核（3 日含以上）
-            const requiresChairmanApproval = daysDiff >= 3;
+            // 判斷是否需要理事長審核（5 日含以上）
+            const requiresChairmanApproval = daysDiff >= 5;
 
             const { data, error } = await supabase
                 .from('leave_requests')
@@ -610,15 +610,26 @@ export const requestService = {
             const formData = new FormData();
             formData.append('file', file);
 
-            const { data, error } = await supabase.functions.invoke('upload-attachment', {
-                body: formData,
+            // 改用 fetch 直接呼叫，以便捕捉完整的 HTTP 錯誤內容
+            const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
+            const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+            
+            const response = await fetch(`${supabaseUrl}/functions/v1/upload-attachment`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${supabaseAnonKey}`,
+                    'apikey': supabaseAnonKey
+                },
+                body: formData
             });
 
-            if (error) {
-                console.error('Edge Function error:', error);
-                return { error: error.message };
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('[requestService] Edge Function HTTP Error:', response.status, errorData);
+                return { error: errorData.error || `伺服器回傳錯誤 (${response.status})` };
             }
 
+            const data = await response.json();
             return { data };
         } catch (err: any) {
             console.error('Unexpected error in uploadAttachment:', err);

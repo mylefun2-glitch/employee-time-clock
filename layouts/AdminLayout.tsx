@@ -44,6 +44,7 @@ const AdminLayout: React.FC = () => {
         { path: '/admin/leave-stats', icon: 'pie_chart', label: '差勤統計' },
         { path: '/admin/attendance-calendar', icon: 'calendar_month', label: '出勤月曆' },
         { path: '/admin/makeup-requests', label: '補登審核', icon: 'edit_calendar' },
+        { path: '/admin/shift-requests', label: '挪移審核', icon: 'swap_calls' },
         { path: '/admin/requests', label: '差勤/公務車', icon: 'fact_check' },
         { path: '/admin/resource-manager', label: '公務資源管理', icon: 'inventory_2' },
         { path: '/admin/leave-types', label: '假別設定', icon: 'settings_applications' },
