@@ -50,8 +50,8 @@ export const requestService = {
                 .select(`
                     *,
                     leave_type:leave_types(*),
-                    employee:employees!leave_requests_employee_id_fkey(id, name, department),
-                    deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
+                    employee:employees!leave_requests_employee_id_fkey(id, name, department, manager_id),
+                    deputy:employees!leave_requests_deputy_id_fkey(id, name, department, manager_id)
                 `)
                 .neq('status', RequestStatus.WITHDRAWN)
                 .or('is_modified.is.null,is_modified.eq.false');
@@ -344,6 +344,10 @@ export const requestService = {
             manual_break_hours?: number;
             is_makeup_workday?: boolean;
             is_makeup_holiday?: boolean;
+            attachment_url?: string;
+            attachment_name?: string;
+            attachment_drive_id?: string;
+            attachment_expires_at?: string;
         },
         employeeId: string
     ): Promise<{ success: boolean; data?: any; error?: string }> {
@@ -392,7 +396,11 @@ export const requestService = {
                     hours: modificationData.hours,
                     manual_break_hours: modificationData.manual_break_hours,
                     is_makeup_workday: modificationData.is_makeup_workday || false,
-                    deputy_id: originalRequest.deputy_id
+                    deputy_id: originalRequest.deputy_id,
+                    attachment_url: modificationData.attachment_url,
+                    attachment_name: modificationData.attachment_name,
+                    attachment_drive_id: modificationData.attachment_drive_id,
+                    attachment_expires_at: modificationData.attachment_expires_at
                 }])
                 .select()
                 .single();

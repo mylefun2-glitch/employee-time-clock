@@ -596,16 +596,33 @@ const EmployeeRequestsPage: React.FC = () => {
                                             </td>
                                             <td className="px-4 py-4">
                                                 {request.attachment_url ? (
-                                                    <a
-                                                        href={request.attachment_url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-700 font-bold text-xs"
-                                                        title={request.attachment_name || '查看附件'}
-                                                    >
-                                                        <span className="material-symbols-outlined text-sm">attach_file</span>
-                                                        查看
-                                                    </a>
+                                                    (() => {
+                                                        const isOwner = request.employee_id === employee?.id;
+                                                        const isSupervisor = request.employee?.manager_id === employee?.id;
+                                                        const isChairman = (employee as any)?.is_chairman;
+                                                        
+                                                        if (isOwner || isSupervisor || isChairman) {
+                                                            return (
+                                                                <a
+                                                                    href={request.attachment_url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center gap-1 text-blue-600 hover:text-blue-700 font-bold text-xs"
+                                                                    title={request.attachment_name || '查看附件'}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <span className="material-symbols-outlined text-sm">attach_file</span>
+                                                                    查看
+                                                                </a>
+                                                            );
+                                                        } else {
+                                                            return (
+                                                                <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-100 italic" title="基於個人隱私，附件僅限本人與直屬主管查閱">
+                                                                    僅主管可見
+                                                                </span>
+                                                            );
+                                                        }
+                                                    })()
                                                 ) : (
                                                     <span className="text-xs text-slate-300">-</span>
                                                 )}

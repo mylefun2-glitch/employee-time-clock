@@ -37,6 +37,8 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
     const [isMakeupWorkday, setIsMakeupWorkday] = useState(false);
     const [isMakeupHoliday, setIsMakeupHoliday] = useState(false);
     const [leaveBalance, setLeaveBalance] = useState<LeaveBalance | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
     useEffect(() => {
         const splitISO = (isoStr: string) => {
@@ -178,40 +180,71 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
 
         setIsSubmitting(true);
 
-        const startDateTimeStr = `${startDate}T${startTime}`;
-        const endDateTimeStr = `${endDate}T${endTime}`;
+        try {
+            const startDateTimeStr = `${startDate}T${startTime}`;
+            const endDateTimeStr = `${endDate}T${endTime}`;
 
-        const start = new Date(startDateTimeStr);
-        const end = new Date(endDateTimeStr);
-        if (end <= start) {
-            setError('結束時間必須晚於開始時間');
+            const start = new Date(startDateTimeStr);
+            const end = new Date(endDateTimeStr);
+            if (end <= start) {
+                setError('結束時間必須晚於開始時間');
+                return;
+            }
+
+            const result = await requestService.createModificationRequest(
+                originalRequest.id,
+                {
+                    start_date: new Date(startDateTimeStr).toISOString(),
+                    end_date: new Date(endDateTimeStr).toISOString(),
+                    reason: reason.trim(),
+                    modification_reason: modificationReason.trim(),
+                    leave_type_id: originalRequest.leave_type_id,
+                    type: originalRequest.type,
+                    hours: totalHours,
+                    manual_break_hours: parseFloat(manualBreakHours) || 0,
+                    is_makeup_workday: isMakeupWorkday,
+                    is_makeup_holiday: isMakeupHoliday,
+                    attachment_url: originalRequest.attachment_url,
+                    attachment_name: originalRequest.attachment_name,
+                    attachment_drive_id: originalRequest.attachment_drive_id,
+                    attachment_expires_at: originalRequest.attachment_expires_at
+                },
+                employeeId
+            );
+
+            if (result.success) {
+                // 如果有新檔案，執行上傳
+                if (selectedFile) {
+                    setUploadProgress(10);
+                    const { data: uploadData, error: uploadError } = await requestService.uploadAttachment(selectedFile);
+                    
+                    if (uploadError) {
+                        setError(`附件上傳失敗但申請已送出: ${uploadError}`);
+                        setUploadProgress(0);
+                    } else {
+                        // 更新剛建立的申請案加上附件資訊
+                        const { supabase } = await import('../lib/supabase');
+                        await supabase
+                            .from('leave_requests')
+                            .update({
+                                attachment_drive_id: uploadData.driveId,
+                                attachment_name: selectedFile.name,
+                                attachment_url: uploadData.url,
+                                attachment_expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
+                            })
+                            .eq('id', result.data.id);
+                        setUploadProgress(100);
+                    }
+                }
+                onSuccess();
+            } else {
+                setError(result.error || '提交失敗');
+            }
+        } catch (err: any) {
+            console.error('Error submitting modification:', err);
+            setError('發生預期之外的錯誤');
+        } finally {
             setIsSubmitting(false);
-            return;
-        }
-
-        const result = await requestService.createModificationRequest(
-            originalRequest.id,
-            {
-                start_date: new Date(startDateTimeStr).toISOString(),
-                end_date: new Date(endDateTimeStr).toISOString(),
-                reason: reason.trim(),
-                modification_reason: modificationReason.trim(),
-                leave_type_id: originalRequest.leave_type_id,
-                type: originalRequest.type,
-                hours: totalHours,
-                manual_break_hours: parseFloat(manualBreakHours) || 0,
-                is_makeup_workday: isMakeupWorkday,
-                is_makeup_holiday: isMakeupHoliday
-            },
-            employeeId
-        );
-
-        setIsSubmitting(false);
-
-        if (result.success) {
-            onSuccess();
-        } else {
-            setError(result.error || '提交失敗');
         }
     };
 
@@ -522,6 +555,76 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
                             placeholder="請說明為何需要變更此申請..."
                         />
                         <p className="text-xs text-slate-500 mt-2">此欄位將提供給主管審核時參考</p>
+                    </div>
+
+                    {/* 附件上傳區塊 */}
+                    <div className="space-y-3">
+                        <label className="block text-sm font-black text-slate-900 mb-2 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-lg">attach_file</span>
+                            補件證明 (如醫療證明)
+                        </label>
+                        
+                        <div 
+                            className={`relative border-2 border-dashed rounded-2xl p-8 transition-all flex flex-col items-center justify-center gap-4 ${
+                                selectedFile ? 'border-blue-500 bg-blue-50/30' : 'border-slate-200 hover:border-blue-400 bg-slate-50/30'
+                            }`}
+                            onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-blue-500', 'bg-blue-50/50'); }}
+                            onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-blue-500', 'bg-blue-50/50'); }}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                e.currentTarget.classList.remove('border-blue-500', 'bg-blue-50/50');
+                                const file = e.dataTransfer.files[0];
+                                if (file) setSelectedFile(file);
+                            }}
+                        >
+                            {!selectedFile ? (
+                                <>
+                                    <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center text-slate-400">
+                                        <span className="material-symbols-outlined text-3xl">upload_file</span>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-sm font-bold text-slate-700">點擊或拖放檔案至此</p>
+                                        <p className="text-xs text-slate-400 mt-1">支援圖片或 PDF，大小限制 5MB</p>
+                                    </div>
+                                    <input 
+                                        type="file" 
+                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                        accept="image/*,.pdf"
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <div className="w-16 h-16 bg-blue-600 rounded-2xl shadow-lg shadow-blue-100 flex items-center justify-center text-white relative">
+                                        <span className="material-symbols-outlined text-3xl">check</span>
+                                        <button 
+                                            onClick={(e) => { e.preventDefault(); setSelectedFile(null); }}
+                                            className="absolute -top-2 -right-2 w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-rose-600 transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined text-[14px]">close</span>
+                                        </button>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-sm font-black text-blue-600 truncate max-w-[200px]">{selectedFile.name}</p>
+                                        <p className="text-[10px] text-slate-400 mt-1">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                                    </div>
+                                    {uploadProgress > 0 && (
+                                        <div className="w-full max-w-[150px] h-1.5 bg-blue-100 rounded-full mt-2 overflow-hidden">
+                                            <div 
+                                                className="h-full bg-blue-600 transition-all duration-300"
+                                                style={{ width: `${uploadProgress}%` }}
+                                            />
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                        {originalRequest.attachment_url && !selectedFile && (
+                            <p className="text-xs text-amber-600 flex items-center gap-1 mt-1 ml-1">
+                                <span className="material-symbols-outlined text-[14px]">info</span>
+                                本次變更將預設保留原本已有的附件。若上傳新檔將會替換。
+                            </p>
+                        )}
                     </div>
 
                     {/* Error Message */}
