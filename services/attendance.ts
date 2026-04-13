@@ -99,3 +99,32 @@ export const getRecentAttendance = async (employeeId: string, limit: number = 5)
         return [];
     }
 };
+
+/**
+ * 取得員工當天的所有打卡紀錄
+ */
+export const getTodayAttendance = async (employeeId: string): Promise<any[]> => {
+    try {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).toISOString();
+        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
+
+        const { data, error } = await supabase
+            .from('attendance_logs')
+            .select('*')
+            .eq('employee_id', employeeId)
+            .gte('timestamp', todayStart)
+            .lte('timestamp', todayEnd)
+            .order('timestamp', { ascending: true });
+
+        if (error) {
+            console.error('Error fetching today attendance:', error);
+            return [];
+        }
+
+        return data || [];
+    } catch (err) {
+        console.error('Unexpected error fetching today attendance:', err);
+        return [];
+    }
+};

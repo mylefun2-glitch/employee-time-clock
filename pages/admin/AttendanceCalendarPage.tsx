@@ -368,14 +368,34 @@ const AttendanceCalendarPage: React.FC = () => {
                     const employee = employees.find(emp => emp.id === selectedEmployeeId);
                     const isOvertimeApplication = leave.leave_type?.code === 'OT' || leave.leave_type?.code === 'CO' || leave.leave_type?.code === 'ALC' || (leave.leave_type?.name?.includes('加班') && !leave.leave_type?.name?.includes('補休餘額')) || leave.leave_type?.name?.includes('折現') || leave.leave_type?.name?.includes('折算');
                     if (isOvertimeApplication) {
-                        dayHours = calculateOTHours(
-                            overlapStart,
-                            overlapEnd,
-                            employee || {},
-                            historicalSchedules,
-                            leave.manual_break_hours || 0,
-                            !!leave.is_makeup_holiday
-                        );
+                        // 加班折算 (CO/ALC) 等已核准紀錄：直接使用資料庫中已計算好的 hours
+                        // 避免因 calculateOTHours 的國定假日邏輯重算導致時數偏差
+                        const isConversionType = leave.leave_type?.code === 'CO' || leave.leave_type?.code === 'ALC' || leave.leave_type?.name?.includes('折算') || leave.leave_type?.name?.includes('折現');
+                        if (isConversionType && leave.hours != null) {
+                            // 判斷是否跨天：若不跨天直接用 hours，跨天時按天分配
+                            const leaveStart = parseISO(leave.start_date);
+                            const leaveEnd = parseISO(leave.end_date);
+                            const leaveStartDay = new Date(leaveStart); leaveStartDay.setHours(0,0,0,0);
+                            const leaveEndDay = new Date(leaveEnd); leaveEndDay.setHours(0,0,0,0);
+                            if (leaveStartDay.getTime() === leaveEndDay.getTime()) {
+                                // 單天：直接使用已存的 hours
+                                dayHours = leave.hours;
+                            } else {
+                                // 跨天：按 overlap 比例分配
+                                const totalMs = leaveEnd.getTime() - leaveStart.getTime();
+                                const overlapMs = overlapEnd.getTime() - overlapStart.getTime();
+                                dayHours = totalMs > 0 ? parseFloat((leave.hours * overlapMs / totalMs).toFixed(1)) : 0;
+                            }
+                        } else {
+                            dayHours = calculateOTHours(
+                                overlapStart,
+                                overlapEnd,
+                                employee || {},
+                                historicalSchedules,
+                                leave.manual_break_hours || 0,
+                                !!leave.is_makeup_holiday
+                            );
+                        }
                     } else {
                         const detailed = calculateLeaveHoursDetailed(
                             overlapStart,

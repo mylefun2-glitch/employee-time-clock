@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { KeypadValue, Employee } from '../types';
-import { checkPin, logAttendance, getRecentAttendance } from '../services/attendance';
+import { checkPin, logAttendance, getRecentAttendance, getTodayAttendance } from '../services/attendance';
 import { 
     getAccurateCurrentPosition, 
     isWithinAnyLocation, 
@@ -63,6 +63,7 @@ const KioskPage: React.FC = () => {
     // --- 優化新增狀態 ---
     const [activeEmployee, setActiveEmployee] = useState<Employee | null>(null);
     const [lastLog, setLastLog] = useState<any>(null);
+    const [todayLogs, setTodayLogs] = useState<any[]>([]);
     const [suggestedType, setSuggestedType] = useState<'IN' | 'OUT' | null>(null);
     const [isVerifyingPin, setIsVerifyingPin] = useState(false);
     const [autoClearTimer, setAutoClearTimer] = useState<NodeJS.Timeout | null>(null);
@@ -168,6 +169,7 @@ const KioskPage: React.FC = () => {
             setPin('');
             setActiveEmployee(null);
             setLastLog(null);
+            setTodayLogs([]);
             setSuggestedType(null);
         }, 15000); // 15秒無動作自動清空
         setAutoClearTimer(timer);
@@ -182,14 +184,17 @@ const KioskPage: React.FC = () => {
                     const emp = await checkPin(pin);
                     if (emp) {
                         setActiveEmployee(emp);
-                        const logs = await getRecentAttendance(emp.id, 1);
-                        const latest = logs[0];
+                        // 取得當天的所有打卡紀錄
+                        const todayData = await getTodayAttendance(emp.id);
+                        setTodayLogs(todayData);
+                        const latest = todayData.length > 0 ? todayData[todayData.length - 1] : null;
                         setLastLog(latest);
                         
-                        // 智慧建議邏輯：如果最後一筆是 IN，則建議 OUT；否則建議 IN
+                        // 智慧建議邏輯：根據當天最後一筆紀錄判斷
                         if (latest && latest.check_type === 'IN') {
                             setSuggestedType('OUT');
                         } else {
+                            // 當天尚無紀錄，或最後一筆是 OUT → 建議 IN
                             setSuggestedType('IN');
                         }
                         resetAutoClear();
@@ -197,6 +202,7 @@ const KioskPage: React.FC = () => {
                         // PIN 碼無效
                         setSuggestedType(null);
                         setActiveEmployee(null);
+                        setTodayLogs([]);
                     }
                 } catch (err) {
                     console.error('身份驗證失敗', err);
@@ -209,6 +215,7 @@ const KioskPage: React.FC = () => {
             // 清除當前狀態
             if (activeEmployee) setActiveEmployee(null);
             if (suggestedType) setSuggestedType(null);
+            if (todayLogs.length > 0) setTodayLogs([]);
         }
         
         if (pin.length > 0) resetAutoClear();
@@ -269,11 +276,30 @@ const KioskPage: React.FC = () => {
                 return;
             }
 
-            // 防呆確認：如果員工選擇的操作與預期相反（重複打相同類型的卡）
+            // 防呆確認：偵測當天紀錄判斷
             const selectedType = type === 'in' ? 'IN' : 'OUT';
-            if (lastLog && lastLog.check_type === selectedType) {
+            const todaySameTypeLogs = todayLogs.filter(l => l.check_type === selectedType);
+
+            // 1. 5 分鐘內防重複
+            if (todaySameTypeLogs.length > 0) {
+                const latestSame = todaySameTypeLogs[todaySameTypeLogs.length - 1];
+                const diffMs = Date.now() - new Date(latestSame.timestamp).getTime();
+                if (diffMs < 5 * 60 * 1000) {
+                    const timeStr = new Date(latestSame.timestamp).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+                    setFailureMessage(`操作過於頻繁：您於 ${timeStr} 已打過${selectedType === 'IN' ? '上班' : '下班'}卡，請 5 分鐘後再試`);
+                    setShowFailure(true);
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
+            // 2. 當天已有同類型打卡 → 彈出確認
+            if (todaySameTypeLogs.length > 0) {
                 const typeName = selectedType === 'IN' ? '上班' : '下班';
-                const confirmMsg = `偵測到您今日已於 ${new Date(lastLog.timestamp).toLocaleTimeString()} 進行過${typeName}打卡，確定要再次${typeName}嗎？`;
+                const times = todaySameTypeLogs.map(l => 
+                    new Date(l.timestamp).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
+                ).join('、');
+                const confirmMsg = `今日已有 ${todaySameTypeLogs.length} 筆${typeName}打卡紀錄（${times}），確定要再次${typeName}嗎？`;
                 if (!window.confirm(confirmMsg)) {
                     setIsLoading(false);
                     return;
@@ -316,6 +342,7 @@ const KioskPage: React.FC = () => {
                 setPin('');
                 setActiveEmployee(null);
                 setLastLog(null);
+                setTodayLogs([]);
                 setSuggestedType(null);
             } else {
                 setFailureMessage(`打卡失敗：${logResult.error || '未知錯誤'}`);
@@ -432,14 +459,16 @@ const KioskPage: React.FC = () => {
                             onClick={() => handleSubmit('in')} 
                             disabled={pin.length !== 6 || isLoading} 
                             isSuggested={suggestedType === 'IN'}
-                            isDuplicated={lastLog?.check_type === 'IN'}
+                            isDuplicated={todayLogs.some(l => l.check_type === 'IN')}
+                            todayCount={todayLogs.filter(l => l.check_type === 'IN').length}
                         />
                         <CompactActionButton 
                             type="out" 
                             onClick={() => handleSubmit('out')} 
                             disabled={pin.length !== 6 || isLoading} 
                             isSuggested={suggestedType === 'OUT'}
-                            isDuplicated={lastLog?.check_type === 'OUT'}
+                            isDuplicated={todayLogs.some(l => l.check_type === 'OUT')}
+                            todayCount={todayLogs.filter(l => l.check_type === 'OUT').length}
                         />
                     </div>
 
@@ -474,7 +503,8 @@ const CompactActionButton: React.FC<{
     disabled: boolean;
     isSuggested?: boolean;
     isDuplicated?: boolean;
-}> = ({ type, onClick, disabled, isSuggested, isDuplicated }) => (
+    todayCount?: number;
+}> = ({ type, onClick, disabled, isSuggested, isDuplicated, todayCount = 0 }) => (
     <button 
         onClick={onClick} 
         disabled={disabled}
@@ -497,8 +527,10 @@ const CompactActionButton: React.FC<{
         <span className="text-xs tracking-widest">{type === 'in' ? '上班打卡' : '下班打卡'}</span>
 
         {isDuplicated && !isSuggested && (
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                <p className="text-[8px] font-black bg-black/60 px-1.5 py-0.5 rounded border border-white/10 text-white uppercase">Today OK</p>
+            <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-0.5">
+                <p className="text-[8px] font-black bg-black/60 px-1.5 py-0.5 rounded border border-white/10 text-white uppercase">
+                    已打 {todayCount} 次
+                </p>
             </div>
         )}
     </button>
