@@ -120,6 +120,12 @@ const EmployeeLayout: React.FC = () => {
             </aside>
 
             {/* 手機版頂部導航 */}
+            <header className="bg-white border-b border-slate-200 sticky top-0 z-10 sm:hidden print:hidden">
+                <div className="px-4 h-16 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+                            {employee.name.charAt(0)}
+                        </div>
                         <span className="font-bold text-slate-900">員工平台</span>
                     </div>
                     <button
