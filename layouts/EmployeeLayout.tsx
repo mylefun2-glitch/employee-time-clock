@@ -46,7 +46,7 @@ const EmployeeLayout: React.FC = () => {
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col sm:flex-row">
             {/* Sidebar (桌面版) */}
-            <aside className={`hidden sm:flex bg-white border-r border-slate-200 flex-col fixed inset-y-0 left-0 shadow-sm transition-all duration-300 z-50 ${isCollapsed ? 'w-20' : 'w-64'}`}>
+            <aside className={`hidden sm:flex bg-white border-r border-slate-200 flex-col fixed inset-y-0 left-0 shadow-sm transition-all duration-300 z-50 print:hidden ${isCollapsed ? 'w-20' : 'w-64'}`}>
                 {/* Toggle Button */}
                 <button
                     onClick={() => setIsCollapsed(!isCollapsed)}
@@ -120,12 +120,6 @@ const EmployeeLayout: React.FC = () => {
             </aside>
 
             {/* 手機版頂部導航 */}
-            <header className="bg-white border-b border-slate-200 sticky top-0 z-10 sm:hidden">
-                <div className="px-4 h-16 flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-                            {employee.name.charAt(0)}
-                        </div>
                         <span className="font-bold text-slate-900">員工平台</span>
                     </div>
                     <button
@@ -138,14 +132,14 @@ const EmployeeLayout: React.FC = () => {
             </header>
 
             {/* 主要內容 */}
-            <main className={`flex-1 pb-20 sm:pb-0 min-h-screen transition-all duration-300 ${isCollapsed ? 'sm:ml-20' : 'sm:ml-64'}`}>
-                <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+            <main className={`flex-1 pb-20 sm:pb-0 min-h-screen transition-all duration-300 print:ml-0 ${isCollapsed ? 'sm:ml-20' : 'sm:ml-64'}`}>
+                <div className="p-6 lg:p-8 max-w-7xl mx-auto print:p-0 print:max-w-none">
                     <Outlet />
                 </div>
             </main>
 
             {/* 底部導航 (手機版) */}
-            <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 sm:hidden z-20 flex justify-around">
+            <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 sm:hidden z-20 flex justify-around print:hidden">
                 {navItems.map((item) => (
                     <Link
                         key={item.path}

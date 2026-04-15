@@ -54,7 +54,7 @@ const AdminLayout: React.FC = () => {
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
             {/* Mobile Header */}
-            <header className="lg:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
+            <header className="lg:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-50 print:hidden">
                 <div className="flex items-center gap-3">
                     <img src="/logo.jpg" alt="Y'ACC" className="h-8 w-auto" />
                     <span className="text-sm font-black text-slate-700 tracking-tight">管理後台</span>
@@ -71,6 +71,7 @@ const AdminLayout: React.FC = () => {
             <div className={`
                 fixed inset-0 z-40 lg:relative lg:z-0
                 ${isMobileMenuOpen ? 'visible' : 'invisible lg:visible'}
+                print:hidden
             `}>
                 {/* Backdrop */}
                 <div
@@ -144,8 +145,8 @@ const AdminLayout: React.FC = () => {
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-x-hidden">
-                <div className="p-4 md:p-8 max-w-7xl mx-auto">
+            <main className="flex-1 overflow-x-hidden print:overflow-visible">
+                <div className="p-4 md:p-8 max-w-7xl mx-auto print:p-0 print:max-w-none">
                     <Outlet />
                 </div>
             </main>

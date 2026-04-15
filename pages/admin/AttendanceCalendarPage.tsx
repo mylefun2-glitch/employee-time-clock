@@ -337,7 +337,7 @@ const AttendanceCalendarPage: React.FC = () => {
     }, [weeks, currentDate]);
 
     const monthData = useMemo(() => {
-        const data: { [key: string]: { logs: AttendanceLog[], leaves: LeaveRequest[], hours: number, holidayName?: string } } = {};
+        const data: { [key: string]: { logs: AttendanceLog[], leaves: LeaveRequest[], hours: number, grossHours: number, breakHours: number, holidayName?: string } } = {};
 
         days.forEach(day => {
             const dateKey = format(day, 'yyyy-MM-dd');
@@ -573,8 +573,20 @@ const AttendanceCalendarPage: React.FC = () => {
 
             // 4. 計算淨工時 (工作區間減去扣除區間的重疊)
             let netTotalMs = 0;
+            let grossTotalMs = 0;
+            let breakTotalMs = 0;
+
+            const breakOnlyIvs = [
+                { start: getDayTime(schedule.break_start_time, day)!, end: getDayTime(schedule.break_end_time, day)! },
+                { start: getDayTime(schedule.break2_start_time, day)!, end: getDayTime(schedule.break2_end_time, day)! },
+                { start: getDayTime(schedule.break3_start_time, day)!, end: getDayTime(schedule.break3_end_time, day)! }
+            ].filter(iv => iv.start && iv.end);
+            const mergedBreaksOnly = merge(breakOnlyIvs);
+
             mergedWork.forEach(w => {
                 let segmentMs = w.end.getTime() - w.start.getTime();
+                grossTotalMs += segmentMs;
+
                 let overlapMs = 0;
                 mergedSubtractive.forEach(s => {
                     const overlapS = Math.max(w.start.getTime(), s.start.getTime());
@@ -583,6 +595,16 @@ const AttendanceCalendarPage: React.FC = () => {
                         overlapMs += (overlapE - overlapS);
                     }
                 });
+
+                // 專門計算休息時間
+                mergedBreaksOnly.forEach(b => {
+                    const overlapS = Math.max(w.start.getTime(), b.start.getTime());
+                    const overlapE = Math.min(w.end.getTime(), b.end.getTime());
+                    if (overlapS < overlapE) {
+                        breakTotalMs += (overlapE - overlapS);
+                    }
+                });
+
                 netTotalMs += (segmentMs - overlapMs);
             });
 
@@ -619,7 +641,14 @@ const AttendanceCalendarPage: React.FC = () => {
 
             hours = parseFloat(finalHours.toFixed(2));
 
-            data[dateKey] = { logs: dayLogs, leaves: dayLeaves, hours: parseFloat(hours.toFixed(2)), holidayName };
+            data[dateKey] = { 
+                logs: dayLogs, 
+                leaves: dayLeaves, 
+                hours: parseFloat(hours.toFixed(2)), 
+                grossHours: parseFloat((grossTotalMs / (1000 * 60 * 60)).toFixed(2)),
+                breakHours: parseFloat((breakTotalMs / (1000 * 60 * 60)).toFixed(2)),
+                holidayName 
+            };
         });
 
         return data;
@@ -669,14 +698,25 @@ const AttendanceCalendarPage: React.FC = () => {
         };
     }, [isEmployeeDropdownOpen]);
 
+    const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
+
+    const breakTimesString = useMemo(() => {
+        if (!selectedEmployee) return '';
+        const breaks = [
+            { start: selectedEmployee.break_start_time, end: selectedEmployee.break_end_time },
+            { start: selectedEmployee.break2_start_time, end: selectedEmployee.break2_end_time },
+            { start: selectedEmployee.break3_start_time, end: selectedEmployee.break3_end_time }
+        ].filter(b => b.start && b.end);
+        
+        return breaks.map(b => `${b.start}～${b.end}`).join('、');
+    }, [selectedEmployee]);
+
     const totalMonthlyHours = Object.values(monthData).reduce((acc, curr) => acc + curr.hours, 0);
 
     const weekDays = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
 
     const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
     const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
-
-    const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
 
     const handlePrint = () => {
         window.print();
@@ -852,8 +892,36 @@ const AttendanceCalendarPage: React.FC = () => {
 
     return (
         <div className="space-y-6 print:space-y-4 print:p-0">
+            {/* 隱藏瀏覽器預設的列印頁首頁尾 (如網址、日期) 並自動縮放 */}
+            <style dangerouslySetInnerHTML={{ __html: `
+                @media print {
+                    @page { 
+                        size: landscape; 
+                        margin: 0.5cm; 
+                    }
+                    body { 
+                        margin: 0; 
+                        padding: 0;
+                        background: white;
+                    }
+                    .print-shrink {
+                        zoom: 0.82;
+                        width: 100% !important;
+                    }
+                    /* 移除陰影與圓角以利列印 */
+                    .print-no-shadow {
+                        box-shadow: none !important;
+                        border: 1px solid #e2e8f0 !important;
+                        border-radius: 0.5rem !important;
+                    }
+                    /* 讓月曆格子更緊湊 */
+                    .print-compact-grid {
+                        min-height: auto !important;
+                    }
+                }
+            ` }} />
             {/* Header & Filters */}
-            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm print:shadow-none print:border-none print:p-0">
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm print:shadow-none print:border-none print:p-0 print-no-shadow print-shrink">
                 <div className="flex flex-row items-center justify-between w-full gap-4">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center print:hidden">
@@ -864,10 +932,25 @@ const AttendanceCalendarPage: React.FC = () => {
                             <div className="hidden print:block text-sm font-bold text-slate-600">
                                 {rocYear} 年 {monthStr} 月 | {selectedEmployee?.name}
                             </div>
+                            {/* PDF Summary Stats */}
+                            <div className="hidden print:flex items-center gap-4 mt-1">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                                    工作時間: <span className="text-slate-900">{selectedEmployee?.work_start_time}～{selectedEmployee?.work_end_time}</span>
+                                </span>
+                                {breakTimesString && (
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider border-l border-slate-200 pl-4">
+                                        休息時間: <span className="text-slate-900">{breakTimesString}</span>
+                                    </span>
+                                )}
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider border-l border-slate-200 pl-4">
+                                    當月工作合計: <span className="text-slate-900 text-blue-600">{totalMonthlyHours.toFixed(1)}H</span>
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 print:hidden">
+                    <div className="flex flex-col items-end gap-1 print:flex-row print:items-center print:gap-4">
+                        <div className="flex items-center gap-2 print:hidden">
                         <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
                             <button onClick={prevMonth} className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600">
                                 <ChevronLeft className="h-4 w-4" />
@@ -1000,11 +1083,12 @@ const AttendanceCalendarPage: React.FC = () => {
                     </div>
                 </div>
             </div>
+        </div>
 
 
             {/* Calendar Grid */}
-            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-lg overflow-hidden">
-                <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50">
+            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-lg overflow-hidden print:shadow-none print:border-slate-200 print-shrink mt-4 print:mt-2">
+                <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50 print:bg-white">
                     {weekDays.map(day => (
                         <div key={day} className="py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest border-r last:border-r-0 border-slate-100">
                             {day}
@@ -1033,7 +1117,7 @@ const AttendanceCalendarPage: React.FC = () => {
                                     <div
                                         key={dateKey}
                                         onClick={(e) => handleDateClick(day, e)}
-                                        className={`min-h-[80px] p-3 border-r last:border-r-0 border-slate-100 flex flex-col group hover:bg-slate-50/50 transition-colors cursor-pointer relative
+                                        className={`min-h-[80px] print:min-h-[60px] p-3 print:p-1.5 border-r last:border-r-0 border-slate-100 flex flex-col group hover:bg-slate-50/50 transition-colors cursor-pointer relative
                                             ${holidayName ? 'bg-rose-50/30' : ''} 
                                             ${isSaturday && !holidayName ? 'bg-amber-50/30' : ''} 
                                             ${isSunday && !holidayName ? 'bg-slate-100/40' : ''}`}
