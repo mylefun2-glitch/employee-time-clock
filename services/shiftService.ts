@@ -38,19 +38,75 @@ export const shiftService = {
                 return { success: false, error: '當月挪移申請次數已達上限 (2次)' };
             }
 
-            // 2. 寫入資料庫
+            // 2. 判斷是否為「直屬於理事長的主管」以進行自動核准
+            const { data: empData } = await supabase
+                .from('employees')
+                .select('is_supervisor, manager_id, manager:employees!manager_id(is_chairman)')
+                .eq('id', request.employee_id)
+                .single();
+
+            let status = RequestStatus.PENDING;
+            let approvedAt = null;
+            let approverId = null;
+
+            if (empData && empData.is_supervisor && (empData as any).manager?.is_chairman) {
+                status = RequestStatus.APPROVED;
+                approvedAt = new Date().toISOString();
+                approverId = (empData as any).manager_id;
+            }
+
+            // 3. 寫入資料庫
             const { data, error } = await supabase
                 .from('shift_requests')
                 .insert([
                     {
                         ...request,
-                        status: RequestStatus.PENDING
+                        status: status,
+                        approved_at: approvedAt,
+                        approver_id: approverId
                     }
                 ])
                 .select()
                 .single();
 
             if (error) throw error;
+
+            // 4. 若自動核准，則需立即處理日期覆蓋記錄 (比照 updateShiftStatus)
+            if (status === RequestStatus.APPROVED && data) {
+                const overrides: Partial<EmployeeDayOverride>[] = [];
+                if (data.type === ShiftType.SWAP_REST_DAY) {
+                    overrides.push({
+                        employee_id: data.employee_id,
+                        override_date: data.original_rest_date,
+                        day_type: DayOverrideType.WORKDAY,
+                        request_id: data.id
+                    });
+                    overrides.push({
+                        employee_id: data.employee_id,
+                        override_date: data.new_rest_date,
+                        day_type: DayOverrideType.REST_DAY,
+                        request_id: data.id
+                    });
+                } else if (data.type === ShiftType.HOURS_ADJUSTMENT) {
+                    overrides.push({
+                        employee_id: data.employee_id,
+                        override_date: data.target_date,
+                        day_type: DayOverrideType.CUSTOM_HOURS,
+                        work_start_time: data.new_work_start_time,
+                        work_end_time: data.new_work_end_time,
+                        break_start_time: data.new_break_start_time,
+                        break_end_time: data.new_break_end_time,
+                        request_id: data.id
+                    });
+                }
+
+                if (overrides.length > 0) {
+                    await supabase
+                        .from('employee_day_overrides')
+                        .upsert(overrides, { onConflict: 'employee_id,override_date' });
+                }
+            }
+
             return { success: true, data };
         } catch (err: any) {
             console.error('Error creating shift request:', err);

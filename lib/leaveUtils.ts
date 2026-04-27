@@ -253,6 +253,33 @@ export const isRestDay = (date: Date, restDays: number[] = [0, 6], dayOverrides?
     return restDays.includes(dayOfWeek) || !!holidayName;
 };
 
+/**
+ * 計算指定日期範圍內的工作日天數
+ */
+export const countWorkdays = (
+    startDate: Date,
+    endDate: Date,
+    employee: Partial<Employee>,
+    dayOverrides?: EmployeeDayOverride[]
+): number => {
+    if (endDate < startDate) return 0;
+    
+    let count = 0;
+    const current = new Date(startDate);
+    current.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(0, 0, 0, 0);
+    
+    while (current <= end) {
+        if (!isRestDay(current, employee.rest_days || [0, 6], dayOverrides)) {
+            count++;
+        }
+        current.setDate(current.getDate() + 1);
+    }
+    
+    return count;
+};
+
 export interface OTValidationResult {
     isValid: boolean;
     error?: string;

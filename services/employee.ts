@@ -26,7 +26,25 @@ export const createMakeupRequest = async (employeeId: string, data: {
     reason: string;
 }) => {
     try {
-        const { error } = await supabase
+        // 1. 判斷是否為「直屬於理事長的主管」以進行自動核准
+        const { data: empData } = await supabase
+            .from('employees')
+            .select('is_supervisor, manager_id, manager:employees!manager_id(is_chairman)')
+            .eq('id', employeeId)
+            .single();
+
+        let status = 'PENDING';
+        let reviewerId = null;
+        let reviewedAt = null;
+
+        if (empData && empData.is_supervisor && (empData as any).manager?.is_chairman) {
+            status = 'APPROVED';
+            reviewerId = (empData as any).manager_id;
+            reviewedAt = new Date().toISOString();
+        }
+
+        // 2. 建立申請紀錄
+        const { data: request, error: insertError } = await supabase
             .from('makeup_attendance_requests')
             .insert([{
                 employee_id: employeeId,
@@ -34,10 +52,33 @@ export const createMakeupRequest = async (employeeId: string, data: {
                 check_type: data.checkType,
                 request_time: data.requestTime,
                 reason: data.reason,
-                status: 'PENDING'
-            }]);
+                status: status,
+                reviewer_id: reviewerId,
+                reviewed_at: reviewedAt
+            }])
+            .select()
+            .single();
 
-        if (error) throw error;
+        if (insertError) throw insertError;
+
+        // 3. 若為自動核准，需同步建立打卡記錄
+        if (status === 'APPROVED' && request) {
+            const timestamp = new Date(request.request_date);
+            const [hours, minutes] = request.request_time.split(':');
+            timestamp.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+            const { error: logError } = await supabase
+                .from('attendance_logs')
+                .insert([{
+                    employee_id: employeeId,
+                    check_type: request.check_type,
+                    timestamp: timestamp.toISOString(),
+                    is_makeup: true
+                }]);
+
+            if (logError) console.error('Error auto-creating attendance log:', logError);
+        }
+
         return { success: true };
     } catch (error: any) {
         console.error('Error creating makeup request:', error);

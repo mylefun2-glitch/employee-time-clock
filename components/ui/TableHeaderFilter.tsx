@@ -202,7 +202,7 @@ export function TableHeaderFilter<T = string>({
                                 </div>
 
                                 {/* 搜尋框（當選項超過 8 個時顯示） */}
-                                {uniqueValues.length > 8 && (
+                                {uniqueLabels.length > 8 && (
                                     <div className="relative">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                                         <input

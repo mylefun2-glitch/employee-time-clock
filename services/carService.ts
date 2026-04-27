@@ -207,6 +207,8 @@ export const getCarUsageForCalendar = async () => {
     return [...formattedCur, ...formattedLr].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 };
 
+import { countWorkdays } from '../lib/leaveUtils';
+
 export const submitCarRequest = async (request: {
     employee_id: string;
     car_id: string;
@@ -214,9 +216,48 @@ export const submitCarRequest = async (request: {
     end_time: string;
     purpose: string;
 }) => {
-    const { data, error } = await supabase.from('car_usage_requests').insert(request).select().single();
-    if (error) throw error;
-    return data;
+    try {
+        // 1. 判斷是否為「直屬於理事長的主管」以進行自動核准
+        const { data: empData } = await supabase
+            .from('employees')
+            .select('is_supervisor, manager_id, rest_days, manager:employees!manager_id(is_chairman)')
+            .eq('id', request.employee_id)
+            .single();
+
+        // 2. 計算工作日天數
+        const startDate = new Date(request.start_time);
+        const endDate = new Date(request.end_time);
+        const workdaysCount = countWorkdays(startDate, endDate, empData || {});
+
+        let status = 'PENDING';
+        let approvedAt = null;
+        let approverId = null;
+
+        // 若為直屬於理事長的主管且小於 5 個工作日，則自動核准
+        if (empData && empData.is_supervisor && (empData as any).manager?.is_chairman && workdaysCount < 5) {
+            status = 'APPROVED';
+            approvedAt = new Date().toISOString();
+            approverId = (empData as any).manager_id;
+        }
+
+        const { data, error } = await supabase.from('car_usage_requests').insert({
+            ...request,
+            status,
+            approved_at: approvedAt,
+            approver_id: approverId
+        }).select().single();
+
+        if (error) throw error;
+
+        // 3. 若自動核准，需同步將車輛狀態設為使用中 (比照 updateRequestStatus 的邏輯)
+        if (status === 'APPROVED' && request.car_id) {
+            await supabase.from('cars').update({ status: 'IN_USE' }).eq('id', request.car_id);
+        }
+
+        return data;
+    } catch (error: any) {
+        throw error;
+    }
 };
 
 export const getCarRequests = async (params?: { employee_id?: string; status?: string }) => {

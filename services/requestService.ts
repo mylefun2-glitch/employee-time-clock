@@ -1,29 +1,49 @@
 import { supabase } from '../lib/supabase';
 import { LeaveRequest, RequestStatus } from '../types';
-import { calculateLeaveHours, calculateOTHours } from '../lib/leaveUtils';
+import { calculateLeaveHours, calculateOTHours, countWorkdays } from '../lib/leaveUtils';
 
 export const requestService = {
     async createRequest(request: Omit<LeaveRequest, 'id' | 'created_at' | 'status'> & { car_id?: string }): Promise<{ success: boolean; data?: any; error?: string }> {
         try {
-            // 計算請假天數（從開始日期到結束日期的完整天數）
+            // 獲取申請人資訊以進行後續判斷
+            const { data: empData } = await supabase
+                .from('employees')
+                .select('is_supervisor, manager_id, rest_days, manager:employees!manager_id(is_chairman)')
+                .eq('id', request.employee_id)
+                .single();
+
+            // 計算工作日天數
             const startDate = new Date(request.start_date);
             const endDate = new Date(request.end_date);
+            const workdaysCount = countWorkdays(startDate, endDate, empData || {});
 
-            // 計算跨越的日曆天數
-            // 例如：2/15 08:00 到 2/17 17:00 = 3 天 (2/15, 2/16, 2/17)
-            const startDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-            const endDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-            const daysDiff = Math.round((endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+            // 判斷是否需要理事長審核（5 個工作日含以上）
+            let requiresChairmanApproval = workdaysCount >= 5;
+            let status = RequestStatus.PENDING;
+            let approvedAt = null;
 
-            // 判斷是否需要理事長審核（5 日含以上）
-            const requiresChairmanApproval = daysDiff >= 5;
+            // 若申請人是主管，且其直屬主管是理事長
+            if (empData && empData.is_supervisor && (empData as any).manager?.is_chairman) {
+                // 若工作日天數小於 5 天，則不須理事長核准（改為自動核准）
+                if (workdaysCount < 5) {
+                    requiresChairmanApproval = false;
+                    status = RequestStatus.APPROVED;
+                    approvedAt = new Date().toISOString();
+                } else {
+                    // 若工作日天數超過 5 天（含），仍要簽到理事長
+                    requiresChairmanApproval = true;
+                    status = RequestStatus.PENDING;
+                    approvedAt = null;
+                }
+            }
 
             const { data, error } = await supabase
                 .from('leave_requests')
                 .insert([
                     {
                         ...request,
-                        status: RequestStatus.PENDING,
+                        status: status,
+                        approved_at: approvedAt,
                         requires_chairman_approval: requiresChairmanApproval,
                         is_makeup_workday: (request as any).is_makeup_workday || false
                     }

@@ -131,7 +131,7 @@ const EmployeesPage: React.FC = () => {
         if (result.success) {
             fetchEmployees();
         } else {
-            alert(`操作失敗: ${result.error} `);
+            alert(`操作失敗: ${result.error}`);
         }
     };
 
@@ -293,13 +293,13 @@ const EmployeesPage: React.FC = () => {
 
                 let resultMsg = `匯入完成！\n成功：${success} 筆\n失敗：${failed} 筆`;
                 if (errors.length > 0) {
-                    resultMsg += `\n\n失敗詳情：\n` + errors.map(e => `第 ${e.line} 行(${e.name}): ${e.error} `).join('\n');
+                    resultMsg += `\n\n失敗詳情：\n` + errors.map(e => `第 ${e.line} 行(${e.name}): ${e.error}`).join('\n');
                 }
 
                 alert(resultMsg);
                 fetchEmployees();
             } catch (error: any) {
-                alert(`匯入執行錯誤：${error.message} `);
+                alert(`匯入執行錯誤：${error.message}`);
             } finally {
                 setImporting(false);
                 if (fileInputRef.current) fileInputRef.current.value = '';
@@ -328,7 +328,7 @@ const EmployeesPage: React.FC = () => {
             'MONTHLY', '8.0'
         ].join(',');
 
-        const template = `${headers} \n${example} `;
+        const template = `${headers}\n${example}`;
         const blob = new Blob(['\uFEFF' + template], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -556,17 +556,17 @@ const EmployeesPage: React.FC = () => {
                                             *****{person.pin.slice(-1)}
                                         </td>
                                         <td className="px-6 py-5 whitespace-nowrap">
-                                            <span className={`inline - flex px - 3 py - 1 rounded - lg text - xs font - black uppercase tracking - wider border ${person.is_active
+                                            <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider border ${person.is_active
                                                 ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                                                 : 'bg-rose-50 text-rose-600 border-rose-100'
-                                                } `}>
+                                                }`}>
                                                 {person.is_active ? '在職' : '離職'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-5 whitespace-nowrap text-right">
                                             <div className="flex justify-end gap-3">
                                                 <button
-                                                    onClick={() => navigate(`/ admin / attendance - calendar ? employeeId = ${person.id} `)}
+                                                    onClick={() => navigate(`/admin/attendance-calendar?employeeId=${person.id}`)}
                                                     className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all border border-transparent hover:border-emerald-100"
                                                     title="查看出勤月曆"
                                                 >
