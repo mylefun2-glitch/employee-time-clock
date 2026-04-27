@@ -431,75 +431,73 @@ const RequestsPage: React.FC = () => {
             </div>
 
             {/* 篩選器 */}
-            <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm mb-4">
-                <div className="flex gap-6 items-center flex-wrap">
-                    {/* 狀態篩選 */}
-                    <div className="flex items-center gap-2">
-                        <label className="text-sm font-medium text-slate-700 whitespace-nowrap">狀態：</label>
-                        <div className="flex gap-2">
-                            {['ALL', 'PENDING', 'WITHDRAW_PENDING', 'APPROVED', 'REJECTED', 'WITHDRAWN'].map((status) => (
-                                <button
-                                    key={status}
-                                    onClick={() => setFilterStatus(status)}
-                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterStatus === status
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                        }`}
-                                >
-                                    {status === 'ALL' ? '全部' :
-                                        status === 'PENDING' ? '待審核' :
-                                            status === 'WITHDRAW_PENDING' ? '撤回中' :
-                                                status === 'APPROVED' ? '已核准' :
-                                                    status === 'REJECTED' ? '已拒絕' : '已撤回'}
-                                </button>
-                            ))}
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm mb-4 space-y-5">
+                {/* 狀態篩選 */}
+                <div className="flex items-start gap-3">
+                    <label className="text-sm font-bold text-slate-400 whitespace-nowrap mt-1.5 min-w-[3.5rem]">狀態：</label>
+                    <div className="flex gap-2 flex-wrap">
+                        {['ALL', 'PENDING', 'WITHDRAW_PENDING', 'APPROVED', 'REJECTED', 'WITHDRAWN'].map((status) => (
+                            <button
+                                key={status}
+                                onClick={() => setFilterStatus(status)}
+                                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${filterStatus === status
+                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-100 ring-2 ring-blue-100'
+                                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                                    }`}
+                            >
+                                {status === 'ALL' ? '全部' :
+                                    status === 'PENDING' ? '待審核' :
+                                        status === 'WITHDRAW_PENDING' ? '撤回中' :
+                                            status === 'APPROVED' ? '已核准' :
+                                                status === 'REJECTED' ? '已拒絕' : '已撤回'}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* 分隔線 (水平) */}
+                {departments.length > 0 && (
+                    <div className="h-px w-full bg-slate-50"></div>
+                )}
+
+                {/* 部門篩選 */}
+                {departments.length > 0 && (
+                    <div className="flex items-start gap-3">
+                        <label className="text-sm font-bold text-slate-400 whitespace-nowrap mt-1.5 min-w-[3.5rem]">部門：</label>
+                        <div className="flex gap-2 flex-wrap">
+                            <button
+                                onClick={() => setFilterDepartment('ALL')}
+                                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${filterDepartment === 'ALL'
+                                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-100 ring-2 ring-purple-100'
+                                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                                    }`}
+                            >
+                                全部
+                            </button>
+                            {departments.map((dept) => {
+                                const stat = departmentStats.find(s => s.department === dept);
+                                return (
+                                    <button
+                                        key={dept}
+                                        onClick={() => setFilterDepartment(dept)}
+                                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${filterDepartment === dept
+                                            ? 'bg-purple-600 text-white shadow-lg shadow-purple-100 ring-2 ring-purple-100'
+                                            : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                                            }`}
+                                    >
+                                        {dept}
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${filterDepartment === dept
+                                            ? 'bg-purple-500 text-white'
+                                            : 'bg-slate-200 text-slate-500'
+                                            }`}>
+                                            {stat?.count || 0}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
-
-                    {/* 分隔線 */}
-                    {departments.length > 0 && (
-                        <div className="h-8 w-px bg-slate-200"></div>
-                    )}
-
-                    {/* 部門篩選 */}
-                    {departments.length > 0 && (
-                        <div className="flex items-center gap-2 flex-1">
-                            <label className="text-sm font-medium text-slate-700 whitespace-nowrap">部門：</label>
-                            <div className="flex gap-2 flex-wrap">
-                                <button
-                                    onClick={() => setFilterDepartment('ALL')}
-                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterDepartment === 'ALL'
-                                        ? 'bg-purple-600 text-white'
-                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                        }`}
-                                >
-                                    全部
-                                </button>
-                                {departments.map((dept) => {
-                                    const stat = departmentStats.find(s => s.department === dept);
-                                    return (
-                                        <button
-                                            key={dept}
-                                            onClick={() => setFilterDepartment(dept)}
-                                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${filterDepartment === dept
-                                                ? 'bg-purple-600 text-white'
-                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                                }`}
-                                        >
-                                            {dept}
-                                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${filterDepartment === dept
-                                                ? 'bg-purple-500'
-                                                : 'bg-slate-200'
-                                                }`}>
-                                                {stat?.count || 0}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-                </div>
+                )}
             </div>
 
             <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 relative">

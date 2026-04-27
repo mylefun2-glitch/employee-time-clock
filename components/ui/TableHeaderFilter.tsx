@@ -83,32 +83,50 @@ export function TableHeaderFilter<T = string>({
         }
     }, [isOpen]);
 
-    const uniqueValues = Array.from(new Set(values.map(v => {
-        const formatted = valueFormatter(v);
-        return typeof formatted === 'string' ? formatted.trim() : formatted;
-    }))).sort((a, b) => {
-        const strA = String(a);
-        const strB = String(b);
-        return strA.localeCompare(strB);
-    });
+    // 智慧去重與分組邏輯：將原始值按照格式化後的標籤進行分組
+    const labelToValuesMap = values.reduce((acc, v) => {
+        const label = String(valueFormatter(v)).trim();
+        if (!acc.has(label)) {
+            acc.set(label, []);
+        }
+        acc.get(label)!.push(v);
+        return acc;
+    }, new Map<string, T[]>());
 
-    const filteredValues = uniqueValues.filter(value =>
-        String(value).toLowerCase().includes(searchTerm.toLowerCase())
+    const uniqueLabels = Array.from(labelToValuesMap.keys()).sort((a, b) => a.localeCompare(b));
+
+    const filteredLabels = uniqueLabels.filter(label =>
+        label.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const isAllSelected = selectedValues.length === 0;
     const hasActiveFilter = selectedValues.length > 0;
 
-    const handleToggleValue = (value: any) => {
-        const valueStr = String(value);
-        const isSelected = selectedValues.some(v => String(v).trim() === valueStr);
+    // 檢查某個顯示標籤是否已被選中（只要該組中任一原始值在 selectedValues 中即視為已選中）
+    const isLabelSelected = (label: string) => {
+        const groupValues = labelToValuesMap.get(label) || [];
+        return groupValues.some(gv => 
+            selectedValues.some(sv => String(sv).trim() === String(gv).trim())
+        );
+    };
 
-        if (isSelected) {
-            const newValues = selectedValues.filter(v => String(v).trim() !== valueStr);
-            onChange(newValues as unknown as T[]);
+    const handleToggleLabel = (label: string) => {
+        const groupValues = labelToValuesMap.get(label) || [];
+        const currentlySelected = isLabelSelected(label);
+
+        if (currentlySelected) {
+            // 從選中清單中移除該組的所有值
+            const groupValueStrings = new Set(groupValues.map(gv => String(gv).trim()));
+            const newValues = selectedValues.filter(sv => !groupValueStrings.has(String(sv).trim()));
+            onChange(newValues);
         } else {
-            const newValues = [...selectedValues, value];
-            onChange((newValues.length === uniqueValues.length ? [] : newValues) as unknown as T[]);
+            // 將該組的所有原始值加入選中清單
+            const newValues = [...selectedValues, ...groupValues];
+            // 如果所有標籤代表的所有原始值都已選中，則視為「全部」，傳回空陣列
+            const allPossibleOriginalValuesCount = values.length;
+            // 這裡簡單判斷：如果要選取的數量等於總數，或者標籤全選了，就傳回 []
+            // 但實務上使用者可能希望精確控制，所以我們先簡單合併
+            onChange(newValues.length >= allPossibleOriginalValuesCount ? [] : newValues);
         }
     };
 
@@ -201,51 +219,50 @@ export function TableHeaderFilter<T = string>({
                             {/* 全選/清除 */}
                             <div className="p-2 border-b border-slate-100">
                                 <button
-                                    onClick={isAllSelected ? handleClearAll : handleSelectAll}
-                                    className="w-full px-3 py-2 text-left text-sm font-bold text-blue-600 hover:bg-blue-50 rounded-lg transition-all flex items-center gap-2"
-                                >
-                                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${isAllSelected
-                                        ? 'bg-blue-600 border-blue-600'
-                                        : 'border-slate-300'
-                                        }`}>
-                                        {isAllSelected && <Check className="h-3 w-3 text-white" />}
-                                    </div>
-                                    <span className="font-black">{isAllSelected ? '全部' : '全選 / 清除'}</span>
-                                </button>
-                            </div>
+                                     onClick={isAllSelected ? handleClearAll : handleSelectAll}
+                                     className="w-full px-3 py-2 text-left text-sm font-bold text-blue-600 hover:bg-blue-50 rounded-lg transition-all flex items-center gap-2"
+                                 >
+                                     <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${isAllSelected
+                                         ? 'bg-blue-600 border-blue-600'
+                                         : 'border-slate-300'
+                                         }`}>
+                                         {isAllSelected && <Check className="h-3 w-3 text-white" />}
+                                     </div>
+                                     <span className="font-black">{isAllSelected ? '全部' : '全選 / 清除'}</span>
+                                 </button>
+                             </div>
 
-                            {/* 選項列表 */}
-                            <div className="max-h-80 overflow-y-auto custom-scrollbar">
-                                {filteredValues.length === 0 ? (
-                                    <div className="p-8 text-center text-sm text-slate-400 font-bold italic">
-                                        沒有符合的選項
-                                    </div>
-                                ) : (
-                                    <div className="p-2">
-                                        {filteredValues.map((value, index) => {
-                                            const valueStr = String(value);
-                                            const isSelected = selectedValues.some(v => String(v).trim() === valueStr);
+                             {/* 選項列表 */}
+                             <div className="max-h-80 overflow-y-auto custom-scrollbar">
+                                 {filteredLabels.length === 0 ? (
+                                     <div className="p-8 text-center text-sm text-slate-400 font-bold italic">
+                                         沒有符合的選項
+                                     </div>
+                                 ) : (
+                                     <div className="p-2">
+                                         {filteredLabels.map((label, index) => {
+                                             const isSelected = isLabelSelected(label);
 
-                                            return (
-                                                <button
-                                                    key={index}
-                                                    onClick={() => handleToggleValue(value)}
-                                                    className={`w-full px-3 py-2 text-left text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${isSelected ? 'text-blue-700 bg-blue-50/50' : 'text-slate-600 hover:bg-slate-50'
-                                                        }`}
-                                                >
-                                                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all shrink-0 ${isSelected
-                                                        ? 'bg-blue-600 border-blue-600'
-                                                        : 'border-slate-300'
-                                                        }`}>
-                                                        {isSelected && <Check className="h-3 w-3 text-white" />}
-                                                    </div>
-                                                    <span className="flex-1 truncate font-bold">{valueStr}</span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
+                                             return (
+                                                 <button
+                                                     key={index}
+                                                     onClick={() => handleToggleLabel(label)}
+                                                     className={`w-full px-3 py-2 text-left text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${isSelected ? 'text-blue-700 bg-blue-50/50' : 'text-slate-600 hover:bg-slate-50'
+                                                         }`}
+                                                 >
+                                                     <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all shrink-0 ${isSelected
+                                                         ? 'bg-blue-600 border-blue-600'
+                                                         : 'border-slate-300'
+                                                         }`}>
+                                                         {isSelected && <Check className="h-3 w-3 text-white" />}
+                                                     </div>
+                                                     <span className="flex-1 truncate font-bold">{label}</span>
+                                                 </button>
+                                             );
+                                         })}
+                                     </div>
+                                 )}
+                             </div>
 
                             {/* 底部統計 */}
                             {hasActiveFilter && (

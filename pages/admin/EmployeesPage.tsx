@@ -359,11 +359,11 @@ const EmployeesPage: React.FC = () => {
             const empGender = (emp.gender === 'MALE' ? '男' : emp.gender === 'FEMALE' ? '女' : emp.gender === 'OTHER' ? '其他' : '-').trim();
 
             const nameMatch = columnFilters.name.length === 0 ||
-                columnFilters.name.map(v => v.trim()).includes(empName);
+                columnFilters.name.map(v => typeof v === 'string' ? v.trim() : v).includes(empName);
             const genderMatch = columnFilters.gender.length === 0 ||
-                columnFilters.gender.map(v => v.trim()).includes(empGender);
+                columnFilters.gender.map(v => typeof v === 'string' ? v.trim() : v).includes(empGender);
             const deptMatch = columnFilters.department.length === 0 ||
-                columnFilters.department.map(v => v.trim()).includes(empDept);
+                columnFilters.department.map(v => typeof v === 'string' ? v.trim() : v).includes(empDept);
             const seniority = emp.join_date ? calculateSeniority(emp.join_date) : 0;
             const range = emp.join_date ? getSeniorityRange(seniority) : '未設定';
             const seniorityMatch = columnFilters.seniorityRange.length === 0 ||
