@@ -37,9 +37,15 @@ export const createMakeupRequest = async (employeeId: string, data: {
         let reviewerId = null;
         let reviewedAt = null;
 
-        if (empData && empData.is_supervisor && (empData as any).manager?.is_chairman) {
+        const isDirectReportToChairman = 
+            empData && (
+                (empData as any).manager?.is_chairman || 
+                (empData.manager_id === null && !empData.is_chairman)
+            );
+
+        if (empData && isDirectReportToChairman) {
             status = 'APPROVED';
-            reviewerId = (empData as any).manager_id;
+            reviewerId = (empData as any).manager_id || '153bf58a-bba6-4ba2-bd81-77f52299b0ad';
             reviewedAt = new Date().toISOString();
         }
 

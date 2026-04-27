@@ -4,6 +4,7 @@ import { ShiftRequest, RequestStatus, ShiftType } from '../../types';
 import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 import { useAuth } from '../../contexts/AuthContext';
 import * as supervisorService from '../../services/supervisorService';
+import { supabase } from '../../lib/supabase';
 
 const ShiftRequestsPage: React.FC = () => {
     const { user } = useAuth();
@@ -19,10 +20,27 @@ const ShiftRequestsPage: React.FC = () => {
     }, []);
 
     const loadCurrentEmployee = async () => {
+        console.log('[ShiftRequestsPage] Loading current employee for user:', user?.id, user?.email);
+        
+        let emp = null;
         if (user?.email) {
-            const emp = await supervisorService.getCurrentUserEmployee(user.email);
-            setCurrentEmployee(emp);
+            emp = await supervisorService.getCurrentUserEmployee(user.email);
         }
+        
+        // 如果找不到對應 Email，或者 user 沒有 Email，
+        // 在管理後台內，我們嘗試尋找理事長身分作為備選以便進行審核
+        if (!emp) {
+            console.log('[ShiftRequestsPage] No employee match for email, checking for Chairperson record...');
+            const { data: chairman } = await supabase
+                .from('employees')
+                .select('*')
+                .eq('is_chairman', true)
+                .maybeSingle();
+            emp = chairman;
+        }
+        
+        console.log('[ShiftRequestsPage] Current employee set to:', emp?.id, emp?.name);
+        setCurrentEmployee(emp);
     };
 
     const loadRequests = async () => {

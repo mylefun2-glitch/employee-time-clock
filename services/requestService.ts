@@ -8,7 +8,7 @@ export const requestService = {
             // 獲取申請人資訊以進行後續判斷
             const { data: empData } = await supabase
                 .from('employees')
-                .select('is_supervisor, manager_id, rest_days, manager:employees!manager_id(is_chairman)')
+                .select('id, name, is_supervisor, is_chairman, manager_id, rest_days, manager:employees!manager_id(is_chairman)')
                 .eq('id', request.employee_id)
                 .single();
 
@@ -21,14 +21,23 @@ export const requestService = {
             let requiresChairmanApproval = workdaysCount >= 5;
             let status = RequestStatus.PENDING;
             let approvedAt = null;
+            let approverId = null;
 
-            // 若申請人是主管，且其直屬主管是理事長
-            if (empData && empData.is_supervisor && (empData as any).manager?.is_chairman) {
+            // 判斷是否為「直隸於理事長」的人員（包含主管與一般同仁）
+            // 邏輯：直屬主管是理事長，或者是沒有直屬主管的人（視同直隸理事長，除非是理事長本人）
+            const isDirectReportToChairman = 
+                empData && (
+                    (empData as any).manager?.is_chairman || 
+                    (empData.manager_id === null && !empData.is_chairman)
+                );
+
+            if (empData && isDirectReportToChairman) {
                 // 若工作日天數小於 5 天，則不須理事長核准（改為自動核准）
                 if (workdaysCount < 5) {
                     requiresChairmanApproval = false;
                     status = RequestStatus.APPROVED;
                     approvedAt = new Date().toISOString();
+                    approverId = (empData as any).manager_id || '153bf58a-bba6-4ba2-bd81-77f52299b0ad';
                 } else {
                     // 若工作日天數超過 5 天（含），仍要簽到理事長
                     requiresChairmanApproval = true;
@@ -44,6 +53,7 @@ export const requestService = {
                         ...request,
                         status: status,
                         approved_at: approvedAt,
+                        approver_id: approverId,
                         requires_chairman_approval: requiresChairmanApproval,
                         is_makeup_workday: (request as any).is_makeup_workday || false
                     }

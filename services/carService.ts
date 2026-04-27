@@ -233,11 +233,19 @@ export const submitCarRequest = async (request: {
         let approvedAt = null;
         let approverId = null;
 
-        // 若為直屬於理事長的主管且小於 5 個工作日，則自動核准
-        if (empData && empData.is_supervisor && (empData as any).manager?.is_chairman && workdaysCount < 5) {
+        // 判斷是否為「直隸於理事長」的人員
+        const isDirectReportToChairman = 
+            empData && (
+                (empData as any).manager?.is_chairman || 
+                (empData.manager_id === null && !empData.is_chairman)
+            );
+
+        // 若為直屬於理事長人員且小於 5 個工作日，則自動核准
+        if (empData && isDirectReportToChairman && workdaysCount < 5) {
             status = 'APPROVED';
             approvedAt = new Date().toISOString();
-            approverId = (empData as any).manager_id;
+            // 預設分配給理事長 (153bf58a-bba6-4ba2-bd81-77f52299b0ad)
+            approverId = (empData as any).manager_id || '153bf58a-bba6-4ba2-bd81-77f52299b0ad';
         }
 
         const { data, error } = await supabase.from('car_usage_requests').insert({

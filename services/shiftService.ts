@@ -41,7 +41,7 @@ export const shiftService = {
             // 2. 判斷是否為「直屬於理事長的主管」以進行自動核准
             const { data: empData } = await supabase
                 .from('employees')
-                .select('is_supervisor, manager_id, manager:employees!manager_id(is_chairman)')
+                .select('is_supervisor, is_chairman, manager_id, manager:employees!manager_id(is_chairman)')
                 .eq('id', request.employee_id)
                 .single();
 
@@ -49,10 +49,18 @@ export const shiftService = {
             let approvedAt = null;
             let approverId = null;
 
-            if (empData && empData.is_supervisor && (empData as any).manager?.is_chairman) {
+            // 判斷是否為「直隸於理事長」的人員
+            const isDirectReportToChairman = 
+                empData && (
+                    (empData as any).manager?.is_chairman || 
+                    (empData.manager_id === null && !empData.is_chairman)
+                );
+
+            if (empData && isDirectReportToChairman) {
                 status = RequestStatus.APPROVED;
                 approvedAt = new Date().toISOString();
-                approverId = (empData as any).manager_id;
+                // 預設分配給理事長 (153bf58a-bba6-4ba2-bd81-77f52299b0ad)
+                approverId = (empData as any).manager_id || '153bf58a-bba6-4ba2-bd81-77f52299b0ad';
             }
 
             // 3. 寫入資料庫
