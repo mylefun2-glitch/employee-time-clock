@@ -253,7 +253,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 
                 const typeName = leave.leave_type?.name || '';
                 const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|Official|Business|Visit|Meeting|Training|OT/i;
-                const leaveKeywords = /請假|特休|事假|病假|補休|折現|折算|Holiday|Annual|Leave|Sick|Personal/i;
+                const leaveKeywords = /請假|特休|事假|病假|補休|Holiday|Annual|Leave|Sick|Personal/i;
                 const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
 
                 const s = parseISO(leave.start_date);

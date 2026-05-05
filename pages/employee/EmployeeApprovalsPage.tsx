@@ -68,7 +68,7 @@ const EmployeeApprovalsPage: React.FC = () => {
     const [actionMenuRequest, setActionMenuRequest] = useState<any | null>(null);
 
     useEffect(() => {
-        if (employee && employee.is_supervisor) {
+        if (employee && (employee.is_supervisor || employee.is_chairman)) {
             fetchPendingApprovals();
         }
     }, [employee]);
@@ -99,7 +99,9 @@ const EmployeeApprovalsPage: React.FC = () => {
                 const chairmanPending = await requestService.getChairmanPendingRequests();
                 // 過濾掉可能因為主管自己就是理事長而已包含的重複項目
                 const existingIds = new Set(allUnifiedRequests.map(r => r.id));
-                const uniqueChairmanPending = chairmanPending.filter(r => !existingIds.has(r.id));
+                const uniqueChairmanPending = chairmanPending
+                    .filter(r => !existingIds.has(r.id))
+                    .map(r => ({ ...r, __type: 'LEAVE' }));
                 
                 allUnifiedRequests = [...allUnifiedRequests, ...uniqueChairmanPending].sort(
                     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -346,7 +348,7 @@ const EmployeeApprovalsPage: React.FC = () => {
         setSelectedIds(new Set());
     };
 
-    if (!employee?.is_supervisor) {
+    if (!employee?.is_supervisor && !employee?.is_chairman) {
         return (
             <div className="flex flex-col items-center justify-center py-32 px-4 animate-in fade-in duration-500">
                 <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
