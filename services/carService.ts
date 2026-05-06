@@ -217,36 +217,10 @@ export const submitCarRequest = async (request: {
     purpose: string;
 }) => {
     try {
-        // 1. 判斷是否為「直屬於理事長的主管」以進行自動核准
-        const { data: empData } = await supabase
-            .from('employees')
-            .select('is_supervisor, manager_id, rest_days, manager:employees!manager_id(is_chairman)')
-            .eq('id', request.employee_id)
-            .single();
-
-        // 2. 計算工作日天數
-        const startDate = new Date(request.start_time);
-        const endDate = new Date(request.end_time);
-        const workdaysCount = countWorkdays(startDate, endDate, empData || {});
-
-        let status = 'PENDING';
-        let approvedAt = null;
-        let approverId = null;
-
-        // 判斷是否為「直隸於理事長」的人員
-        const isDirectReportToChairman = 
-            empData && (
-                (empData as any).manager?.is_chairman || 
-                (empData.manager_id === null && !empData.is_chairman)
-            );
-
-        // 若為直屬於理事長人員且小於 5 個工作日，則自動核准
-        if (empData && isDirectReportToChairman && workdaysCount < 5) {
-            status = 'APPROVED';
-            approvedAt = new Date().toISOString();
-            // 預設分配給理事長 (153bf58a-bba6-4ba2-bd81-77f52299b0ad)
-            approverId = (empData as any).manager_id || '153bf58a-bba6-4ba2-bd81-77f52299b0ad';
-        }
+        const status = 'PENDING';
+        const approvedAt = null;
+        // 統一由林懇 (80ce2560-b8b5-4fa2-b5de-0e4399eec0e2) 來做審核
+        const approverId = '80ce2560-b8b5-4fa2-b5de-0e4399eec0e2';
 
         const { data, error } = await supabase.from('car_usage_requests').insert({
             ...request,
@@ -256,11 +230,6 @@ export const submitCarRequest = async (request: {
         }).select().single();
 
         if (error) throw error;
-
-        // 3. 若自動核准，需同步將車輛狀態設為使用中 (比照 updateRequestStatus 的邏輯)
-        if (status === 'APPROVED' && request.car_id) {
-            await supabase.from('cars').update({ status: 'IN_USE' }).eq('id', request.car_id);
-        }
 
         return data;
     } catch (error: any) {
@@ -306,6 +275,11 @@ export const reviewCarRequest = async (requestId: string, approverId: string, st
     }).eq('id', requestId).select().single();
 
     if (error) throw error;
+
+    // 如果核准，更新車輛狀態
+    if (status === 'APPROVED' && request?.car_id) {
+        await supabase.from('cars').update({ status: 'IN_USE' }).eq('id', request.car_id);
+    }
 
     return data;
 };

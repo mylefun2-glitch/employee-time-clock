@@ -30,6 +30,7 @@ const EmployeeCalendarPage = lazy(() => import('./pages/employee/EmployeeCalenda
 const EmployeeResourceCalendarPage = lazy(() => import('./pages/employee/ResourceCalendarPage'));
 const EmployeeApprovalsPage = lazy(() => import('./pages/employee/EmployeeApprovalsPage'));
 const ManagerTeamLeavePage = lazy(() => import('./pages/employee/ManagerTeamLeavePage'));
+const CarRequestsPage = lazy(() => import('./pages/admin/CarRequestsPage'));
 
 const App: React.FC = () => {
   return (
@@ -75,6 +76,7 @@ const App: React.FC = () => {
                 <Route path="resource-calendar" element={<EmployeeResourceCalendarPage />} />
                 <Route path="approvals" element={<EmployeeApprovalsPage />} />
                 <Route path="team-leaves" element={<ManagerTeamLeavePage />} />
+                <Route path="car-requests" element={<CarRequestsPage />} />
               </Route>
 
 

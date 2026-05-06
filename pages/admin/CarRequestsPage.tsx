@@ -1,13 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { getCarRequests, reviewCarRequest } from '../../services/carService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEmployee } from '../../contexts/EmployeeContext';
 
 const CarRequestsPage: React.FC = () => {
     const { user } = useAuth();
+    const { employee } = useEmployee();
     const [requests, setRequests] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
     const [processingId, setProcessingId] = useState<string | null>(null);
+
+    const LIN_KEN_ID = '80ce2560-b8b5-4fa2-b5de-0e4399eec0e2';
+    // 員工平台（PIN 登入）用 employee.id；管理員後台（Supabase Auth）用 user.id
+    // 注意：employee.id 是 employees 資料表的 UUID，優先使用
+    const currentUserId = employee?.id || user?.id || null;
+    const isLinKen = currentUserId === LIN_KEN_ID;
 
     // 對話框狀態
     const [reviewDialog, setReviewDialog] = useState<{
@@ -34,13 +42,13 @@ const CarRequestsPage: React.FC = () => {
     };
 
     const handleReviewConfirm = async () => {
-        if (!user || !reviewDialog.requestId || !reviewDialog.type) return;
+        if (!currentUserId || !reviewDialog.requestId || !reviewDialog.type) return;
 
         setProcessingId(reviewDialog.requestId);
         try {
             await reviewCarRequest(
                 reviewDialog.requestId,
-                user.id,
+                currentUserId,
                 reviewDialog.type === 'approve' ? 'APPROVED' : 'REJECTED',
                 reviewDialog.comment
             );
@@ -71,6 +79,22 @@ const CarRequestsPage: React.FC = () => {
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">公務車申請審核</h1>
                 <p className="text-slate-500 text-sm font-medium mt-1">管理與調度公務車預約申請</p>
             </div>
+
+            {!isLinKen && (
+                <div className="bg-amber-50 border border-amber-100 rounded-3xl p-6 flex items-start gap-4 text-amber-900 shadow-sm animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-amber-600">lock</span>
+                    </div>
+                    <div>
+                        <h4 className="font-black text-amber-900">審核權限受限</h4>
+                        <p className="text-sm font-bold text-amber-700/80 mt-0.5">公務車借用統一由林懇進行審核。您目前僅具備檢視權限，無法進行核准或拒絕操作。</p>
+                        {/* 暫時除錯資訊 */}
+                        <p className="text-[10px] font-mono text-amber-500 mt-2">
+                            偵測 ID: {currentUserId || '(空)'}
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Filter Tabs */}
             <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -127,8 +151,14 @@ const CarRequestsPage: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
+                                    
+                                    {isPending && !isLinKen && (
+                                        <div className="text-[10px] font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100 uppercase tracking-widest">
+                                            待林懇審核
+                                        </div>
+                                    )}
 
-                                    {isPending && (
+                                    {isPending && isLinKen && (
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={() => setReviewDialog({ show: true, type: 'reject', requestId: request.id, comment: '' })}

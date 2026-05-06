@@ -72,6 +72,28 @@ const CarRequestForm: React.FC<CarRequestFormProps> = ({ employeeId, onClose, on
             return;
         }
 
+        // 需求：公務車的借用須由前一日的 8:00 ～ 16:00 提出申請
+        const now = new Date();
+        const startDay = new Date(formData.start_date); // 只取日期部分
+        
+        // 計算「前一日」的日期字串 (YYYY-MM-DD)
+        const dayBeforeStart = new Date(startDay);
+        dayBeforeStart.setDate(dayBeforeStart.getDate() - 1);
+        const dayBeforeStartStr = dayBeforeStart.toISOString().split('T')[0];
+        
+        const todayStr = now.toISOString().split('T')[0];
+        const currentHour = now.getHours();
+
+        if (todayStr !== dayBeforeStartStr) {
+            alert(`公務車借用限前一日 08:00~16:00 申請。您預計於 ${formData.start_date} 使用，應於 ${dayBeforeStartStr} 提出申請。`);
+            return;
+        }
+
+        if (currentHour < 8 || currentHour >= 16) {
+            alert('申請時間為前一日的 08:00 ～ 16:00。目前非申請時段。');
+            return;
+        }
+
         setSubmitting(true);
         try {
             const isBusy = await checkCarAvailability(
@@ -111,6 +133,10 @@ const CarRequestForm: React.FC<CarRequestFormProps> = ({ employeeId, onClose, on
                     <div>
                         <h2 className="text-2xl font-black text-slate-900">申請公務車</h2>
                         <p className="text-slate-500 font-bold text-sm mt-1">請填寫預計使用的時間與用途</p>
+                        <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 rounded-lg border border-amber-100">
+                            <span className="material-symbols-outlined text-sm">info</span>
+                            <span className="text-[11px] font-black uppercase tracking-wider">限前一日 08:00~16:00 申請</span>
+                        </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-all">
                         <span className="material-symbols-outlined text-slate-400">close</span>

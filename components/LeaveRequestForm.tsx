@@ -298,6 +298,30 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
             return;
         }
 
+        // 需求：公務車的借用須由前一日的 8:00 ～ 16:00 提出申請
+        if (needCar && selectedCarId) {
+            const now = new Date();
+            const startDay = new Date(startDate); // 只取日期部分
+            
+            // 計算「前一日」的日期字串 (YYYY-MM-DD)
+            const dayBeforeStart = new Date(startDay);
+            dayBeforeStart.setDate(dayBeforeStart.getDate() - 1);
+            const dayBeforeStartStr = dayBeforeStart.toISOString().split('T')[0];
+            
+            const todayStr = now.toISOString().split('T')[0];
+            const currentHour = now.getHours();
+
+            if (todayStr !== dayBeforeStartStr) {
+                setError(`公務車借用限前一日 08:00~16:00 申請。您預計於 ${startDate} 使用，應於 ${dayBeforeStartStr} 提出申請。`);
+                return;
+            }
+
+            if (currentHour < 8 || currentHour >= 16) {
+                setError('公務車申請時段為前一日的 08:00 ～ 16:00。目前非申請時段。');
+                return;
+            }
+        }
+
         setIsSubmitting(true);
         setError(null);
 
@@ -806,6 +830,9 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                     <div className="flex items-center gap-2">
                                         <span className="material-symbols-outlined text-blue-600">directions_car</span>
                                         <span className="text-sm font-black text-slate-700 dark:text-slate-200">借用公務車</span>
+                                        <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 ml-1">
+                                            限前一日 08:00~16:00 申請
+                                        </span>
                                     </div>
                                     <button
                                         type="button"

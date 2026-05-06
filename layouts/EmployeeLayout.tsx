@@ -43,6 +43,12 @@ const EmployeeLayout: React.FC = () => {
         navItems.push({ path: '/employee/team-leaves', icon: 'group', label: '團隊差勤' });
     }
 
+    // 林懇專屬：公務車借用審核
+    const LIN_KEN_ID = '80ce2560-b8b5-4fa2-b5de-0e4399eec0e2';
+    if (employee.id === LIN_KEN_ID) {
+        navItems.push({ path: '/employee/car-requests', icon: 'directions_car', label: '公務車審核' });
+    }
+
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col sm:flex-row">
             {/* Sidebar (桌面版) */}

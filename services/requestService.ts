@@ -66,6 +66,20 @@ export const requestService = {
                 return { success: false, error: error.message };
             }
 
+            // 需求：公務車的借用統一由林懇來做審核
+            // 如果差勤申請中包含借車，則額外建立一筆 car_usage_request
+            if (request.car_id && data) {
+                await supabase.from('car_usage_requests').insert({
+                    employee_id: request.employee_id,
+                    car_id: request.car_id,
+                    start_time: request.start_date,
+                    end_time: request.end_date,
+                    purpose: request.reason || '差勤併同借車',
+                    status: 'PENDING',
+                    approver_id: '80ce2560-b8b5-4fa2-b5de-0e4399eec0e2'
+                });
+            }
+
             return { success: true, data };
         } catch (err: any) {
             console.error('Unexpected error creating request:', err);
@@ -278,16 +292,8 @@ export const requestService = {
                 return { success: false, error: error.message };
             }
 
-            // 如果核准且有借車，更新車輛狀態
-            if (status === RequestStatus.APPROVED && requestData?.car_id) {
-                // 只有在真正核准（不是等待理事長審核）時才更新車輛狀態
-                if (!requestData.requires_chairman_approval || isChairman) {
-                    await supabase
-                        .from('cars')
-                        .update({ status: 'IN_USE' })
-                        .eq('id', requestData.car_id);
-                }
-            }
+            // 原本在此處更新車輛狀態的邏輯已移除
+            // 現在統一由林懇審核 car_usage_requests 後更新車輛狀態
 
             return { success: true };
         } catch (err: any) {
