@@ -298,26 +298,19 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
             return;
         }
 
-        // 需求：公務車的借用須由前一日的 8:00 ～ 16:00 提出申請
+        // 需求：公務車的借用須由前一日的 8:00 至今提出申請
         if (needCar && selectedCarId) {
             const now = new Date();
             const startDay = new Date(startDate); // 只取日期部分
             
-            // 計算「前一日」的日期字串 (YYYY-MM-DD)
-            const dayBeforeStart = new Date(startDay);
-            dayBeforeStart.setDate(dayBeforeStart.getDate() - 1);
-            const dayBeforeStartStr = dayBeforeStart.toISOString().split('T')[0];
-            
-            const todayStr = now.toISOString().split('T')[0];
-            const currentHour = now.getHours();
+            // 最早申請時間：前一日 08:00
+            const earliestAllowed = new Date(startDay);
+            earliestAllowed.setDate(earliestAllowed.getDate() - 1);
+            earliestAllowed.setHours(8, 0, 0, 0);
 
-            if (todayStr !== dayBeforeStartStr) {
-                setError(`公務車借用限前一日 08:00~16:00 申請。您預計於 ${startDate} 使用，應於 ${dayBeforeStartStr} 提出申請。`);
-                return;
-            }
-
-            if (currentHour < 8 || currentHour >= 16) {
-                setError('公務車申請時段為前一日的 08:00 ～ 16:00。目前非申請時段。');
+            if (now < earliestAllowed) {
+                const dateStr = earliestAllowed.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
+                setError(`公務車借用限於前一日 08:00 後提出申請。您預計於 ${startDate} 使用，最早可於 ${dateStr} 08:00 申請。`);
                 return;
             }
         }
@@ -831,7 +824,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                         <span className="material-symbols-outlined text-blue-600">directions_car</span>
                                         <span className="text-sm font-black text-slate-700 dark:text-slate-200">借用公務車</span>
                                         <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 ml-1">
-                                            限前一日 08:00~16:00 申請
+                                            限前一日 08:00 後申請
                                         </span>
                                     </div>
                                     <button
