@@ -166,6 +166,9 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                     onSort={() => handleSort('entitlement')}
                                                     className="px-8 py-5"
                                                 />
+                                                <th className="px-8 py-5 text-[10px] font-black text-indigo-500 uppercase tracking-widest whitespace-nowrap">
+                                                    遞延（前期）
+                                                </th>
                                                 <TableHeaderFilter
                                                     columnKey="used"
                                                     label="已用"
@@ -204,7 +207,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                         <tbody className="divide-y divide-slate-50">
                                             {filteredAndSortedPeriods.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={6} className="px-8 py-12 text-center text-slate-400 font-bold italic">
+                                                    <td colSpan={7} className="px-8 py-12 text-center text-slate-400 font-bold italic">
                                                         {columnFilters.milestone.length > 0 ? '沒有符合篩選條件的資料' : '尚無年資里程碑資料'}
                                                     </td>
                                                 </tr>
@@ -218,28 +221,35 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                             <div className="text-sm text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-lg inline-block">
                                                                 {period.start_date} <span className="text-slate-300 mx-1">~</span> {period.end_date}
                                                             </div>
-                                                            {period.date_formula && (
-                                                                <div className="text-[10px] text-slate-400 font-bold mt-1 ml-1 opacity-70 italic">
-                                                                    {period.date_formula}
-                                                                </div>
-                                                            )}
                                                         </td>
                                                         <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-slate-600">
                                                             <div className="font-mono font-black text-slate-600 leading-none">{period.entitlement}</div>
-                                                            {period.formula && (
-                                                                <div className="text-[10px] text-slate-400 font-bold mt-1 opacity-70">
-                                                                    {period.formula}
+                                                        </td>
+                                                        {/* 遞延（前期）欄 - 依第24-1條優先扣除 */}
+                                                        <td className="px-8 py-5 whitespace-nowrap text-center">
+                                                            {period.deferred_in > 0 ? (
+                                                                <div className="inline-flex flex-col items-center gap-0.5">
+                                                                    <span className="font-mono font-black text-indigo-600">+{period.deferred_in}</span>
+                                                                    <span className="text-[9px] font-bold text-indigo-400 bg-indigo-50 px-1.5 py-0.5 rounded-full">優先扣除</span>
                                                                 </div>
+                                                            ) : (
+                                                                <span className="text-slate-300 font-mono">—</span>
                                                             )}
                                                         </td>
                                                         <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-orange-600">
-                                                            {period.used}
+                                                            <div>{period.used}</div>
+                                                            {period.used_from_deferred > 0 && (
+                                                                <div className="text-[9px] font-bold text-indigo-400 mt-0.5">含遞延 {period.used_from_deferred}</div>
+                                                            )}
                                                         </td>
                                                         <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-rose-600">
                                                             {period.cashout}
                                                         </td>
                                                         <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-emerald-600">
-                                                            {period.remaining}
+                                                            <div>{period.remaining}</div>
+                                                            {period.formula && (
+                                                                <div className="text-[9px] text-slate-400 font-bold mt-0.5 opacity-70 max-w-[140px]">{period.formula}</div>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 ))
@@ -292,6 +302,9 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                     onSort={() => handleCompSort('entitlement')}
                                                     className="px-8 py-5"
                                                 />
+                                                <th className="px-8 py-5 text-[10px] font-black text-indigo-500 uppercase tracking-widest whitespace-nowrap">
+                                                    遞延（前期）
+                                                </th>
                                                 <TableHeaderFilter
                                                     columnKey="used"
                                                     label="合計已用"
@@ -330,7 +343,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                         <tbody className="divide-y divide-slate-50">
                                             {filteredAndSortedCompPeriods.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={6} className="px-8 py-12 text-center text-slate-400 font-bold italic">
+                                                    <td colSpan={7} className="px-8 py-12 text-center text-slate-400 font-bold italic">
                                                         {compColumnFilters.milestone.length > 0 ? '沒有符合篩選條件的資料' : '尚無補休年度資料'}
                                                     </td>
                                                 </tr>
@@ -347,20 +360,32 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                         </td>
                                                         <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-slate-600">
                                                             <div className="font-mono font-black text-slate-600 leading-none">{period.entitlement}</div>
-                                                            {period.formula && (
-                                                                <div className="text-[10px] text-slate-400 font-bold mt-1 opacity-70">
-                                                                    {period.formula}
+                                                        </td>
+                                                        {/* 遞延（前期）欄 - 依第24-1條優先扣除 */}
+                                                        <td className="px-8 py-5 whitespace-nowrap text-center">
+                                                            {period.deferred_in > 0 ? (
+                                                                <div className="inline-flex flex-col items-center gap-0.5">
+                                                                    <span className="font-mono font-black text-indigo-600">+{period.deferred_in}</span>
+                                                                    <span className="text-[9px] font-bold text-indigo-400 bg-indigo-50 px-1.5 py-0.5 rounded-full">優先扣除</span>
                                                                 </div>
+                                                            ) : (
+                                                                <span className="text-slate-300 font-mono">—</span>
                                                             )}
                                                         </td>
                                                         <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-orange-600">
-                                                            {period.used}
+                                                            <div>{period.used}</div>
+                                                            {period.used_from_deferred > 0 && (
+                                                                <div className="text-[9px] font-bold text-indigo-400 mt-0.5">含遞延 {period.used_from_deferred}</div>
+                                                            )}
                                                         </td>
                                                         <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-rose-600">
                                                             {period.cashout}
                                                         </td>
                                                         <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-emerald-600">
-                                                            {period.remaining}
+                                                            <div>{period.remaining}</div>
+                                                            {period.formula && (
+                                                                <div className="text-[9px] text-slate-400 font-bold mt-0.5 opacity-70 max-w-[140px]">{period.formula}</div>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 ))
