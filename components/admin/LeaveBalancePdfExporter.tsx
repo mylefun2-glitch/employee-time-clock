@@ -24,8 +24,8 @@ interface Props {
 // ── 工具函式 ──
 const fmt = (dateStr: string): string => {
     if (!dateStr) return '';
-    // 將 "2024-10-15" => "2024-10-15" (保持原格式，PDF 空間有限)
-    return dateStr;
+    // 截取前 10 碼，統一輸出 YYYY-MM-DD（處理含時間戳的 ISO 格式）
+    return dateStr.substring(0, 10);
 };
 
 // 判斷某筆 record 屬於哪個年資段（start_date 落在 period 的 start_date ~ end_date）
@@ -55,7 +55,7 @@ const PdfTemplate = React.forwardRef<HTMLDivElement, Props>(
         const annualRecords = records.filter(r => annualCodes.includes(r.leave_type_code));
         const compRecords = records.filter(r => compCodes.includes(r.leave_type_code));
 
-        const today = new Date().toLocaleDateString('zh-TW');
+        const today = new Date().toISOString().substring(0, 10); // YYYY-MM-DD
 
         return (
             <div
@@ -147,9 +147,8 @@ const PdfTemplate = React.forwardRef<HTMLDivElement, Props>(
                     isAnnual={false}
                 />
 
-                {/* 頁尾 */}
                 <div style={{ marginTop: '24px', borderTop: '1px solid #e2e8f0', paddingTop: '8px', color: '#94a3b8', fontSize: '10px', textAlign: 'right' }}>
-                    本報表由系統自動產生 · {today}
+                    本報表由系統自動產生 · {new Date().toISOString().substring(0, 10)}
                 </div>
             </div>
         );
