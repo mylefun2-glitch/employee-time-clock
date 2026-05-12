@@ -24,9 +24,10 @@ const FONT = '"Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif';
 const W = 1122; // A4 橫向 @ 96dpi
 
 /**
- * FIFO 分配：依時間順序將紀錄填入各期間。
- * 「使用」類紀錄（ANNUAL / TOIL）依 period.used 時數配額 FIFO 分配；
- * 「折現/折算」類紀錄（ALC / CO）依日期落點分配到對應期間。
+ * FIFO 分配：
+ * ① 「使用」紀錄（ANNUAL/TOIL）依 period.used 配額由舊到新 FIFO 填入。
+ * ② 「折現/折算」紀錄（ALC/CO）依 period.cashout 配額由舊到新 FIFO 填入。
+ * 兩者分開計算後合併，內部依日期排序。
  */
 const distributeRecordsFIFO = (
     periods: LeaveBalance['annual']['periods'],
@@ -37,57 +38,50 @@ const distributeRecordsFIFO = (
     const bucket = new Map<string, LeaveDetailRecord[]>(
         periods.map(p => [p.label, []])
     );
-
-    // 依 start_date 由舊到新排序期間
     const sortedPeriods = [...periods].sort((a, b) =>
         a.start_date.localeCompare(b.start_date)
     );
 
-    // 1. 「使用」紀錄：FIFO 填入最舊期間 → 直到 used 配額耗盡
+    // ① 「使用」紀錄 FIFO 依 period.used
     const usageRecs = [...allRecords]
         .filter(r => usageCodes.includes(r.leave_type_code))
         .sort((a, b) => a.start_date.localeCompare(b.start_date));
-
-    let ri = 0;
+    let ui = 0;
     for (const p of sortedPeriods) {
         let quota = p.used;
-        while (ri < usageRecs.length && quota > 0) {
-            bucket.get(p.label)!.push(usageRecs[ri]);
-            quota -= usageRecs[ri].hours;
-            ri++;
+        while (ui < usageRecs.length && quota > 0) {
+            bucket.get(p.label)!.push(usageRecs[ui]);
+            quota -= usageRecs[ui].hours;
+            ui++;
         }
     }
-    // 剩餘紀錄歸入最後一個期間（理論上不應發生）
-    if (ri < usageRecs.length) {
+    if (ui < usageRecs.length) {
         const last = sortedPeriods[sortedPeriods.length - 1];
-        if (last) {
-            bucket.get(last.label)!.push(...usageRecs.slice(ri));
-        }
+        if (last) bucket.get(last.label)!.push(...usageRecs.slice(ui));
     }
 
-    // 2. 「折現/折算」紀錄：依日期落點分配到對應期間
-    const cashoutRecs = allRecords.filter(r => cashoutCodes.includes(r.leave_type_code));
-    for (const rec of cashoutRecs) {
-        const d = rec.start_date.substring(0, 10);
-        let placed = false;
-        for (const p of sortedPeriods) {
-            if (d >= p.start_date && d <= p.end_date) {
-                bucket.get(p.label)!.push(rec);
-                placed = true;
-                break;
-            }
-        }
-        // 日期不在任何期間內 → 放到最近一個期間
-        if (!placed && sortedPeriods.length > 0) {
-            bucket.get(sortedPeriods[sortedPeriods.length - 1].label)!.push(rec);
+    // ② 「折現/折算」紀錄 FIFO 依 period.cashout
+    const cashoutRecs = [...allRecords]
+        .filter(r => cashoutCodes.includes(r.leave_type_code))
+        .sort((a, b) => a.start_date.localeCompare(b.start_date));
+    let ci = 0;
+    for (const p of sortedPeriods) {
+        let quota = p.cashout;
+        while (ci < cashoutRecs.length && quota > 0) {
+            bucket.get(p.label)!.push(cashoutRecs[ci]);
+            quota -= cashoutRecs[ci].hours;
+            ci++;
         }
     }
+    if (ci < cashoutRecs.length) {
+        const last = sortedPeriods[sortedPeriods.length - 1];
+        if (last) bucket.get(last.label)!.push(...cashoutRecs.slice(ci));
+    }
 
-    // 3. 每個 bucket 內部依日期排序
+    // 每個 bucket 內部依日期排序
     for (const [label, recs] of bucket) {
         bucket.set(label, [...recs].sort((a, b) => a.start_date.localeCompare(b.start_date)));
     }
-
     return bucket;
 };
 
@@ -121,7 +115,7 @@ interface PeriodBlockProps {
 const PeriodBlock: React.FC<PeriodBlockProps> = ({
     period, records, employeeName, accentColor, isCashout
 }) => (
-    <div style={{ marginBottom: '4px' }}>
+    <div className="pdf-period-block" style={{ marginBottom: '4px' }}>
         {/* 摘要列 */}
         <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#f1f5f9' }}>
             <tbody>
@@ -336,54 +330,90 @@ CompTemplate.displayName = 'CompTemplate';
 //  核心匯出函式
 // ══════════════════════════════════════════════════════════
 
-/** 將一個 HTML 元素截圖後分頁寫入 PDF（A4 橫向） */
+/**
+ * 將一個 HTML 元素截圖後分頁寫入 PDF（A4 橫向）。
+ * 「智慧分頁」：偵測容器內的 .pdf-period-block 子元素邊界，
+ * 避免在某一個年資段的中間換頁（若整個 block 塞不進剩餘空間則先換頁）。
+ */
 async function renderSectionToPages(
     pdf: jsPDF,
     el: HTMLElement,
     isFirstSection: boolean,
 ): Promise<void> {
-    const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        width: el.scrollWidth,
-        height: el.scrollHeight,
-        windowWidth: el.scrollWidth,
-        windowHeight: el.scrollHeight,
-    });
+    const A4_W_MM = 297;
+    const A4_H_MM = 210;
+    const MARGIN_MM = 8; // 上下留邊
+    const PAGE_CONTENT_H_MM = A4_H_MM - MARGIN_MM * 2;
 
-    const A4_W = 297;  // mm
-    const A4_H = 210;  // mm
+    // 取得所有 period block 的 offsetTop + offsetHeight（相對於 el）
+    const blocks = Array.from(el.querySelectorAll<HTMLElement>('.pdf-period-block'));
 
-    // canvas scale=2，實際 px → mm
-    const pxPerMm = (canvas.width / 2) / A4_W;
-    const totalHeightMm = (canvas.height / 2) / pxPerMm;
+    // 計算縮放比：el 寬度 vs A4_W
+    const scale = A4_W_MM / el.scrollWidth; // mm per px
 
-    let pageMmOffset = 0;
-    let firstPage = true;
+    // 決定分頁切割點（mm）：在每個 block 開始之前檢查是否需要換頁
+    // 策略：維護 currentPageStart（mm），若 block 無法放入本頁則記錄換頁點
+    const pageBreaksPx: number[] = [0]; // 每頁從哪個 px 開始（el 座標）
+    let pageEndMm = PAGE_CONTENT_H_MM;
 
-    while (pageMmOffset < totalHeightMm) {
-        if (!isFirstSection || !firstPage) {
-            pdf.addPage();
+    for (const block of blocks) {
+        const blockTopMm = block.offsetTop * scale;
+        const blockBotMm = (block.offsetTop + block.offsetHeight) * scale;
+        const currentPageStartMm = pageBreaksPx[pageBreaksPx.length - 1] * scale;
+
+        // 若此 block 結尾超出本頁，且 block 頂部還在本頁內 → 在 block 前換頁
+        if (blockBotMm > pageEndMm && blockTopMm > currentPageStartMm) {
+            pageBreaksPx.push(Math.round(block.offsetTop)); // 從此 block 開頭起新頁
+            pageEndMm = (block.offsetTop * scale) + PAGE_CONTENT_H_MM;
         }
-        firstPage = false;
+    }
 
-        // 截取此頁對應的 canvas 區塊
-        const srcY = Math.round(pageMmOffset * pxPerMm * 2);
-        const srcH = Math.min(Math.round(A4_H * pxPerMm * 2), canvas.height - srcY);
+    // 若沒有找到任何 block（舊版模式），退回原始等高分頁
+    if (blocks.length === 0) {
+        const canvas = await html2canvas(el, {
+            scale: 2, useCORS: true, backgroundColor: '#fff', logging: false,
+            width: el.scrollWidth, height: el.scrollHeight,
+            windowWidth: el.scrollWidth, windowHeight: el.scrollHeight,
+        });
+        const pxPerMm = (canvas.width / 2) / A4_W_MM;
+        const totalH = (canvas.height / 2) / pxPerMm;
+        let yMm = 0; let first = true;
+        while (yMm < totalH) {
+            if (!isFirstSection || !first) pdf.addPage();
+            first = false;
+            const srcY = Math.round(yMm * pxPerMm * 2);
+            const srcH = Math.min(Math.round(A4_H_MM * pxPerMm * 2), canvas.height - srcY);
+            const pc = document.createElement('canvas');
+            pc.width = canvas.width; pc.height = srcH;
+            pc.getContext('2d')!.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+            pdf.addImage(pc.toDataURL('image/jpeg', 0.93), 'JPEG', 0, 0, A4_W_MM, (srcH / 2) / pxPerMm);
+            yMm += A4_H_MM;
+        }
+        return;
+    }
 
-        const pageCanvas = document.createElement('canvas');
-        pageCanvas.width = canvas.width;
-        pageCanvas.height = srcH;
-        const ctx = pageCanvas.getContext('2d')!;
-        ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+    // 逐段截圖並寫入 PDF
+    let isFirst = true;
+    for (let i = 0; i < pageBreaksPx.length; i++) {
+        const startPx = pageBreaksPx[i];
+        const endPx = i + 1 < pageBreaksPx.length ? pageBreaksPx[i + 1] : el.scrollHeight;
+        const segH = endPx - startPx;
+        if (segH <= 0) continue;
 
-        const imgData = pageCanvas.toDataURL('image/jpeg', 0.93);
-        const imgHMm = (srcH / 2) / pxPerMm;
-        pdf.addImage(imgData, 'JPEG', 0, 0, A4_W, imgHMm);
+        // 截取此段
+        const canvas = await html2canvas(el, {
+            scale: 2, useCORS: true, backgroundColor: '#fff', logging: false,
+            width: el.scrollWidth, height: el.scrollHeight,
+            windowWidth: el.scrollWidth, windowHeight: el.scrollHeight,
+            y: startPx, height: segH,
+        });
 
-        pageMmOffset += A4_H;
+        if (!isFirstSection || !isFirst) pdf.addPage();
+        isFirst = false;
+
+        const pxPerMm = (canvas.width / 2) / A4_W_MM;
+        const imgH = (canvas.height / 2) / pxPerMm;
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.93), 'JPEG', 0, MARGIN_MM, A4_W_MM, Math.min(imgH, PAGE_CONTENT_H_MM));
     }
 }
 
