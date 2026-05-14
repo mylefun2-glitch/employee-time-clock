@@ -113,6 +113,42 @@ const RequestsPage: React.FC = () => {
         }
     };
 
+    const handleBatchApprove = async () => {
+        const idsToApprove = Array.from(selectedIds);
+        if (idsToApprove.length === 0) return;
+
+        if (!confirm(`確定要批量核准選中的 ${idsToApprove.length} 筆申請嗎？`)) return;
+
+        setLoading(true);
+        const result = await requestService.batchUpdateRequestStatus(idsToApprove, RequestStatus.APPROVED);
+        if (result.success) {
+            await loadRequests();
+            alert(`成功核准 ${result.succeeded} 筆申請！`);
+        } else {
+            const errorMsg = result.errors.length > 0 ? `\n原因：${result.errors.join(', ')}` : '';
+            alert(`部分核准完成：成功 ${result.succeeded} 筆，失敗 ${result.failed} 筆${errorMsg}`);
+            await loadRequests();
+        }
+    };
+
+    const handleBatchReject = async () => {
+        const idsToReject = Array.from(selectedIds);
+        if (idsToReject.length === 0) return;
+
+        if (!confirm(`確定要批量拒絕選中的 ${idsToReject.length} 筆申請嗎？`)) return;
+
+        setLoading(true);
+        const result = await requestService.batchUpdateRequestStatus(idsToReject, RequestStatus.REJECTED);
+        if (result.success) {
+            await loadRequests();
+            alert(`成功拒絕 ${result.succeeded} 筆申請！`);
+        } else {
+            const errorMsg = result.errors.length > 0 ? `\n原因：${result.errors.join(', ')}` : '';
+            alert(`部分拒絕完成：成功 ${result.succeeded} 筆，失敗 ${result.failed} 筆${errorMsg}`);
+            await loadRequests();
+        }
+    };
+
     const toggleSelection = (id: string) => {
         const newSelection = new Set(selectedIds);
         if (newSelection.has(id)) {
@@ -398,6 +434,24 @@ const RequestsPage: React.FC = () => {
                             <span className="material-symbols-outlined text-sm mr-2">delete_sweep</span>
                             批量刪除 ({selectedIds.size})
                         </button>
+                    )}
+                    {selectedIds.size > 0 && (filterStatus === 'ALL' || filterStatus === RequestStatus.PENDING || filterStatus === RequestStatus.WITHDRAW_PENDING) && (
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleBatchApprove}
+                                className="flex-1 md:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-transparent bg-green-600 text-xs font-bold text-white hover:bg-green-700 transition-all shadow-sm"
+                            >
+                                <span className="material-symbols-outlined text-sm mr-2">done_all</span>
+                                批量核准 ({selectedIds.size})
+                            </button>
+                            <button
+                                onClick={handleBatchReject}
+                                className="flex-1 md:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-transparent bg-red-600 text-xs font-bold text-white hover:bg-red-700 transition-all shadow-sm"
+                            >
+                                <span className="material-symbols-outlined text-sm mr-2">close_fullscreen</span>
+                                批量拒絕 ({selectedIds.size})
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

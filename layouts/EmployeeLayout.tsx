@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import { Outlet, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useEmployee } from '../contexts/EmployeeContext';
 
@@ -28,7 +29,48 @@ const EmployeeLayout: React.FC = () => {
         navigate('/employee/login');
     };
 
-    const navItems = [
+    const [pendingCarCount, setPendingCarCount] = useState(0);
+    const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
+
+    const LIN_KEN_ID = '80ce2560-b8b5-4fa2-b5de-0e4399eec0e2';
+
+    useEffect(() => {
+        const fetchPendingCounts = async () => {
+            if (!employee) return;
+
+            // 公務車待審核 (僅林懇需要)
+            if (employee.id === LIN_KEN_ID) {
+                const { count } = await supabase
+                    .from('car_usage_requests')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('status', 'PENDING');
+                setPendingCarCount(count || 0);
+            }
+
+            // 差勤待審核 (主管才需要)
+            if (employee.is_supervisor) {
+                const { data: teamMembers } = await supabase
+                    .from('employees')
+                    .select('id')
+                    .eq('manager_id', employee.id);
+                const memberIds = teamMembers?.map(m => m.id) || [];
+                if (memberIds.length > 0) {
+                    const { count } = await supabase
+                        .from('leave_requests')
+                        .select('*', { count: 'exact', head: true })
+                        .in('employee_id', memberIds)
+                        .eq('status', 'PENDING');
+                    setPendingApprovalCount(count || 0);
+                }
+            }
+        };
+
+        fetchPendingCounts();
+        const timer = setInterval(fetchPendingCounts, 60000); // 每 60 秒更新一次
+        return () => clearInterval(timer);
+    }, [employee]);
+
+    const navItems: Array<{ path: string; icon: string; label: string; badge?: number }> = [
         { path: '/employee/dashboard', icon: 'dashboard', label: '儀表板' },
         { path: '/employee/profile', icon: 'person', label: '個人資訊' },
         { path: '/employee/attendance', icon: 'event_note', label: '差勤統計' },
@@ -39,14 +81,13 @@ const EmployeeLayout: React.FC = () => {
 
     // 所有主管都可以看到審核差勤
     if (employee.is_supervisor) {
-        navItems.push({ path: '/employee/approvals', icon: 'rule', label: '審核差勤' });
+        navItems.push({ path: '/employee/approvals', icon: 'rule', label: '審核差勤', badge: pendingApprovalCount });
         navItems.push({ path: '/employee/team-leaves', icon: 'group', label: '團隊差勤' });
     }
 
     // 林懇專屬：公務車借用審核
-    const LIN_KEN_ID = '80ce2560-b8b5-4fa2-b5de-0e4399eec0e2';
     if (employee.id === LIN_KEN_ID) {
-        navItems.push({ path: '/employee/car-requests', icon: 'directions_car', label: '公務車審核' });
+        navItems.push({ path: '/employee/car-requests', icon: 'directions_car', label: '公務車審核', badge: pendingCarCount });
     }
 
     return (
@@ -85,7 +126,7 @@ const EmployeeLayout: React.FC = () => {
                     </div>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-1">
+                <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
                     {navItems.map((item) => (
                         <Link
                             key={item.path}
@@ -97,8 +138,20 @@ const EmployeeLayout: React.FC = () => {
                                 }`}
                             title={isCollapsed ? item.label : ''}
                         >
-                            <span className="material-symbols-outlined">{item.icon}</span>
-                            {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
+                            <span className="relative">
+                                <span className="material-symbols-outlined">{item.icon}</span>
+                                {(item.badge ?? 0) > 0 && isCollapsed && (
+                                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-0.5 leading-none shadow-sm">
+                                        {item.badge! > 99 ? '99+' : item.badge}
+                                    </span>
+                                )}
+                            </span>
+                            {!isCollapsed && <span className="flex-1 whitespace-nowrap">{item.label}</span>}
+                            {!isCollapsed && (item.badge ?? 0) > 0 && (
+                                <span className="ml-auto min-w-[20px] h-5 bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 leading-none shadow-sm animate-pulse">
+                                    {item.badge! > 99 ? '99+' : item.badge}
+                                </span>
+                            )}
                         </Link>
                     ))}
                 </nav>
@@ -161,7 +214,14 @@ const EmployeeLayout: React.FC = () => {
                             : 'text-slate-400'
                             }`}
                     >
-                        <span className="material-symbols-outlined text-2xl">{item.icon}</span>
+                        <span className="relative">
+                            <span className="material-symbols-outlined text-2xl">{item.icon}</span>
+                            {(item.badge ?? 0) > 0 && (
+                                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-0.5 leading-none shadow-sm">
+                                    {item.badge! > 99 ? '99+' : item.badge}
+                                </span>
+                            )}
+                        </span>
                         <span className="text-[10px] mt-0.5 font-medium">{item.label}</span>
                     </Link>
                 ))}

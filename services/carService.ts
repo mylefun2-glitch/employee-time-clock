@@ -204,7 +204,28 @@ export const getCarUsageForCalendar = async () => {
         };
     });
 
-    return [...formattedCur, ...formattedLr].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    // 去重邏輯：如果同一個員工、同一輛車、在同一時間段有重覆紀錄，則進行合併
+    // 優先保留來自 car_usage_requests 的紀錄，因為它代表了公務車管理員的審核狀態
+    const combined = [...formattedCur, ...formattedLr];
+    const uniqueMap = new Map();
+
+    combined.forEach(item => {
+        // 建立唯一鍵值：員工ID + 車輛ID + 開始時間 + 結束時間
+        const key = `${item.employee_id}_${item.resource_id}_${item.start_time}_${item.end_time}`;
+        
+        if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, item);
+        } else {
+            // 如果已經存在，檢查是否需要替換
+            // 如果現有的是來自 leave_requests (id 可能與 car_usage_requests 不同)
+            // 而新的是來自 car_usage_requests (formattedCur 先排在前面，所以通常已經是正確的)
+            // 為了保險起見，我們可以在此明確邏輯：優先保留 formattedCur 的來源
+            // 但因為我們是 [...formattedCur, ...formattedLr] 且 uniqueMap.has(key) 就 skip，
+            // 所以自然會保留先出現的 formattedCur。
+        }
+    });
+
+    return Array.from(uniqueMap.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 };
 
 import { countWorkdays } from '../lib/leaveUtils';
