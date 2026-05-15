@@ -236,7 +236,10 @@ export interface LeaveBalance {
       entitlement: number;
       formula?: string;
       date_formula?: string;
+      deferred_in?: number;
+      deferred_out?: number;
       used: number;
+      used_from_deferred?: number;
       cashout: number;
       remaining: number;
     }>;
@@ -253,7 +256,10 @@ export interface LeaveBalance {
       end_date: string;
       entitlement: number;
       formula?: string;
+      deferred_in?: number;
+      deferred_out?: number;
       used: number;
+      used_from_deferred?: number;
       cashout: number;
       remaining: number;
     }>;

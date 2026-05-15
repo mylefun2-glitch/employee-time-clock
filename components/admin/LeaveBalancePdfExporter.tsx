@@ -403,7 +403,7 @@ async function renderSectionToPages(
         // 截取此段
         const canvas = await html2canvas(el, {
             scale: 2, useCORS: true, backgroundColor: '#fff', logging: false,
-            width: el.scrollWidth, height: el.scrollHeight,
+            width: el.scrollWidth,
             windowWidth: el.scrollWidth, windowHeight: el.scrollHeight,
             y: startPx, height: segH,
         });
