@@ -758,6 +758,143 @@ const AttendanceCalendarPage: React.FC = () => {
         return breaks.map(b => `${b.start}～${b.end}`).join('、');
     }, [selectedEmployee]);
 
+    const monthlySchedulesList = useMemo(() => {
+        if (!selectedEmployee || days.length === 0) return [];
+
+        const schedMap = new Map<string, { 
+            work_start_time: string, 
+            work_end_time: string, 
+            break_start_time: string, 
+            break_end_time: string, 
+            break2_start_time?: string | null, 
+            break2_end_time?: string | null, 
+            break3_start_time?: string | null, 
+            break3_end_time?: string | null,
+            days: Date[]
+        }>();
+
+        days.forEach(day => {
+            const dateStr = format(day, 'yyyy-MM-dd');
+            const dayOverride = dayOverrides.find(o => o.override_date === dateStr);
+
+            let sched;
+            if (dayOverride) {
+                sched = {
+                    work_start_time: dayOverride.work_start_time || selectedEmployee.work_start_time || '08:00',
+                    work_end_time: dayOverride.work_end_time || selectedEmployee.work_end_time || '17:00',
+                    break_start_time: dayOverride.break_start_time || selectedEmployee.break_start_time || '12:00',
+                    break_end_time: dayOverride.break_end_time || selectedEmployee.break_end_time || '13:00',
+                    break2_start_time: selectedEmployee.break2_start_time,
+                    break2_end_time: selectedEmployee.break2_end_time,
+                    break3_start_time: selectedEmployee.break3_start_time,
+                    break3_end_time: selectedEmployee.break3_end_time,
+                };
+            } else {
+                const hist = historicalSchedules
+                    .filter(s => s.effective_date <= dateStr)
+                    .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
+
+                if (hist) {
+                    sched = {
+                        work_start_time: hist.work_start_time,
+                        work_end_time: hist.work_end_time,
+                        break_start_time: hist.break_start_time,
+                        break_end_time: hist.break_end_time,
+                        break2_start_time: hist.break2_start_time,
+                        break2_end_time: hist.break2_end_time,
+                        break3_start_time: hist.break3_start_time,
+                        break3_end_time: hist.break3_end_time,
+                    };
+                } else {
+                    sched = {
+                        work_start_time: selectedEmployee.work_start_time || '08:00',
+                        work_end_time: selectedEmployee.work_end_time || '17:00',
+                        break_start_time: selectedEmployee.break_start_time || '12:00',
+                        break_end_time: selectedEmployee.break_end_time || '13:00',
+                        break2_start_time: selectedEmployee.break2_start_time,
+                        break2_end_time: selectedEmployee.break2_end_time,
+                        break3_start_time: selectedEmployee.break3_start_time,
+                        break3_end_time: selectedEmployee.break3_end_time,
+                    };
+                }
+            }
+
+            const key = `${sched.work_start_time}-${sched.work_end_time}_${sched.break_start_time}-${sched.break_end_time}_${sched.break2_start_time || ''}-${sched.break2_end_time || ''}_${sched.break3_start_time || ''}-${sched.break3_end_time || ''}`;
+
+            if (!schedMap.has(key)) {
+                schedMap.set(key, { ...sched, days: [day] });
+            } else {
+                schedMap.get(key)!.days.push(day);
+            }
+        });
+
+        const result = Array.from(schedMap.values()).map(item => {
+            const sortedDays = [...item.days].sort((a, b) => a.getTime() - b.getTime());
+            const ranges: string[] = [];
+            let startRange = sortedDays[0];
+            let prev = sortedDays[0];
+
+            for (let i = 1; i < sortedDays.length; i++) {
+                const current = sortedDays[i];
+                const diffTime = Math.abs(current.getTime() - prev.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays > 1) {
+                    if (format(startRange, 'yyyy-MM-dd') === format(prev, 'yyyy-MM-dd')) {
+                        ranges.push(`${format(startRange, 'M/d')}`);
+                    } else {
+                        ranges.push(`${format(startRange, 'M/d')}～${format(prev, 'M/d')}`);
+                    }
+                    startRange = current;
+                }
+                prev = current;
+            }
+
+            if (format(startRange, 'yyyy-MM-dd') === format(prev, 'yyyy-MM-dd')) {
+                ranges.push(`${format(startRange, 'M/d')}`);
+            } else {
+                ranges.push(`${format(startRange, 'M/d')}～${format(prev, 'M/d')}`);
+            }
+
+            const breakTimes = [
+                { start: item.break_start_time, end: item.break_end_time },
+                { start: item.break2_start_time, end: item.break2_end_time },
+                { start: item.break3_start_time, end: item.break3_end_time }
+            ].filter(b => b.start && b.end);
+
+            return {
+                work_start_time: item.work_start_time,
+                work_end_time: item.work_end_time,
+                breakTimesString: breakTimes.map(b => `${b.start}～${b.end}`).join('、'),
+                rangeString: ranges.join('、'),
+                minDate: sortedDays[0]
+            };
+        });
+
+        return result.sort((a, b) => a.minDate.getTime() - b.minDate.getTime());
+    }, [selectedEmployee, days, dayOverrides, historicalSchedules]);
+
+    const workTimesDisplay = useMemo(() => {
+        if (monthlySchedulesList.length === 0) {
+            return selectedEmployee ? `${selectedEmployee.work_start_time}～${selectedEmployee.work_end_time}` : '';
+        }
+        if (monthlySchedulesList.length === 1) {
+            const item = monthlySchedulesList[0];
+            return `${item.work_start_time}～${item.work_end_time}`;
+        }
+        return monthlySchedulesList.map(item => `${item.work_start_time}～${item.work_end_time} (${item.rangeString})`).join('、');
+    }, [monthlySchedulesList, selectedEmployee]);
+
+    const breakTimesDisplay = useMemo(() => {
+        if (monthlySchedulesList.length === 0) {
+            return breakTimesString;
+        }
+        if (monthlySchedulesList.length === 1) {
+            return monthlySchedulesList[0].breakTimesString;
+        }
+        return monthlySchedulesList.map(item => `${item.breakTimesString || '無'} (${item.rangeString})`).join('、');
+    }, [monthlySchedulesList, breakTimesString]);
+
     const totalMonthlyHours = Object.values(monthData).reduce((acc, curr) => acc + curr.hours, 0);
 
     const weekDays = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
@@ -982,11 +1119,11 @@ const AttendanceCalendarPage: React.FC = () => {
                             {/* PDF Summary Stats */}
                             <div className="hidden print:flex items-center gap-4 mt-1">
                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                                    工作時間: <span className="text-slate-900">{selectedEmployee?.work_start_time}～{selectedEmployee?.work_end_time}</span>
+                                    工作時間: <span className="text-slate-900">{workTimesDisplay}</span>
                                 </span>
-                                {breakTimesString && (
+                                {breakTimesDisplay && (
                                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider border-l border-slate-200 pl-4">
-                                        休息時間: <span className="text-slate-900">{breakTimesString}</span>
+                                        休息時間: <span className="text-slate-900">{breakTimesDisplay}</span>
                                     </span>
                                 )}
                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider border-l border-slate-200 pl-4">

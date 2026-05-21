@@ -150,7 +150,7 @@ BEGIN
             ELSIF i = 2 THEN p_days := 10;
             ELSIF i >= 3 AND i < 5 THEN p_days := 14;
             ELSIF i >= 5 AND i < 10 THEN p_days := 15;
-            ELSE p_days := LEAST(15 + (i - 10), 30);
+            ELSE p_days := LEAST(16 + (i - 10), 30);  -- 勞基法§38：滿10年=16日，每增1年加1日，上限30日
             END IF;
 
             p_entitlement := p_days * emp_std_hours;
