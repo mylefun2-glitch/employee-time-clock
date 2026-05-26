@@ -17,7 +17,10 @@ export const requestService = {
             const endDate = new Date(request.end_date);
             const workdaysCount = countWorkdays(startDate, endDate, empData || {});
 
-            // 判斷是否需要理事長審核（5 個工作日含以上）
+            // 判斷是否為直屬主管
+            const isSupervisor = empData?.is_supervisor === true;
+
+            // 判斷是否需要理事長審核（預設 5 個工作日含以上）
             let requiresChairmanApproval = workdaysCount >= 5;
             let status = RequestStatus.PENDING;
             let approvedAt = null;
@@ -31,18 +34,47 @@ export const requestService = {
                     (empData.manager_id === null && !empData.is_chairman)
                 );
 
-            if (empData && isDirectReportToChairman) {
-                // 若工作日天數小於 5 天，則不須理事長核准（改為自動核准）
-                if (workdaysCount < 5) {
-                    requiresChairmanApproval = false;
-                    status = RequestStatus.APPROVED;
-                    approvedAt = new Date().toISOString();
-                    approverId = (empData as any).manager_id || '153bf58a-bba6-4ba2-bd81-77f52299b0ad';
+            if (empData) {
+                if (isSupervisor) {
+                    // 直屬主管的差勤不須再經理事長簽核，但差勤的日數超過5日（含）除外
+                    if (workdaysCount < 5) {
+                        requiresChairmanApproval = false;
+                        // 若其直接隸屬理事長（無其他主管），因為不須理事長簽核，改為自動核准
+                        if (isDirectReportToChairman) {
+                            status = RequestStatus.APPROVED;
+                            approvedAt = new Date().toISOString();
+                            approverId = (empData as any).manager_id || '153bf58a-bba6-4ba2-bd81-77f52299b0ad';
+                        } else {
+                            // 若有其他主管，則僅需要主管審核，依然為 PENDING 但 requiresChairmanApproval 為 false
+                            status = RequestStatus.PENDING;
+                        }
+                    } else {
+                        // 超過 5 日（含）仍要簽到理事長
+                        requiresChairmanApproval = true;
+                        status = RequestStatus.PENDING;
+                        approvedAt = null;
+                    }
                 } else {
-                    // 若工作日天數超過 5 天（含），仍要簽到理事長
-                    requiresChairmanApproval = true;
-                    status = RequestStatus.PENDING;
-                    approvedAt = null;
+                    // 一般員工邏輯
+                    if (isDirectReportToChairman) {
+                        // 一般直隸於理事長的人員：天數小於 5 天則不須理事長核准（改為自動核准）
+                        if (workdaysCount < 5) {
+                            requiresChairmanApproval = false;
+                            status = RequestStatus.APPROVED;
+                            approvedAt = new Date().toISOString();
+                            approverId = (empData as any).manager_id || '153bf58a-bba6-4ba2-bd81-77f52299b0ad';
+                        } else {
+                            // 若工作日天數超過 5 天（含），仍要簽到理事長
+                            requiresChairmanApproval = true;
+                            status = RequestStatus.PENDING;
+                            approvedAt = null;
+                        }
+                    } else {
+                        // 一般非直隸於理事長的人員
+                        requiresChairmanApproval = workdaysCount >= 5;
+                        status = RequestStatus.PENDING;
+                        approvedAt = null;
+                    }
                 }
             }
 

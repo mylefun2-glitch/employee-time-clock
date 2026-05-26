@@ -159,7 +159,7 @@ export const getAllSubordinateRequests = async (managerId: string): Promise<any[
                 leave_type:leave_types (*)
             `)
             .in('employee_id', subordinateIds)
-            .not('status', 'in', '("PENDING", "WITHDRAW_PENDING")')
+            .in('status', ['APPROVED', 'REJECTED', 'WITHDRAWN'])
             .order('created_at', { ascending: false })
             .limit(5000);
 
