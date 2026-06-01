@@ -481,8 +481,9 @@ const AttendanceCalendarPage: React.FC = () => {
                     // 檢查打卡時間是否被假單覆蓋
                     const coveredByLeave = rawDayLeaves.some(l => {
                         if (l.status?.toUpperCase() !== 'APPROVED') return false;
+                        const leaveStart = parseISO(l.start_date);
                         const leaveEnd = parseISO(l.end_date);
-                        return leaveEnd >= actualIn || (leaveEnd.getHours() === 12 && actualIn.getHours() <= 13);
+                        return (leaveStart <= actualIn && leaveEnd >= actualIn) || (leaveEnd.getHours() === 12 && actualIn.getHours() <= 13);
                     });
 
                     if (coveredByLeave || diffInMs <= 0) {
