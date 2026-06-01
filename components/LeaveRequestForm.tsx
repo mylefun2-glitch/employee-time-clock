@@ -160,6 +160,58 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
 
     // 計算總時數邏輯 (使用統一工具函數)
     const [totalHours, setTotalHours] = useState(0);
+    const [flexOffsetMs, setFlexOffsetMs] = useState<number>(0);
+
+    // 取得當天的彈性上班時間偏移量
+    useEffect(() => {
+        const fetchFlexOffset = async () => {
+            if (!employeeId || !startDate || !employeeSchedule.work_start_time) {
+                setFlexOffsetMs(0);
+                return;
+            }
+            try {
+                const { supabase: localSupabase } = await import('../lib/supabase');
+                const { data: logsData } = await localSupabase
+                    .from('attendance_logs')
+                    .select('*')
+                    .eq('employee_id', employeeId)
+                    .gte('timestamp', `${startDate}T00:00:00`)
+                    .lte('timestamp', `${startDate}T23:59:59`)
+                    .order('timestamp', { ascending: true });
+
+                if (logsData && logsData.length >= 2) {
+                    const checkInLog = logsData.find(l => l.check_type === 'IN');
+                    if (checkInLog) {
+                        const actualIn = new Date(checkInLog.timestamp);
+                        
+                        const [sh, sm] = (employeeSchedule.work_start_time || '08:00').split(':').map(Number);
+                        const schedIn = new Date(`${startDate}T00:00:00`);
+                        schedIn.setHours(sh, sm, 0, 0);
+
+                        const diffInMs = actualIn.getTime() - schedIn.getTime();
+                        const flexWindowMs = 30 * 60 * 1000;
+
+                        if (diffInMs <= 0) {
+                            setFlexOffsetMs(0);
+                        } else if (diffInMs <= flexWindowMs) {
+                            setFlexOffsetMs(diffInMs);
+                        } else {
+                            setFlexOffsetMs(flexWindowMs);
+                        }
+                    } else {
+                        setFlexOffsetMs(0);
+                    }
+                } else {
+                    setFlexOffsetMs(0);
+                }
+            } catch (err) {
+                console.error('Error fetching logs for flex offset:', err);
+                setFlexOffsetMs(0);
+            }
+        };
+
+        fetchFlexOffset();
+    }, [employeeId, startDate, employeeSchedule.work_start_time]);
 
     // 計算總時數邏輯 (使用 useEffect 處理副作用，避免 Infinite Loop)
     useEffect(() => {
@@ -237,7 +289,9 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                 historicalSchedules,
                 manualBreak,
                 isMakeupWorkday,
-                isMakeupHoliday
+                isMakeupHoliday,
+                undefined,
+                flexOffsetMs // 傳入當天算出的彈性偏移量！
             );
 
             setDetailedHours(detailed);
@@ -248,7 +302,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                 setError(null);
             }
         }
-    }, [startDate, startTime, endDate, endTime, employeeSchedule, selectedTypeId, leaveTypes, historicalSchedules, manualBreakHours, isMakeupWorkday, isMakeupHoliday]);
+    }, [startDate, startTime, endDate, endTime, employeeSchedule, selectedTypeId, leaveTypes, historicalSchedules, manualBreakHours, isMakeupWorkday, isMakeupHoliday, flexOffsetMs]);
 
 
 
@@ -311,6 +365,14 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
             if (now < earliestAllowed) {
                 const dateStr = earliestAllowed.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
                 setError(`公務車借用限於前一日 08:00 後提出申請。您預計於 ${startDate} 使用，最早可於 ${dateStr} 08:00 申請。`);
+                return;
+            }
+        }
+
+        // 若差勤的日數超過 5 日，跳出確認提醒
+        if (requiresChairmanApproval) {
+            const confirmSubmit = window.confirm(`此申請天數已達 ${totalDays} 天（5天含以上），提交後將需要主管及理事長雙重審核，是否確定要提交？`);
+            if (!confirmSubmit) {
                 return;
             }
         }

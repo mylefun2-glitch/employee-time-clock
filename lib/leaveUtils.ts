@@ -35,7 +35,8 @@ export const calculateLeaveHoursDetailed = (
     manualBreak: number = 0,
     isMakeupWorkday: boolean = false,
     isMakeupHoliday: boolean = false,
-    dayOverrides?: EmployeeDayOverride[]
+    dayOverrides?: EmployeeDayOverride[],
+    flexOffset: number = 0
 ): DetailedLeaveHours => {
     if (endDate <= startDate) return { totalHours: 0, rawHours: 0, breakHours: 0, finalHours: 0 };
 
@@ -154,6 +155,10 @@ export const calculateLeaveHoursDetailed = (
         const dayWorkEnd = new Date(currentDayHead);
         dayWorkEnd.setHours(workEndH, workEndM, 0, 0);
 
+        if (flexOffset > 0 && schedule.salary_type === 'MONTHLY') {
+            dayWorkEnd.setTime(dayWorkEnd.getTime() + flexOffset);
+        }
+
         const actualStart = ignoreWorkWindow
             ? new Date(Math.max(startDate.getTime(), currentDayHead.getTime()))
             : new Date(Math.max(startDate.getTime(), dayWorkStart.getTime()));
@@ -219,7 +224,8 @@ export const calculateLeaveHours = (
     manualBreak: number = 0,
     isMakeupWorkday: boolean = false,
     isMakeupHoliday: boolean = false,
-    dayOverrides?: EmployeeDayOverride[]
+    dayOverrides?: EmployeeDayOverride[],
+    flexOffset: number = 0
 ): number => {
     const result = calculateLeaveHoursDetailed(
         startDate,
@@ -231,7 +237,8 @@ export const calculateLeaveHours = (
         manualBreak,
         isMakeupWorkday,
         isMakeupHoliday,
-        dayOverrides
+        dayOverrides,
+        flexOffset
     );
     return result.finalHours;
 };

@@ -219,7 +219,7 @@ export const requestService = {
             // 先獲取申請資訊，確認是否包含 car_id 和是否需要理事長審核
             const { data: requestData, error: fetchError } = await supabase
                 .from('leave_requests')
-                .select('car_id, requires_chairman_approval, supervisor_approved_at, status, modification_reason')
+                .select('employee_id, car_id, start_date, end_date, requires_chairman_approval, supervisor_approved_at, status, modification_reason')
                 .eq('id', requestId)
                 .single();
 
@@ -324,8 +324,33 @@ export const requestService = {
                 return { success: false, error: error.message };
             }
 
-            // 原本在此處更新車輛狀態的邏輯已移除
-            // 現在統一由林懇審核 car_usage_requests 後更新車輛狀態
+            // 同步更新關聯的公務車借用狀態
+            if (requestData?.car_id) {
+                if (updates.status === RequestStatus.REJECTED || updates.status === RequestStatus.WITHDRAWN) {
+                    const reviewComment = updates.status === RequestStatus.REJECTED 
+                        ? '因差勤申請被拒絕，系統自動取消車輛借用。' 
+                        : '因差勤申請被撤回，系統自動取消車輛借用。';
+
+                    await supabase
+                        .from('car_usage_requests')
+                        .update({ 
+                            status: 'REJECTED', 
+                            review_comment: reviewComment,
+                            approved_at: new Date().toISOString(),
+                            approver_id: approverId || null
+                        })
+                        .eq('employee_id', requestData.employee_id)
+                        .eq('car_id', requestData.car_id)
+                        .eq('start_time', requestData.start_date)
+                        .eq('end_time', requestData.end_date);
+                    
+                    // 釋放車輛狀態為可用
+                    await supabase
+                        .from('cars')
+                        .update({ status: 'AVAILABLE' })
+                        .eq('id', requestData.car_id);
+                }
+            }
 
             return { success: true };
         } catch (err: any) {

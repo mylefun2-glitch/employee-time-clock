@@ -181,7 +181,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 s.target_date === dateStr
             );
 
-            const dayLeaves = leaves.filter(leave => {
+            const rawDayLeaves = leaves.filter(leave => {
                 const s = parseISO(leave.start_date);
                 const e = parseISO(leave.end_date);
                 const startOfDay = new Date(day);
@@ -189,49 +189,34 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 const endOfDay = new Date(day);
                 endOfDay.setHours(23, 59, 59, 999);
                 return s <= endOfDay && e >= startOfDay;
-            }).map(leave => {
-                const s = parseISO(leave.start_date);
-                const e = parseISO(leave.end_date);
-                const startOfDay = new Date(day);
-                startOfDay.setHours(0, 0, 0, 0);
-                const endOfDay = new Date(day);
-                endOfDay.setHours(23, 59, 59, 999);
-                const overlapStart = new Date(Math.max(s.getTime(), startOfDay.getTime()));
-                const overlapEnd = new Date(Math.min(e.getTime(), endOfDay.getTime()));
-                
-                let dayHours = 0;
-                if (overlapStart < overlapEnd && targetEmployee) {
-                    const typeName = leave.leave_type?.name || '';
-                    const isOvertimeApplication = typeName.includes('加班') || typeName.includes('折現') || typeName.includes('折算');
-                    
-                    if (isOvertimeApplication) {
-                        dayHours = calculateOTHours(
-                            overlapStart,
-                            overlapEnd,
-                            targetEmployee,
-                            historicalSchedules
-                        );
-                    } else {
-                        const detailed = calculateLeaveHoursDetailed(
-                            overlapStart,
-                            overlapEnd,
-                            targetEmployee,
-                            false,
-                            true,
-                            historicalSchedules
-                        );
-                        dayHours = detailed.finalHours;
-                    }
-                }
-                return { ...leave, dayHours };
             });
 
-            let dayHours = 0;
             // -------------------------------------------------------------------------
             // 採用「區間聯集法 (Interval Union)」計算總工時
             // -------------------------------------------------------------------------
             const workIntervals: { start: Date, end: Date }[] = [];
-            
+            const startOfDay = new Date(day); startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(day); endOfDay.setHours(23, 59, 59, 999);
+
+            // 1. 收集公務/出差等工作區間 (用作最早起點計算 flexOffsetMs)
+            rawDayLeaves.forEach(leave => {
+                if (leave.status?.toUpperCase() !== 'APPROVED') return;
+                const typeName = leave.leave_type?.name || '';
+                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|Official|Business|Visit|Meeting|Training|OT/i;
+                const leaveKeywords = /請假|特休|事假|病假|補休|Holiday|Annual|Leave|Sick|Personal/i;
+                const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
+
+                if (isWorkRelated) {
+                    const s = parseISO(leave.start_date);
+                    const e = parseISO(leave.end_date);
+                    const overlapStart = new Date(Math.max(s.getTime(), startOfDay.getTime()));
+                    const overlapEnd = new Date(Math.min(e.getTime(), endOfDay.getTime()));
+                    if (overlapStart < overlapEnd) {
+                        workIntervals.push({ start: overlapStart, end: overlapEnd });
+                    }
+                }
+            });
+
             // 取得班表基準
             const getDayTime = (timeStr: string, baseDate: Date) => {
                 if (!timeStr) return null;
@@ -244,37 +229,11 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             const schedIn = getDayTime(targetEmployee?.work_start_time || '08:00', day)!;
             const schedOut = getDayTime(targetEmployee?.work_end_time || '17:00', day)!;
 
-            // 1. 收集工作與扣除區間
-            const nonWorkIntervals: { start: Date, end: Date }[] = [];
-            let totalNonWorkLeaveHours = 0;
+            // 2. 收集打卡區間並計算當天的彈性偏移量 flexOffsetMs
+            let flexOffsetMs = 0;
+            let effectiveIn: Date | null = null;
+            let effectiveOut: Date | null = null;
 
-            dayLeaves.forEach(leave => {
-                if (leave.status?.toUpperCase() !== 'APPROVED') return;
-                
-                const typeName = leave.leave_type?.name || '';
-                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|Official|Business|Visit|Meeting|Training|OT/i;
-                const leaveKeywords = /請假|特休|事假|病假|補休|Holiday|Annual|Leave|Sick|Personal/i;
-                const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
-
-                const s = parseISO(leave.start_date);
-                const e = parseISO(leave.end_date);
-                const startOfDay = new Date(day); startOfDay.setHours(0, 0, 0, 0);
-                const endOfDay = new Date(day); endOfDay.setHours(23, 59, 59, 999);
-                const overlapStart = new Date(Math.max(s.getTime(), startOfDay.getTime()));
-                const overlapEnd = new Date(Math.min(e.getTime(), endOfDay.getTime()));
-
-                if (overlapStart < overlapEnd) {
-                    if (isWorkRelated) {
-                        workIntervals.push({ start: overlapStart, end: overlapEnd });
-                    } else {
-                        // 私假/補休區間：待從總工時中扣除
-                        nonWorkIntervals.push({ start: overlapStart, end: overlapEnd });
-                        totalNonWorkLeaveHours += (leave.dayHours || 0);
-                    }
-                }
-            });
-
-            // 2. 收集打卡區間
             if (dayLogs.length >= 2 && targetEmployee) {
                 const checkInLog = dayLogs.find(l => l.check_type === CheckType.IN);
                 const checkOutLog = [...dayLogs].reverse().find(l => l.check_type === CheckType.OUT);
@@ -282,8 +241,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                     const actualIn = new Date(checkInLog.timestamp);
                     const actualOut = new Date(checkOutLog.timestamp);
                     
-                    let effectiveIn = actualIn;
-                    let flexOffsetMs = 0;
+                    effectiveIn = actualIn;
                     const flexWindowMs = 30 * 60 * 1000;
                     
                     // A. 動態位移判定：以「全日最早起點」為基準
@@ -293,7 +251,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                     const diffInMs = overallStartMs - schedIn.getTime();
 
                     // 檢查打卡時間是否被假單覆蓋
-                    const coveredByLeave = dayLeaves.some(l => {
+                    const coveredByLeave = rawDayLeaves.some(l => {
                         if (l.status?.toUpperCase() !== 'APPROVED') return false;
                         const leaveEnd = parseISO(l.end_date);
                         return leaveEnd >= actualIn || (leaveEnd.getHours() === 12 && actualIn.getHours() <= 13);
@@ -316,7 +274,6 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                     
                     // B. 動態標竿對齊：結束端 (17:00 + 位移) 與 30 分鐘單位化
                     const expectedOut = new Date(schedOut.getTime() + flexOffsetMs);
-                    let effectiveOut = actualOut;
                     const diffOutMs = actualOut.getTime() - expectedOut.getTime();
 
                     // 加班對齊規則：以 30 分鐘為一單位，不足一單位的「去尾」至標竿或最近的 30 分鐘點
@@ -327,12 +284,80 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                         // 早退情況：保留實際簽退
                         effectiveOut = actualOut;
                     }
-
-                    workIntervals.push({ start: effectiveIn, end: effectiveOut });
-                    
-                    (day as any)._effectiveIn = effectiveIn;
-                    (day as any)._effectiveOut = effectiveOut;
                 }
+            }
+
+            // 3. 結合算出的 flexOffsetMs，動態且精確地計算請假時數
+            const dayLeaves = rawDayLeaves.map(leave => {
+                const s = parseISO(leave.start_date);
+                const e = parseISO(leave.end_date);
+                const overlapStart = new Date(Math.max(s.getTime(), startOfDay.getTime()));
+                const overlapEnd = new Date(Math.min(e.getTime(), endOfDay.getTime()));
+                
+                let dayHours = 0;
+                if (overlapStart < overlapEnd && targetEmployee) {
+                    const typeName = leave.leave_type?.name || '';
+                    const isOvertimeApplication = typeName.includes('加班') || typeName.includes('折現') || typeName.includes('折算');
+                    
+                    if (isOvertimeApplication) {
+                        dayHours = calculateOTHours(
+                            overlapStart,
+                            overlapEnd,
+                            targetEmployee,
+                            historicalSchedules
+                        );
+                    } else {
+                        const detailed = calculateLeaveHoursDetailed(
+                            overlapStart,
+                            overlapEnd,
+                            targetEmployee,
+                            false,
+                            true,
+                            historicalSchedules,
+                            0,
+                            false,
+                            false,
+                            undefined, // dayOverrides
+                            flexOffsetMs // 帶入當天算出的彈性偏移量！
+                        );
+                        dayHours = detailed.finalHours;
+                    }
+                }
+                return { ...leave, dayHours };
+            });
+
+            let dayHours = 0;
+            // 4. 收集私假/扣除區間
+            const nonWorkIntervals: { start: Date, end: Date }[] = [];
+            let totalNonWorkLeaveHours = 0;
+
+            dayLeaves.forEach(leave => {
+                if (leave.status?.toUpperCase() !== 'APPROVED') return;
+                
+                const typeName = leave.leave_type?.name || '';
+                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|Official|Business|Visit|Meeting|Training|OT/i;
+                const leaveKeywords = /請假|特休|事假|病假|補休|Holiday|Annual|Leave|Sick|Personal/i;
+                const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
+
+                const s = parseISO(leave.start_date);
+                const e = parseISO(leave.end_date);
+                const overlapStart = new Date(Math.max(s.getTime(), startOfDay.getTime()));
+                const overlapEnd = new Date(Math.min(e.getTime(), endOfDay.getTime()));
+
+                if (overlapStart < overlapEnd) {
+                    if (!isWorkRelated) {
+                        // 私假/補休區間：待從總工時中扣除
+                        nonWorkIntervals.push({ start: overlapStart, end: overlapEnd });
+                        totalNonWorkLeaveHours += (leave.dayHours || 0);
+                    }
+                }
+            });
+
+            // 5. 如果有打卡記錄，將打卡區間加入 workIntervals
+            if (effectiveIn && effectiveOut) {
+                workIntervals.push({ start: effectiveIn, end: effectiveOut });
+                (day as any)._effectiveIn = effectiveIn;
+                (day as any)._effectiveOut = effectiveOut;
             }
 
             // 3. 執行聯集合併
