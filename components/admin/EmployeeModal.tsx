@@ -170,7 +170,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             isOpen={isOpen}
             onClose={onClose}
             title={employee ? '編輯員工資料' : '新增員工資料'}
-            maxWidth="max-w-2xl"
+            maxWidth="max-w-3xl"
         >
             <div className="flex border-b border-slate-100 mb-6 overflow-x-auto whitespace-nowrap no-scrollbar -mx-6 px-6 pt-2 min-h-[48px]">
                 {(['basic', 'personal', 'work', 'schedule', 'seniority', 'fourDayWorkweek', 'history'] as const).map((tab) => {
@@ -180,7 +180,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                             key={tab}
                             type="button"
                             onClick={() => setActiveTab(tab)}
-                            className={`px-6 py-3 text-sm font-bold transition-all border-b-2 flex-shrink-0 relative z-10 -mb-px ${activeTab === tab
+                            className={`px-3 sm:px-4 py-3 text-xs sm:text-sm font-bold transition-all border-b-2 flex-shrink-0 relative z-10 -mb-px ${activeTab === tab
                                 ? 'border-blue-600 text-blue-600'
                                 : 'border-transparent text-slate-400 hover:text-slate-600'
                                 }`}

@@ -530,7 +530,8 @@ const AttendanceCalendarPage: React.FC = () => {
                         // 加班折算 (CO/ALC) 等已核准紀錄：直接使用資料庫中已計算好的 hours
                         // 避免因 calculateOTHours 的國定假日邏輯重算導致時數偏差
                         const isConversionType = leave.leave_type?.code === 'CO' || leave.leave_type?.code === 'ALC' || leave.leave_type?.name?.includes('折算') || leave.leave_type?.name?.includes('折現');
-                        if (isConversionType && leave.hours != null) {
+                        const useStoredHours = (isConversionType || leave.status === 'APPROVED') && leave.hours != null;
+                        if (useStoredHours) {
                             // 判斷是否跨天：若不跨天直接用 hours，跨天時按天分配
                             const leaveStart = parseISO(leave.start_date);
                             const leaveEnd = parseISO(leave.end_date);

@@ -301,12 +301,30 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                     const isOvertimeApplication = typeName.includes('加班') || typeName.includes('折現') || typeName.includes('折算');
                     
                     if (isOvertimeApplication) {
-                        dayHours = calculateOTHours(
-                            overlapStart,
-                            overlapEnd,
-                            targetEmployee,
-                            historicalSchedules
-                        );
+                        const useStoredHours = leave.status === 'APPROVED' && leave.hours != null;
+                        if (useStoredHours) {
+                            // 判斷是否跨天：若不跨天直接用 hours，跨天時按天分配
+                            const leaveStart = parseISO(leave.start_date);
+                            const leaveEnd = parseISO(leave.end_date);
+                            const leaveStartDay = new Date(leaveStart); leaveStartDay.setHours(0,0,0,0);
+                            const leaveEndDay = new Date(leaveEnd); leaveEndDay.setHours(0,0,0,0);
+                            if (leaveStartDay.getTime() === leaveEndDay.getTime()) {
+                                // 單天：直接使用已存的 hours
+                                dayHours = leave.hours;
+                            } else {
+                                // 跨天：按 overlap 比例分配
+                                const totalMs = leaveEnd.getTime() - leaveStart.getTime();
+                                const overlapMs = overlapEnd.getTime() - overlapStart.getTime();
+                                dayHours = totalMs > 0 ? parseFloat((leave.hours * overlapMs / totalMs).toFixed(1)) : 0;
+                            }
+                        } else {
+                            dayHours = calculateOTHours(
+                                overlapStart,
+                                overlapEnd,
+                                targetEmployee,
+                                historicalSchedules
+                            );
+                        }
                     } else {
                         const detailed = calculateLeaveHoursDetailed(
                             overlapStart,
