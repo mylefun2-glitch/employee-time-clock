@@ -8,7 +8,7 @@ export const requestService = {
             // 獲取申請人資訊以進行後續判斷
             const { data: empData } = await supabase
                 .from('employees')
-                .select('id, name, is_supervisor, is_chairman, manager_id, rest_days, manager:employees!manager_id(is_chairman)')
+                .select('id, name, is_supervisor, is_chairman, manager_id, rest_days, position, manager:employees!manager_id(is_chairman)')
                 .eq('id', request.employee_id)
                 .single();
 
@@ -16,6 +16,13 @@ export const requestService = {
             const startDate = new Date(request.start_date);
             const endDate = new Date(request.end_date);
             const workdaysCount = countWorkdays(startDate, endDate, empData || {});
+
+            // 判斷是否為「主任」或「總幹事」級別的人員
+            const isDirector = empData && (
+                empData.position?.includes('主任') ||
+                empData.position?.includes('總幹事') ||
+                ['李玉鳳', '林懇', '林明珠', '陳佩伶'].includes(empData.name)
+            );
 
             // 判斷是否為直屬主管
             const isSupervisor = empData?.is_supervisor === true;
@@ -25,6 +32,8 @@ export const requestService = {
             let status = RequestStatus.PENDING;
             let approvedAt = null;
             let approverId = null;
+            let supervisorApprovedAt = null;
+            let supervisorApprovedBy = null;
 
             // 判斷是否為「直隸於理事長」的人員（包含主管與一般同仁）
             // 邏輯：直屬主管是理事長，或者是沒有直屬主管的人（視同直隸理事長，除非是理事長本人）
@@ -35,8 +44,28 @@ export const requestService = {
                 );
 
             if (empData) {
-                if (isSupervisor) {
-                    // 直屬主管的差勤不須再經理事長簽核，但差勤的日數超過5日（含）除外
+                if (isDirector) {
+                    // 主任的差勤審核邏輯：
+                    if (workdaysCount < 5) {
+                        // 小於 5 日（不含），自動核准，無需理事長簽核
+                        requiresChairmanApproval = false;
+                        status = RequestStatus.APPROVED;
+                        approvedAt = new Date().toISOString();
+                        approverId = '153bf58a-bba6-4ba2-bd81-77f52299b0ad'; // 理事長林文明
+                        supervisorApprovedAt = new Date().toISOString();
+                        supervisorApprovedBy = '153bf58a-bba6-4ba2-bd81-77f52299b0ad';
+                    } else {
+                        // 5 日以上（含），直接簽到理事長林文明
+                        requiresChairmanApproval = true;
+                        status = RequestStatus.PENDING;
+                        approvedAt = null;
+                        approverId = null;
+                        // 直接設定主管審核時間，使理事長可在「待我審核」中直接看見該主任的申請
+                        supervisorApprovedAt = new Date().toISOString();
+                        supervisorApprovedBy = empData.id; // 主任自己
+                    }
+                } else if (isSupervisor) {
+                    // 直屬主管的差勤邏輯
                     if (workdaysCount < 5) {
                         requiresChairmanApproval = false;
                         // 若其直接隸屬理事長（無其他主管），因為不須理事長簽核，改為自動核准
@@ -87,6 +116,8 @@ export const requestService = {
                         approved_at: approvedAt,
                         approver_id: approverId,
                         requires_chairman_approval: requiresChairmanApproval,
+                        supervisor_approved_at: supervisorApprovedAt,
+                        supervisor_approved_by: supervisorApprovedBy,
                         is_makeup_workday: (request as any).is_makeup_workday || false
                     }
                 ])

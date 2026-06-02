@@ -672,11 +672,11 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
 
                                         <div className="flex-1 space-y-1.5 overflow-hidden">
                                             {/* 打卡紀錄 */}
-                                            <div className="flex flex-wrap gap-1">
+                                            <div className="flex flex-col gap-1">
                                                 {dayInfo?.logs?.map(log => (
                                                     <div
                                                         key={log.id}
-                                                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black border ${log.check_type === CheckType.IN
+                                                        className={`flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-black border ${log.check_type === CheckType.IN
                                                             ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
                                                             : 'bg-orange-50 text-orange-700 border-orange-100'
                                                             }`}
