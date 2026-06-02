@@ -7,6 +7,8 @@ import { formatDateTimeRange } from '../lib/hrUtils';
 import { getEmployeeLeaveBalances } from '../services/employee';
 import { LeaveBalance } from '../types';
 import TimeInput24h from './ui/TimeInput24h';
+import { getCars, checkCarAvailability, getBusyCarIds } from '../services/carService';
+
 
 interface ModificationRequestFormProps {
     originalRequest: LeaveRequest;
@@ -39,6 +41,12 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
     const [leaveBalance, setLeaveBalance] = useState<LeaveBalance | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [isManualHours, setIsManualHours] = useState(false);
+    const [manualTotalHours, setManualTotalHours] = useState('0');
+    const [needCar, setNeedCar] = useState(false);
+    const [availableCars, setAvailableCars] = useState<any[]>([]);
+    const [selectedCarId, setSelectedCarId] = useState('');
+    const [busyCarIds, setBusyCarIds] = useState<string[]>([]);
 
     useEffect(() => {
         const splitISO = (isoStr: string) => {
@@ -61,6 +69,7 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
         setManualBreakHours(originalRequest.manual_break_hours?.toString() || '0');
         setIsMakeupWorkday(originalRequest.is_makeup_workday || false);
         setIsMakeupHoliday(originalRequest.is_makeup_holiday || false);
+        setManualTotalHours(originalRequest.hours?.toString() || '0');
 
         // 獲取班表資訊以便計算時數
         const fetchSchedule = async () => {
@@ -78,6 +87,20 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
             // 取得餘額資訊
             const balance = await getEmployeeLeaveBalances(employeeId);
             setLeaveBalance(balance);
+
+            // 載入公務車
+            try {
+                const cars = await getCars(true);
+                setAvailableCars(cars || []);
+                if (originalRequest.car_id) {
+                    setNeedCar(true);
+                    setSelectedCarId(originalRequest.car_id);
+                } else if (cars && cars.length > 0) {
+                    setSelectedCarId(cars[0].id);
+                }
+            } catch (err) {
+                console.error('Error loading cars:', err);
+            }
         };
         fetchSchedule();
     }, [originalRequest, employeeId]);
@@ -136,6 +159,28 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
 
         fetchFlexOffset();
     }, [employeeId, startDate, employeeSchedule.work_start_time]);
+
+    // 取得已佔用的公務車列表 (Debounced)
+    useEffect(() => {
+        const fetchBusyCars = async () => {
+            if (!needCar || !startDate || !endDate) return;
+            try {
+                const start = new Date(`${startDate}T${startTime}`);
+                const end = new Date(`${endDate}T${endTime}`);
+                if (start >= end) {
+                    setBusyCarIds([]);
+                    return;
+                }
+                const ids = await getBusyCarIds(start.toISOString(), end.toISOString(), originalRequest.id);
+                setBusyCarIds(ids);
+            } catch (error) {
+                console.error('Error fetching busy cars:', error);
+            }
+        };
+
+        const timer = setTimeout(fetchBusyCars, 300);
+        return () => clearTimeout(timer);
+    }, [needCar, startDate, startTime, endDate, endTime, originalRequest.id]);
 
     // 計算總時數邏輯 (使用 useEffect 處理副作用，避免 Infinite Loop)
     useEffect(() => {
@@ -242,8 +287,44 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
             const end = new Date(endDateTimeStr);
             if (end <= start) {
                 setError('結束時間必須晚於開始時間');
+                setIsSubmitting(false);
                 return;
             }
+
+            // 需求：公務車的借用須由前一日的 8:00 至今提出申請
+            if (needCar && selectedCarId) {
+                const now = new Date();
+                const startDay = new Date(startDate);
+                
+                const earliestAllowed = new Date(startDay);
+                earliestAllowed.setDate(earliestAllowed.getDate() - 1);
+                earliestAllowed.setHours(8, 0, 0, 0);
+
+                if (now < earliestAllowed) {
+                    const dateStr = earliestAllowed.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
+                    setError(`公務車借用限於前一日 08:00 後提出申請。您預計於 ${startDate} 使用，最早可於 ${dateStr} 08:00 申請。`);
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
+            // 如果有選擇借用公務車，請先檢查是否有衝突
+            if (needCar && selectedCarId) {
+                const isBusy = await checkCarAvailability(
+                    selectedCarId,
+                    new Date(startDateTimeStr).toISOString(),
+                    new Date(endDateTimeStr).toISOString(),
+                    originalRequest.id
+                );
+
+                if (isBusy) {
+                    setError('所選公務車在該時段已被借用，請選擇其他車輛或修改時間');
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
+            const submitHours = isManualHours ? (parseFloat(manualTotalHours) || 0) : totalHours;
 
             const result = await requestService.createModificationRequest(
                 originalRequest.id,
@@ -254,14 +335,15 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
                     modification_reason: modificationReason.trim(),
                     leave_type_id: originalRequest.leave_type_id,
                     type: originalRequest.type,
-                    hours: totalHours,
+                    hours: submitHours,
                     manual_break_hours: parseFloat(manualBreakHours) || 0,
                     is_makeup_workday: isMakeupWorkday,
                     is_makeup_holiday: isMakeupHoliday,
                     attachment_url: originalRequest.attachment_url,
                     attachment_name: originalRequest.attachment_name,
                     attachment_drive_id: originalRequest.attachment_drive_id,
-                    attachment_expires_at: originalRequest.attachment_expires_at
+                    attachment_expires_at: originalRequest.attachment_expires_at,
+                    car_id: needCar ? selectedCarId : undefined
                 },
                 employeeId
             );
@@ -575,22 +657,114 @@ const ModificationRequestForm: React.FC<ModificationRequestFormProps> = ({
                             )}
 
                             <div className="md:col-span-2">
-                                <div className="bg-blue-100/30 rounded-xl p-4 flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-blue-600 text-sm">schedule</span>
-                                        <span className="text-sm font-black text-blue-900">預計新時數</span>
+                                <div className="bg-blue-100/30 rounded-xl p-4 flex flex-col gap-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-blue-600 text-sm">schedule</span>
+                                            <span className="text-sm font-black text-blue-900">預計新時數</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                                            {isManualHours ? (
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="number"
+                                                        step="0.5"
+                                                        min="0"
+                                                        value={manualTotalHours}
+                                                        onChange={(e) => setManualTotalHours(e.target.value)}
+                                                        className="w-24 p-2 bg-white border border-blue-200 rounded-lg text-blue-600 font-black tabular-nums text-right outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-bold"
+                                                        required
+                                                    />
+                                                    <span className="text-xs text-blue-600 font-bold">小時</span>
+                                                </div>
+                                            ) : (
+                                                <div className="text-2xl font-black text-blue-600">
+                                                    {Number.isInteger(totalHours) ? totalHours : totalHours.toFixed(1)} <span className="text-xs text-blue-400 font-bold">小時</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="text-2xl font-black text-blue-600">
-                                        {Number.isInteger(totalHours) ? totalHours : totalHours.toFixed(1)} <span className="text-xs text-blue-400 font-bold">小時</span>
+                                    <p className="text-[10px] text-blue-400 font-bold ml-1">
+                                        {isManualHours ? '已啟用手動輸入時數覆寫' : (
+                                            detailedHours && detailedHours.breakHours > 0 ? (
+                                                `原始 ${Number.isInteger(detailedHours.rawHours) ? detailedHours.rawHours : detailedHours.rawHours.toFixed(1)} 小時，扣除休息 ${Number.isInteger(detailedHours.breakHours) ? detailedHours.breakHours : detailedHours.breakHours.toFixed(1)} 小時`
+                                            ) : (
+                                                '已依據班表扣除休息時間'
+                                            )
+                                        )}
+                                    </p>
+                                    
+                                    {/* 手動覆寫開關 */}
+                                    <div className="flex items-center justify-end gap-2 pt-3 border-t border-blue-200/50">
+                                        <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest cursor-pointer" onClick={() => {
+                                            setIsManualHours(!isManualHours);
+                                            if (!isManualHours) setManualTotalHours(totalHours.toFixed(1));
+                                        }}>
+                                            {isManualHours ? '關閉手動修改' : '系統計算不準？手動修改'}
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsManualHours(!isManualHours);
+                                                if (!isManualHours) setManualTotalHours(totalHours.toFixed(1));
+                                            }}
+                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${isManualHours ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                        >
+                                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${isManualHours ? 'translate-x-5' : 'translate-x-1'}`} />
+                                        </button>
                                     </div>
                                 </div>
-                                <p className="text-[10px] text-blue-400 font-bold mt-2 ml-1">
-                                    {detailedHours && detailedHours.breakHours > 0 ? (
-                                        `原始 ${Number.isInteger(detailedHours.rawHours) ? detailedHours.rawHours : detailedHours.rawHours.toFixed(1)} 小時，扣除休息 ${Number.isInteger(detailedHours.breakHours) ? detailedHours.breakHours : detailedHours.breakHours.toFixed(1)} 小時`
-                                    ) : (
-                                        '已依據班表扣除休息時間'
-                                    )}
-                                </p>
+                            </div>
+
+                            {/* 借用公務車區塊 */}
+                            <div className="md:col-span-2 bg-white rounded-2xl p-4 border border-blue-100 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-blue-600">directions_car</span>
+                                        <span className="text-sm font-black text-slate-700">借用公務車</span>
+                                        <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 ml-1">
+                                            限前一日 08:00 後申請
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setNeedCar(!needCar)}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${needCar ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${needCar ? 'translate-x-6' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
+
+                                {needCar && (
+                                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        {availableCars.length === 0 ? (
+                                            <p className="text-xs text-rose-500 font-bold px-1">目前無可用車輛</p>
+                                        ) : (
+                                            <div>
+                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">選擇車輛</label>
+                                                <select
+                                                    value={selectedCarId}
+                                                    onChange={(e) => setSelectedCarId(e.target.value)}
+                                                    className="w-full p-2.5 bg-slate-50 border border-blue-200 rounded-lg text-slate-900 font-bold outline-none"
+                                                >
+                                                    {availableCars.map(car => {
+                                                        const isBusy = busyCarIds.includes(car.id) && car.id !== originalRequest.car_id;
+                                                        return (
+                                                            <option 
+                                                                key={car.id} 
+                                                                value={car.id}
+                                                                disabled={isBusy}
+                                                                className={isBusy ? 'text-rose-600 font-bold bg-rose-50/50' : 'text-emerald-700 font-bold'}
+                                                            >
+                                                                {car.plate_number} - {car.model} {isBusy ? '(🔴 已使用)' : '(🟢 可使用)'}
+                                                            </option>
+                                                        );
+                                                    })}
+                                                </select>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

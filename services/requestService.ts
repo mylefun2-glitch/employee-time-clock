@@ -472,6 +472,7 @@ export const requestService = {
             attachment_name?: string;
             attachment_drive_id?: string;
             attachment_expires_at?: string;
+            car_id?: string;
         },
         employeeId: string
     ): Promise<{ success: boolean; data?: any; error?: string }> {
@@ -524,7 +525,8 @@ export const requestService = {
                     attachment_url: modificationData.attachment_url,
                     attachment_name: modificationData.attachment_name,
                     attachment_drive_id: modificationData.attachment_drive_id,
-                    attachment_expires_at: modificationData.attachment_expires_at
+                    attachment_expires_at: modificationData.attachment_expires_at,
+                    car_id: modificationData.car_id
                 }])
                 .select()
                 .single();
@@ -532,6 +534,48 @@ export const requestService = {
             if (insertError) {
                 console.error('Error creating modification request:', insertError);
                 return { success: false, error: insertError.message };
+            }
+
+            // 5. 同步處理公務車借用預約
+            if (newRequest) {
+                if (modificationData.car_id) {
+                    // 若原申請有借車，先將原申請對應之舊預約標記為 REJECTED 取消
+                    if (originalRequest.car_id) {
+                        await supabase
+                            .from('car_usage_requests')
+                            .update({ 
+                                status: 'REJECTED',
+                                review_comment: '因差勤申請變更，系統自動取消原預約並建立新預約。'
+                            })
+                            .eq('employee_id', employeeId)
+                            .eq('car_id', originalRequest.car_id)
+                            .eq('start_time', originalRequest.start_date)
+                            .eq('end_time', originalRequest.end_date);
+                    }
+
+                    // 為新的變更申請建立一筆 PENDING 的車輛預約
+                    await supabase.from('car_usage_requests').insert({
+                        employee_id: employeeId,
+                        car_id: modificationData.car_id,
+                        start_time: modificationData.start_date,
+                        end_time: modificationData.end_date,
+                        purpose: modificationData.reason || '差勤變更併同借車',
+                        status: 'PENDING',
+                        approver_id: '80ce2560-b8b5-4fa2-b5de-0e4399eec0e2'
+                    });
+                } else if (!modificationData.car_id && originalRequest.car_id) {
+                    // 若原本有借車但變更後不需要借車，直接將舊預約取消
+                    await supabase
+                        .from('car_usage_requests')
+                        .update({ 
+                            status: 'REJECTED',
+                            review_comment: '因差勤變更取消借車。'
+                        })
+                        .eq('employee_id', employeeId)
+                        .eq('car_id', originalRequest.car_id)
+                        .eq('start_time', originalRequest.start_date)
+                        .eq('end_time', originalRequest.end_date);
+                }
             }
 
             // 4. 更新原申請的變更標記
