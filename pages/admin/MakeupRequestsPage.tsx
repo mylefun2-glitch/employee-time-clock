@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { getMakeupRequests, batchApproveMakeupRequests, batchRejectMakeupRequests, approveMakeupRequest, rejectMakeupRequest } from '../../services/admin';
-import { useEmployee } from '../../contexts/EmployeeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 import { Plus } from 'lucide-react';
 import EmployeeSelectModal from '../../components/admin/EmployeeSelectModal';
 import MakeupRequestForm from '../../components/MakeupRequestForm';
+import { getCurrentUserEmployee } from '../../services/supervisorService';
 
 const MakeupRequestsPage: React.FC = () => {
-    const { employee } = useEmployee();
     const { user } = useAuth();
+    const [currentEmployee, setCurrentEmployee] = useState<any>(null);
+    const [employeeLoading, setEmployeeLoading] = useState(true);
     const [requests, setRequests] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
@@ -67,21 +68,35 @@ const MakeupRequestsPage: React.FC = () => {
     const [isBatchMode, setIsBatchMode] = useState(false);
     const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
 
-    const isAdminMode = !employee && !!user;
+    const isAdminMode = !currentEmployee && !!user;
+
+    useEffect(() => {
+        const loadEmployee = async () => {
+            if (user?.email) {
+                const emp = await getCurrentUserEmployee(user.email);
+                setCurrentEmployee(emp);
+            } else {
+                setCurrentEmployee(null);
+            }
+            setEmployeeLoading(false);
+        };
+        loadEmployee();
+    }, [user]);
 
     useEffect(() => {
         fetchRequests();
-    }, [filter, employee, user, columnFilters]);
+    }, [filter, currentEmployee, user, employeeLoading, columnFilters]);
 
     const fetchRequests = async () => {
-        if (!employee && !user) {
+        if (employeeLoading) return;
+        if (!currentEmployee && !user) {
             setLoading(false);
             return;
         }
 
         setLoading(true);
         try {
-            const managerId = isAdminMode ? undefined : employee?.id;
+            const managerId = isAdminMode ? undefined : currentEmployee?.id;
             const data = await getMakeupRequests(filter, managerId);
             const allRequests = data || [];
 
@@ -119,7 +134,7 @@ const MakeupRequestsPage: React.FC = () => {
     };
 
     const handleReviewConfirm = async (actionType?: 'approve' | 'reject') => {
-        const activeReviewerId = employee?.id || user?.id;
+        const activeReviewerId = currentEmployee?.id || user?.id;
         if (!activeReviewerId || !reviewDialog.requestId) return;
 
         const type = actionType || (reviewDialog.type as 'approve' | 'reject');
@@ -224,7 +239,7 @@ const MakeupRequestsPage: React.FC = () => {
     };
 
     const handleBatchConfirm = async () => {
-        const activeReviewerId = employee?.id || user?.id;
+        const activeReviewerId = currentEmployee?.id || user?.id;
         if (!activeReviewerId || !batchDialog.type || selectedIds.size === 0) return;
 
         if (batchDialog.type === 'reject' && !batchDialog.comment.trim()) {
@@ -298,7 +313,7 @@ const MakeupRequestsPage: React.FC = () => {
 
     const pendingRequests = requests.filter(r => r.status === 'PENDING');
 
-    if (loading) {
+    if (loading || employeeLoading) {
         return <div className="p-4 text-center font-bold text-slate-400 py-20">載入中...</div>;
     }
 

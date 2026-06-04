@@ -471,7 +471,7 @@ const EmployeesPage: React.FC = () => {
                             <tr>
                                 <TableHeaderFilter
                                     columnKey="name"
-                                    label="姓名 / 職務"
+                                    label="姓名"
                                     values={employees.map(e => e.name)}
                                     selectedValues={columnFilters.name}
                                     onChange={(values) => setColumnFilters({ ...columnFilters, name: values })}
@@ -509,7 +509,6 @@ const EmployeesPage: React.FC = () => {
                                     sortConfig={sortConfig.key === 'seniority' ? sortConfig : null}
                                     onSort={() => handleSort('seniority')}
                                 />
-                                <th className="px-6 py-5 text-left text-xs font-black text-slate-400 uppercase tracking-widest">PIN 碼</th>
                                 <TableHeaderFilter<boolean>
                                     columnKey="is_active"
                                     label="狀態"
@@ -540,7 +539,6 @@ const EmployeesPage: React.FC = () => {
                                     <tr key={person.id} className="hover:bg-slate-50/50 transition-colors">
                                         <td className="px-6 py-5 whitespace-nowrap">
                                             <div className="text-base font-black text-slate-900">{person.name}</div>
-                                            <div className="text-xs font-black text-blue-500 uppercase tracking-tight mt-0.5">{person.position || '未設定職務'}</div>
                                         </td>
                                         <td className="px-6 py-5 whitespace-nowrap text-base font-bold text-slate-600">
                                             {person.gender === 'MALE' ? '男' : person.gender === 'FEMALE' ? '女' : person.gender === 'OTHER' ? '其他' : '-'}
@@ -549,11 +547,9 @@ const EmployeesPage: React.FC = () => {
                                             {person.department || '未分配'}
                                         </td>
                                         <td className="px-6 py-5 whitespace-nowrap">
-                                            <div className="text-sm font-black text-slate-700">{seniority} 年</div>
-                                            <div className="text-[11px] font-black text-slate-400 uppercase mt-0.5 tracking-wider">{range}</div>
-                                        </td>
-                                        <td className="px-6 py-5 whitespace-nowrap text-sm font-mono text-slate-400">
-                                            *****{person.pin.slice(-1)}
+                                            <div className="text-sm font-black text-slate-700">
+                                                {seniority} 年 <span className="text-[11px] font-medium text-slate-400 ml-1">({range})</span>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-5 whitespace-nowrap">
                                             <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider border ${person.is_active

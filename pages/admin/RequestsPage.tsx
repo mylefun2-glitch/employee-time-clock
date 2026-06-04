@@ -591,7 +591,7 @@ const RequestsPage: React.FC = () => {
                                     onChange={(values) => setColumnFilters({ ...columnFilters, leaveType: values })}
                                     className="w-20"
                                 />
-                                <th className="px-4 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest min-w-[280px]">日期時間</th>
+                                <th className="px-2.5 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest min-w-[200px]">日期時間</th>
                                 <TableHeaderFilter
                                     columnKey="hasCar"
                                     label="車"
@@ -600,7 +600,7 @@ const RequestsPage: React.FC = () => {
                                     onChange={(values) => setColumnFilters({ ...columnFilters, hasCar: values })}
                                     className="w-16"
                                 />
-                                <th className="px-4 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest min-w-[150px]">事由</th>
+                                <th className="px-2.5 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest min-w-[120px] max-w-[180px]">事由</th>
                                 <TableHeaderFilter<RequestStatus>
                                     columnKey="status"
                                     label="狀態"
@@ -619,8 +619,8 @@ const RequestsPage: React.FC = () => {
                                     }}
                                     className="w-20"
                                 />
-                                <th className="px-4 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest w-16">附件</th>
-                                <th className="px-4 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest w-24">操作</th>
+                                <th className="px-2.5 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest w-14">附件</th>
+                                <th className="px-2.5 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest w-24">操作</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-50">
@@ -643,15 +643,15 @@ const RequestsPage: React.FC = () => {
                                                     onChange={() => toggleSelection(request.id)}
                                                 />
                                             </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                                            <td className="px-2.5 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
                                                 {request.employee_name || request.employee?.name || '未知員工'}
                                             </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-600">
+                                            <td className="px-2.5 py-4 whitespace-nowrap text-sm text-slate-600">
                                                 <span className="px-2 py-1 bg-slate-100 rounded text-xs">
                                                     {request.employee?.department || '未分配'}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm">
+                                            <td className="px-2.5 py-4 whitespace-nowrap text-sm">
                                                 {request.leave_type ? (
                                                     <div className="flex items-center gap-2">
                                                         <div
@@ -664,10 +664,10 @@ const RequestsPage: React.FC = () => {
                                                     <span className="text-slate-500">-</span>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500 font-medium">
+                                            <td className="px-2.5 py-4 whitespace-nowrap text-sm text-slate-500 font-medium">
                                                 {formatDateTimeRange(request.start_date, request.end_date)}
                                             </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-600">
+                                            <td className="px-2.5 py-4 whitespace-nowrap text-sm text-slate-600">
                                                 {request.car ? (
                                                     <span className="flex flex-col">
                                                         <span className="font-black text-blue-600">{request.car.plate_number}</span>
@@ -677,15 +677,15 @@ const RequestsPage: React.FC = () => {
                                                     <span className="text-slate-300">-</span>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-4 text-sm text-slate-500 max-w-xs truncate">
+                                            <td className="px-2.5 py-4 text-sm text-slate-500 max-w-[150px] truncate">
                                                 {request.reason}
                                             </td>
-                                            <td className="px-4 py-4 whitespace-nowrap">
+                                            <td className="px-2.5 py-4 whitespace-nowrap">
                                                 <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusBadge.style}`}>
                                                     {statusBadge.label}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm">
+                                            <td className="px-2.5 py-4 whitespace-nowrap text-sm">
                                                 {request.attachment_url ? (
                                                     <a
                                                         href={request.attachment_url}
@@ -701,7 +701,7 @@ const RequestsPage: React.FC = () => {
                                                     <span className="text-slate-300">-</span>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm">
+                                            <td className="px-2.5 py-4 whitespace-nowrap text-sm">
                                                 {(request.status === RequestStatus.PENDING || request.status === RequestStatus.WITHDRAW_PENDING) && (
                                                     <div className="flex gap-2">
                                                         <button

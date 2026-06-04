@@ -19,10 +19,10 @@ export const getCurrentUserEmployee = async (userEmail: string) => {
         const { data, error } = await supabase
             .from('employees')
             .select('*')
-            .eq('email', userEmail)
-            .single();
+            .or(`email.eq.${userEmail},username.eq.${userEmail}`)
+            .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
             console.error('Error fetching current user employee:', error);
             return null;
         }

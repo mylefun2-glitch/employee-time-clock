@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import CarManagement from '../../components/admin/resources/CarManagement';
 import ResourceManagement from '../../components/admin/resources/ResourceManagement';
 import CarRequests from '../../components/admin/resources/CarRequests';
@@ -6,7 +7,10 @@ import ResourceRequests from '../../components/admin/resources/ResourceRequests'
 import ResourceCalendar from '../../components/admin/resources/ResourceCalendar';
 
 const ResourceManagerPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'CAR_MGMT' | 'RES_MGMT' | 'CAR_REQ' | 'RES_REQ' | 'CALENDAR'>('CAR_MGMT');
+    const location = useLocation();
+    const [activeTab, setActiveTab] = useState<'CAR_MGMT' | 'RES_MGMT' | 'CAR_REQ' | 'RES_REQ' | 'CALENDAR'>(
+        (location.state as any)?.activeTab || 'CAR_MGMT'
+    );
 
     const tabs = [
         { id: 'CAR_MGMT', label: '公務車清單', icon: 'directions_car' },
