@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import payrollService from '../../services/payrollService';
 import { Button, Card, LoadingSpinner, Badge, Input } from '../../components/common';
+import { BASE_URL } from '../../services/api';
 
 export default function PayrollDetail() {
   const { id } = useParams();
@@ -173,8 +174,8 @@ export default function PayrollDetail() {
 
   const handleDownloadPDF = () => {
     const a = document.createElement('a');
-    a.href = `/api/payroll/${id}/pdf?token=${localStorage.getItem('token')}`;
-    fetch(`/api/payroll/${id}/pdf`, {
+    a.href = `${BASE_URL}/payroll/${id}/pdf?token=${localStorage.getItem('token')}`;
+    fetch(`${BASE_URL}/payroll/${id}/pdf`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }

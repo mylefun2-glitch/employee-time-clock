@@ -176,7 +176,10 @@ export default function Sidebar({ isCollapsed, onToggle }) {
           )}
         </div>
         <button
-          onClick={() => window.location.href = 'http://localhost:3000/admin/dashboard'}
+          onClick={() => {
+            const mainSystemUrl = import.meta.env.VITE_MAIN_SYSTEM_URL || 'http://localhost:3000';
+            window.location.href = `${mainSystemUrl}/admin/dashboard`;
+          }}
           style={{
             display: 'flex',
             alignItems: 'center',

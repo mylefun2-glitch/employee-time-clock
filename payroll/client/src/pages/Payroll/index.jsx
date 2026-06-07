@@ -4,6 +4,7 @@ import payrollService from '../../services/payrollService';
 import settingService from '../../services/settingService';
 import ImportModal from './ImportModal';
 import { Button, Card, DataTable, Input, LoadingSpinner, Badge, Modal } from '../../components/common';
+import { BASE_URL } from '../../services/api';
 
 export default function PayrollList() {
   const now = new Date();
@@ -170,7 +171,7 @@ export default function PayrollList() {
     try {
       const ids = payrolls.map(p => p.id);
       // Generate batch PDF call
-      const response = await fetch('/api/payroll/batch-pdf', {
+      const response = await fetch(`${BASE_URL}/payroll/batch-pdf`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

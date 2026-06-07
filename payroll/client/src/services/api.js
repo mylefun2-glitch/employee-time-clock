@@ -2,7 +2,7 @@
  * Base API service - wraps fetch with auth token injection and error handling.
  */
 
-const BASE_URL = '/api';
+export const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 /**
  * Get JWT token from localStorage
