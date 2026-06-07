@@ -119,9 +119,6 @@ export const getEmployeeSchedules = async (employeeId: string): Promise<Employee
     }
 };
 
-/**
- * 新增/更新員工班表設定
- */
 export const addEmployeeSchedule = async (data: Partial<EmployeeSchedule>) => {
     try {
         const { error } = await supabase
@@ -130,24 +127,60 @@ export const addEmployeeSchedule = async (data: Partial<EmployeeSchedule>) => {
 
         if (error) throw error;
 
-        // 同步更新員工主表的「當前」設定（可選，為了向後相容）
+        // 同步更新員工主表的「當前」最新設定
         if (data.employee_id) {
-            await supabase
+            const { data: latestSchedule, error: fetchError } = await supabase
+                .from('employee_schedules')
+                .select('*')
+                .eq('employee_id', data.employee_id)
+                .order('effective_date', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (fetchError) throw fetchError;
+
+            const updates = latestSchedule ? {
+                work_start_time: latestSchedule.work_start_time,
+                work_end_time: latestSchedule.work_end_time,
+                break_start_time: latestSchedule.break_start_time,
+                break_end_time: latestSchedule.break_end_time,
+                break2_start_time: latestSchedule.break2_start_time,
+                break2_end_time: latestSchedule.break2_end_time,
+                break3_start_time: latestSchedule.break3_start_time,
+                break3_end_time: latestSchedule.break3_end_time,
+                rest_days: latestSchedule.rest_days,
+                salary_type: latestSchedule.salary_type,
+                standard_daily_hours: latestSchedule.standard_daily_hours,
+                base_salary: latestSchedule.base_salary,
+                hourly_rate: latestSchedule.hourly_rate,
+                allowance_manager: latestSchedule.allowance_manager,
+                allowance_license: latestSchedule.allowance_license,
+                other_allowance: latestSchedule.other_allowance
+            } : {
+                work_start_time: '08:00',
+                work_end_time: '17:00',
+                break_start_time: '12:00',
+                break_end_time: '13:00',
+                break2_start_time: null,
+                break2_end_time: null,
+                break3_start_time: null,
+                break3_end_time: null,
+                rest_days: [0, 6],
+                salary_type: 'MONTHLY',
+                standard_daily_hours: 8.0,
+                base_salary: 0,
+                hourly_rate: 0,
+                allowance_manager: 0,
+                allowance_license: 0,
+                other_allowance: 0
+            };
+
+            const { error: updateError } = await supabase
                 .from('employees')
-                .update({
-                    work_start_time: data.work_start_time,
-                    work_end_time: data.work_end_time,
-                    break_start_time: data.break_start_time,
-                    break_end_time: data.break_end_time,
-                    break2_start_time: data.break2_start_time,
-                    break2_end_time: data.break2_end_time,
-                    break3_start_time: data.break3_start_time,
-                    break3_end_time: data.break3_end_time,
-                    rest_days: data.rest_days,
-                    salary_type: data.salary_type,
-                    standard_daily_hours: data.standard_daily_hours
-                })
+                .update(updates)
                 .eq('id', data.employee_id);
+
+            if (updateError) throw updateError;
         }
 
         return { success: true };
@@ -192,7 +225,12 @@ export const deleteEmployeeSchedule = async (id: string, employeeId: string) => 
             break3_end_time: latestSchedule.break3_end_time,
             rest_days: latestSchedule.rest_days,
             salary_type: latestSchedule.salary_type,
-            standard_daily_hours: latestSchedule.standard_daily_hours
+            standard_daily_hours: latestSchedule.standard_daily_hours,
+            base_salary: latestSchedule.base_salary,
+            hourly_rate: latestSchedule.hourly_rate,
+            allowance_manager: latestSchedule.allowance_manager,
+            allowance_license: latestSchedule.allowance_license,
+            other_allowance: latestSchedule.other_allowance
         } : {
             work_start_time: '08:00',
             work_end_time: '17:00',
@@ -204,7 +242,12 @@ export const deleteEmployeeSchedule = async (id: string, employeeId: string) => 
             break3_end_time: null,
             rest_days: [0, 6],
             salary_type: 'MONTHLY',
-            standard_daily_hours: 8.0
+            standard_daily_hours: 8.0,
+            base_salary: 0,
+            hourly_rate: 0,
+            allowance_manager: 0,
+            allowance_license: 0,
+            other_allowance: 0
         };
 
         const { error: updateError } = await supabase

@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-TW"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>員工管理 - CareAdmin Pro</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;family=Noto+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed-dim": "#bec6e0",
+                        "background": "#f7f9fb",
+                        "surface-container-high": "#e6e8ea",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#a7c8ff",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "secondary-fixed": "#d3e4fe",
+                        "outline-variant": "#c3c6d1",
+                        "on-secondary-container": "#54647a",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-primary-container": "#98bfff",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#b5bdd7",
+                        "outline": "#737781",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#d5e3ff",
+                        "on-surface-variant": "#424750",
+                        "on-surface": "#191c1e",
+                        "on-error-container": "#93000a",
+                        "surface-variant": "#e0e3e5",
+                        "on-error": "#ffffff",
+                        "on-primary-fixed": "#001b3c",
+                        "surface-container": "#eceef0",
+                        "surface": "#f7f9fb",
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#325f9c",
+                        "surface-container-low": "#f2f4f6",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "on-tertiary-fixed": "#131b2e",
+                        "primary": "#00366b",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-primary": "#ffffff",
+                        "inverse-primary": "#a7c8ff",
+                        "on-tertiary-fixed-variant": "#3f465c",
+                        "secondary-container": "#d0e1fb",
+                        "on-background": "#191c1e",
+                        "tertiary": "#2e354a",
+                        "tertiary-container": "#444c62",
+                        "inverse-surface": "#2d3133",
+                        "tertiary-fixed": "#dae2fd",
+                        "on-primary-fixed-variant": "#114783",
+                        "secondary": "#505f76",
+                        "surface-dim": "#d8dadc",
+                        "primary-container": "#1b4d89",
+                        "on-secondary-fixed": "#0b1c30",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-bright": "#f7f9fb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "unit": "4px",
+                        "margin-desktop": "32px",
+                        "margin-mobile": "16px",
+                        "sidebar-width": "260px",
+                        "container-max-width": "1440px"
+                    },
+                    "fontFamily": {
+                        "headline-xl": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-sm": ["Noto Sans"],
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-md": ["Noto Sans"],
+                        "body-lg": ["Noto Sans"]
+                    },
+                    "fontSize": {
+                        "headline-xl": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        /* Custom Scrollbar for tables */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f7f9fb;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #c3c6d1;
+            border-radius: 4px;
+        }
+        
+        /* Sidebar transitions */
+        .sidebar-transition {
+            transition: width 0.3s ease-in-out;
+        }
+        .main-transition {
+            transition: margin-left 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md antialiased min-h-screen flex overflow-hidden">
+<!-- SideNavBar (Shared Component) -->
+<aside class="bg-surface-container dark:bg-surface-dim border-r border-outline-variant dark:border-outline h-screen fixed left-0 top-0 sidebar-transition w-sidebar-width flex flex-col z-50" id="sidebar">
+<!-- Header -->
+<div class="h-16 flex items-center px-4 border-b border-outline-variant justify-between">
+<div class="flex items-center gap-3 overflow-hidden whitespace-nowrap">
+<div class="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">medical_services</span>
+</div>
+<div class="flex flex-col sidebar-text">
+<span class="font-headline-sm text-headline-sm font-black text-primary dark:text-primary-fixed-dim leading-none">CareAdmin Pro</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Institutional Portal</span>
+</div>
+</div>
+<button class="text-on-surface-variant hover:bg-surface-container-high p-1 rounded-md transition-colors shrink-0" id="toggleSidebar">
+<span class="material-symbols-outlined">menu_open</span>
+</button>
+</div>
+<!-- Navigation Tabs -->
+<nav class="flex-1 py-6 px-4 flex flex-col gap-2 overflow-y-auto">
+<!-- Dashboard -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all scale-98 active:scale-95 cursor-pointer" href="#">
+<span class="material-symbols-outlined shrink-0">dashboard</span>
+<span class="font-label-md text-label-md sidebar-text whitespace-nowrap">Dashboard</span>
+</a>
+<!-- Employee Management (Active) -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-secondary-container text-on-secondary-container font-bold transition-all scale-98 active:scale-95 cursor-pointer" href="#">
+<span class="material-symbols-outlined shrink-0 fill">badge</span>
+<span class="font-label-md text-label-md sidebar-text whitespace-nowrap">Employee Management</span>
+</a>
+<!-- Schedule Management -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all scale-98 active:scale-95 cursor-pointer" href="#">
+<span class="material-symbols-outlined shrink-0">calendar_month</span>
+<span class="font-label-md text-label-md sidebar-text whitespace-nowrap">Schedule Management</span>
+</a>
+<!-- Payroll Settlement -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all scale-98 active:scale-95 cursor-pointer" href="#">
+<span class="material-symbols-outlined shrink-0">payments</span>
+<span class="font-label-md text-label-md sidebar-text whitespace-nowrap">Payroll Settlement</span>
+</a>
+<!-- System Settings -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all scale-98 active:scale-95 cursor-pointer" href="#">
+<span class="material-symbols-outlined shrink-0">settings</span>
+<span class="font-label-md text-label-md sidebar-text whitespace-nowrap">System Settings</span>
+</a>
+</nav>
+<!-- CTA & Footer -->
+<div class="p-4 border-t border-outline-variant flex flex-col gap-4">
+<button class="w-full py-2 bg-surface-container-highest text-on-surface rounded border border-outline-variant font-label-md text-label-md flex items-center justify-center gap-2 hover:bg-surface-variant transition-colors sidebar-text">
+<span class="material-symbols-outlined text-[18px]">download</span>
+<span>Export Report</span>
+</button>
+<div class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all scale-98 active:scale-95 cursor-pointer" href="#">
+<span class="material-symbols-outlined shrink-0 text-[20px]">contact_support</span>
+<span class="font-label-md text-label-md sidebar-text whitespace-nowrap">Support</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all scale-98 active:scale-95 cursor-pointer" href="#">
+<span class="material-symbols-outlined shrink-0 text-[20px]">logout</span>
+<span class="font-label-md text-label-md sidebar-text whitespace-nowrap">Logout</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<main class="flex-1 ml-[260px] main-transition flex flex-col h-screen overflow-hidden bg-background" id="mainContent">
+<!-- TopNavBar (Shared Component) -->
+<header class="bg-surface-container-lowest border-b border-outline-variant w-full h-16 sticky top-0 z-40 flex items-center justify-between px-margin-desktop shrink-0">
+<!-- Search Bar (Left) -->
+<div class="relative w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full pl-10 pr-4 py-1.5 bg-surface-container-low border-transparent focus:border-primary focus:bg-surface-container-lowest rounded-full font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant transition-colors outline-none h-9" placeholder="搜尋全系統..." type="text"/>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-colors relative cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-colors cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">help</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-colors cursor-pointer active:opacity-80 mr-2">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant"></div>
+<button class="flex items-center gap-2 pl-2 cursor-pointer active:opacity-80">
+<img alt="Administrator profile" class="w-8 h-8 rounded-full border border-outline-variant object-cover" data-alt="Professional headshot of a middle-aged male administrator in a light blue button-down shirt. Soft, even studio lighting. Neutral grey background. Corporate, trustworthy expression." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAL31LOrC6QTOtyh-OhK_krdvOnoa5bfRlZWDZboEs-DeykZtkUg9BbFNckGi2o5xvnpVsvlvzc_yzRd26PBzo2OlWm9obaH0D2n8Q17f1aASVif7gHS6gCvE3Rh9kCIDM30ZLO0IA9t7Jy93mhQQrBzmKQPvhYMtJFL1jH6WCLvTtzGlr6s4JHw5SLwSaBCMD-nw6J-PCHny6WSv6-14xUSV1P-AHpJpgzvRUhMIuRPAjl7jbNEZNXfwpIUwTPq-Mexc1Oh1xumEE"/>
+</button>
+</div>
+</header>
+<!-- Page Content -->
+<div class="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-8">
+<div class="max-w-container-max-width mx-auto flex flex-col gap-6">
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div>
+<h1 class="font-headline-xl text-headline-xl text-on-surface mb-1">員工管理</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">管理機構內所有照護人員與行政員工資料。</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="bg-surface-container-lowest border border-outline text-on-surface font-label-md text-label-md px-4 py-2 rounded hover:bg-surface-container-low transition-colors flex items-center gap-2 h-[36px]">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                            匯出列表
+                        </button>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-4 py-2 rounded hover:bg-primary-container transition-colors flex items-center gap-2 h-[36px]">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                            新增員工
+                        </button>
+</div>
+</div>
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Total -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 flex flex-col justify-between relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">總員工人數</span>
+<span class="material-symbols-outlined text-outline text-[20px]">group</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-xl text-headline-xl text-on-surface">245</span>
+</div>
+</div>
+<!-- Active -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 flex flex-col justify-between relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-[#166534]"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">在職員工</span>
+<span class="material-symbols-outlined text-outline text-[20px]">how_to_reg</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-xl text-headline-xl text-on-surface">232</span>
+<span class="font-body-sm text-body-sm text-[#166534] flex items-center"><span class="material-symbols-outlined text-[14px]">arrow_upward</span> 2</span>
+</div>
+</div>
+<!-- On Leave -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 flex flex-col justify-between relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-[#854d0e]"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">休假中</span>
+<span class="material-symbols-outlined text-outline text-[20px]">event_busy</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-xl text-headline-xl text-on-surface">8</span>
+</div>
+</div>
+<!-- Pending -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 flex flex-col justify-between relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-secondary"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">待入職</span>
+<span class="material-symbols-outlined text-outline text-[20px]">pending_actions</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-xl text-headline-xl text-on-surface">5</span>
+</div>
+</div>
+</div>
+<!-- Data Section -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg flex flex-col overflow-hidden">
+<!-- Filter Bar -->
+<div class="p-4 border-b border-outline-variant bg-surface-bright flex flex-col lg:flex-row gap-4 justify-between items-center">
+<div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+<!-- Dept Dropdown -->
+<div class="relative w-full sm:w-[160px]">
+<select class="w-full h-[36px] pl-3 pr-8 py-1.5 bg-surface-container-lowest border border-outline rounded font-body-sm text-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary appearance-none cursor-pointer">
+<option value="">所有部門</option>
+<option value="care">照護部</option>
+<option value="admin">行政部</option>
+<option value="medical">醫療部</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-[18px]">expand_more</span>
+</div>
+<!-- Position Dropdown -->
+<div class="relative w-full sm:w-[160px]">
+<select class="w-full h-[36px] pl-3 pr-8 py-1.5 bg-surface-container-lowest border border-outline rounded font-body-sm text-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary appearance-none cursor-pointer">
+<option value="">所有職稱</option>
+<option value="senior">資深照服員</option>
+<option value="junior">照服員</option>
+<option value="nurse">護理師</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-[18px]">expand_more</span>
+</div>
+<!-- Status Dropdown -->
+<div class="relative w-full sm:w-[140px]">
+<select class="w-full h-[36px] pl-3 pr-8 py-1.5 bg-surface-container-lowest border border-outline rounded font-body-sm text-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary appearance-none cursor-pointer">
+<option value="">所有狀態</option>
+<option value="active">在職</option>
+<option value="leave">休假中</option>
+<option value="resigned">離職</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-[18px]">expand_more</span>
+</div>
+</div>
+<!-- Search Keyword -->
+<div class="relative w-full lg:w-[280px]">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span>
+<input class="w-full h-[36px] pl-9 pr-3 py-1.5 bg-surface-container-lowest border border-outline rounded font-body-sm text-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none placeholder:text-on-surface-variant" placeholder="搜尋姓名或編號..." type="text"/>
+</div>
+</div>
+<!-- Table Container -->
+<div class="overflow-x-auto custom-scrollbar">
+<table class="w-full text-left border-collapse min-w-[900px]">
+<thead class="bg-surface-container-low border-b border-outline-variant font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider sticky top-0 z-10">
+<tr>
+<th class="px-4 py-3 font-medium w-[280px]">員工資料</th>
+<th class="px-4 py-3 font-medium">部門 / 職稱</th>
+<th class="px-4 py-3 font-medium">聘僱別</th>
+<th class="px-4 py-3 font-medium">到職日</th>
+<th class="px-4 py-3 font-medium">狀態</th>
+<th class="px-4 py-3 font-medium text-right pr-6">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-variant font-body-sm text-body-sm text-on-surface">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<img alt="Sarah Jenkins" class="w-9 h-9 rounded-full object-cover border border-outline-variant" data-alt="Portrait of a female senior care worker in her 40s. Friendly smile. Wearing light blue scrubs. Studio lighting with a neutral background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCt1uKd0UmYqwG6Hk-AwRERU9C3KRiNUF6LZu-YNtyDRAPqzqduZCSTSsS7eapICvr864uM9SicHooVSm2ujybofUUFOcKWPxdDOC_YLZYM7sZGlhrGUOW1vJ6JofuAJuKn_-xr6kzoBYfESE4BBdWKIyo0Wv64FeVe6j6tZI_W8EDSwBmS0WL6nQhJrY9LD97zSNew7IxbiGGxX0ZfOjP7uzdXHyNECUZneB6Ip5obTC5LfJl1wTWSdr6HAGjl-_CY9ciG5P0PaPY"/>
+<div class="flex flex-col">
+<span class="font-medium text-on-surface">Sarah Jenkins (詹雅雯)</span>
+<span class="text-on-surface-variant text-[11px] font-mono">EMP-8492</span>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<div class="flex flex-col">
+<span>Senior Care Worker</span>
+<span class="text-on-surface-variant">照護部 (Care Dept)</span>
+</div>
+</td>
+<td class="px-4 py-3">全職 (Full-time)</td>
+<td class="px-4 py-3 font-mono text-on-surface-variant">2022-05-15</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#dcfce7] text-[#166534] border border-[#bbf7d0]">
+                                            在職
+                                        </span>
+</td>
+<td class="px-4 py-3 text-right pr-6">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-outline hover:text-primary transition-colors p-1" title="編輯">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="text-outline hover:text-on-surface transition-colors p-1" title="更多">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<img alt="Michael Chen" class="w-9 h-9 rounded-full object-cover border border-outline-variant" data-alt="Portrait of an asian male nurse in his 30s. Professional demeanor. Wearing dark blue scrubs. Soft studio lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC41dXsxzcFxE8ruNH3kbIFlUYn2H55FyksXY6Z72edTx0_qg6YQOB-AnCuZeP5sA-UR5lTF8aHBaiheJyWziZecSbgIM2TtD6LLGOU6pucH0my16riE1KMxSv5P1qP5iBPP9npfepuZgblh8v45K7sdPxpaWqGC8I3mfZRYKDza_CgGKRZhVK9NjaasnQ5oK0Ma-fCh9PZnc9EDhq7hXEx0w725xaEFJprKw3Xr7P6ER2twH2XMtCUR2gyLae_qtDbkV9GidGFPnI"/>
+<div class="flex flex-col">
+<span class="font-medium text-on-surface">Michael Chen (陳柏宇)</span>
+<span class="text-on-surface-variant text-[11px] font-mono">EMP-8501</span>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<div class="flex flex-col">
+<span>Registered Nurse</span>
+<span class="text-on-surface-variant">醫療部 (Medical Dept)</span>
+</div>
+</td>
+<td class="px-4 py-3">全職 (Full-time)</td>
+<td class="px-4 py-3 font-mono text-on-surface-variant">2021-11-03</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#fef08a] text-[#854d0e] border border-[#fde047]">
+                                            休假中
+                                        </span>
+</td>
+<td class="px-4 py-3 text-right pr-6">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-outline hover:text-primary transition-colors p-1" title="編輯">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="text-outline hover:text-on-surface transition-colors p-1" title="更多">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center font-medium border border-outline-variant">
+                                                LL
+                                            </div>
+<div class="flex flex-col">
+<span class="font-medium text-on-surface">Lin Li (李玲)</span>
+<span class="text-on-surface-variant text-[11px] font-mono">EMP-8922</span>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<div class="flex flex-col">
+<span>Care Worker</span>
+<span class="text-on-surface-variant">照護部 (Care Dept)</span>
+</div>
+</td>
+<td class="px-4 py-3">兼職 (Part-time)</td>
+<td class="px-4 py-3 font-mono text-on-surface-variant">2023-08-10</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#dcfce7] text-[#166534] border border-[#bbf7d0]">
+                                            在職
+                                        </span>
+</td>
+<td class="px-4 py-3 text-right pr-6">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-outline hover:text-primary transition-colors p-1" title="編輯">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="text-outline hover:text-on-surface transition-colors p-1" title="更多">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-bright transition-colors group opacity-60">
+<td class="px-4 py-3">
+<div class="flex items-center gap-3">
+<img alt="David Wang" class="w-9 h-9 rounded-full object-cover border border-outline-variant grayscale" data-alt="Portrait of a male administrator in his 50s. Serious expression. Wearing a suit without a tie. Grayscale photo indicating inactive status." src="https://lh3.googleusercontent.com/aida-public/AB6AXuApaTnxHWI-XuPthLds_O_VIqydlnS8nO4lzpO_ftspvILQ7OuAIY2KLTRMS_WzSN5tvbXC2C1r9hcRuhpkrbbWMixH5C89G1ZwYGmq8ozV1yEgPWLg5TFpYTy1BxxqntEiM7mfQOfEf2EfC-QL_-kKG3G3YXap6Xemf_MPE04u3AcEE8woswyKwFy4qc-ZQhvt2yUb-ykZvftp6bH2Z20PHXTZ0gH_XzRi25Vnnr5ACdPkL45jLrt_0E--vy98HfwbnzRp9p9rwdY"/>
+<div class="flex flex-col">
+<span class="font-medium text-on-surface">David Wang (王大衛)</span>
+<span class="text-on-surface-variant text-[11px] font-mono">EMP-7231</span>
+</div>
+</div>
+</td>
+<td class="px-4 py-3">
+<div class="flex flex-col">
+<span>HR Manager</span>
+<span class="text-on-surface-variant">行政部 (Admin Dept)</span>
+</div>
+</td>
+<td class="px-4 py-3">全職 (Full-time)</td>
+<td class="px-4 py-3 font-mono text-on-surface-variant">2019-02-01</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-surface-container-high text-on-surface-variant border border-outline">
+                                            離職
+                                        </span>
+</td>
+<td class="px-4 py-3 text-right pr-6">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-outline hover:text-primary transition-colors p-1" title="查看">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination Footer -->
+<div class="p-3 border-t border-outline-variant bg-surface-container-lowest flex items-center justify-between text-body-sm text-on-surface-variant">
+<div>
+                            顯示 1-4 筆，共 245 筆資料
+                        </div>
+<div class="flex items-center gap-1">
+<button class="p-1 rounded text-outline hover:bg-surface-container-low hover:text-on-surface transition-colors disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="w-7 h-7 rounded bg-primary text-on-primary font-medium text-[13px] flex items-center justify-center">1</button>
+<button class="w-7 h-7 rounded hover:bg-surface-container-low text-on-surface font-medium text-[13px] flex items-center justify-center transition-colors">2</button>
+<button class="w-7 h-7 rounded hover:bg-surface-container-low text-on-surface font-medium text-[13px] flex items-center justify-center transition-colors">3</button>
+<span class="px-1">...</span>
+<button class="w-7 h-7 rounded hover:bg-surface-container-low text-on-surface font-medium text-[13px] flex items-center justify-center transition-colors">25</button>
+<button class="p-1 rounded text-outline hover:bg-surface-container-low hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Simple script for sidebar toggle interaction
+        document.addEventListener('DOMContentLoaded', () => {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const toggleBtn = document.getElementById('toggleSidebar');
+            const iconSpan = toggleBtn.querySelector('.material-symbols-outlined');
+            const textElements = document.querySelectorAll('.sidebar-text');
+            
+            let isCollapsed = false;
+
+            toggleBtn.addEventListener('click', () => {
+                isCollapsed = !isCollapsed;
+                
+                if (isCollapsed) {
+                    sidebar.classList.remove('w-sidebar-width');
+                    sidebar.classList.add('w-[72px]');
+                    mainContent.classList.remove('ml-[260px]');
+                    mainContent.classList.add('ml-[72px]');
+                    iconSpan.textContent = 'menu';
+                    
+                    textElements.forEach(el => {
+                        el.style.opacity = '0';
+                        el.style.width = '0';
+                        el.style.display = 'none';
+                    });
+                } else {
+                    sidebar.classList.add('w-sidebar-width');
+                    sidebar.classList.remove('w-[72px]');
+                    mainContent.classList.add('ml-[260px]');
+                    mainContent.classList.remove('ml-[72px]');
+                    iconSpan.textContent = 'menu_open';
+                    
+                    textElements.forEach(el => {
+                        el.style.display = '';
+                        // Short delay to allow display:block to apply before animating opacity
+                        setTimeout(() => {
+                            el.style.opacity = '1';
+                            el.style.width = 'auto';
+                        }, 50);
+                    });
+                }
+            });
+        });
+    </script>
+</body></html>

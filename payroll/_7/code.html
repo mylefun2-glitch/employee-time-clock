@@ -1,0 +1,415 @@
+<!DOCTYPE html><html class="light" lang="zh-TW" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>CarePay 管理員 - 薪資明細</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary-fixed": "#d3e4fe",
+                      "inverse-surface": "#2d3133",
+                      "surface-bright": "#f7f9fb",
+                      "primary": "#00366b",
+                      "on-secondary-fixed": "#0b1c30",
+                      "surface-container": "#eceef0",
+                      "primary-container": "#1b4d89",
+                      "on-primary-fixed-variant": "#114783",
+                      "on-background": "#191c1e",
+                      "inverse-on-surface": "#eff1f3",
+                      "on-secondary-fixed-variant": "#38485d",
+                      "surface-variant": "#e0e3e5",
+                      "surface-tint": "#325f9c",
+                      "inverse-primary": "#a7c8ff",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-fixed-dim": "#b7c8e1",
+                      "background": "#f7f9fb",
+                      "secondary": "#505f76",
+                      "on-error-container": "#93000a",
+                      "tertiary": "#2e354a",
+                      "on-tertiary-fixed-variant": "#3f465c",
+                      "error": "#ba1a1a",
+                      "on-primary-container": "#98bfff",
+                      "on-secondary-container": "#54647a",
+                      "outline": "#737781",
+                      "surface": "#f7f9fb",
+                      "on-surface-variant": "#424750",
+                      "on-error": "#ffffff",
+                      "tertiary-fixed": "#dae2fd",
+                      "on-tertiary-container": "#b5bdd7",
+                      "on-primary": "#ffffff",
+                      "on-primary-fixed": "#001b3c",
+                      "on-tertiary-fixed": "#131b2e",
+                      "on-secondary": "#ffffff",
+                      "tertiary-container": "#444c62",
+                      "on-tertiary": "#ffffff",
+                      "outline-variant": "#c3c6d1",
+                      "secondary-container": "#d0e1fb",
+                      "surface-container-highest": "#e0e3e5",
+                      "error-container": "#ffdad6",
+                      "surface-container-low": "#f2f4f6",
+                      "primary-fixed": "#d5e3ff",
+                      "on-surface": "#191c1e",
+                      "primary-fixed-dim": "#a7c8ff",
+                      "surface-dim": "#d8dadc",
+                      "tertiary-fixed-dim": "#bec6e0",
+                      "surface-container-high": "#e6e8ea"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "margin-mobile": "16px",
+                      "margin-desktop": "32px",
+                      "unit": "4px",
+                      "container-max-width": "1440px",
+                      "gutter": "16px",
+                      "sidebar-width": "260px"
+              },
+              "fontFamily": {
+                      "body-md": ["Noto Sans"],
+                      "headline-lg": ["Inter"],
+                      "label-md": ["Inter"],
+                      "headline-md": ["Inter"],
+                      "body-lg": ["Noto Sans"],
+                      "headline-xl": ["Inter"],
+                      "body-sm": ["Noto Sans"],
+                      "label-sm": ["Inter"]
+              },
+              "fontSize": {
+                      "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                      "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "headline-xl": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                      "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "500"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        body { background-color: #f7f9fb; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .fill-icon { font-variation-settings: 'FILL' 1; }
+        /* Soft shadow for specific elements */
+        .shadow-soft { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+    </style>
+</head>
+<body class="text-on-surface antialiased flex">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-screen w-sidebar-width bg-surface-container border-r border-outline-variant flex flex-col py-6 px-4 gap-2 hidden md:flex z-40">
+<div class="mb-6 px-4">
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary">SCA 薪資系統</h1>
+<p class="font-label-md text-label-md text-on-surface-variant mt-1">管理員入口網站 v2.4</p>
+</div>
+<button class="w-full bg-primary text-on-primary font-label-md text-label-md py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 mb-4 hover:bg-primary-container hover:text-on-primary-container transition-colors shadow-soft">
+<span class="material-symbols-outlined text-[18px]">add</span>
+            新增薪資結算
+        </button>
+<div class="flex-1 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-all duration-200 ease-in-out font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+                儀表板
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-primary-container text-on-primary-container font-semibold transition-all duration-200 ease-in-out font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px] fill-icon">groups</span>
+                員工
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-all duration-200 ease-in-out font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+                薪資結算
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-all duration-200 ease-in-out font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]">analytics</span>
+                報表
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-all duration-200 ease-in-out font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]">description</span>
+                稅務申報
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-all duration-200 ease-in-out font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+                設定
+            </a>
+</div>
+<div class="mt-auto border-t border-outline-variant pt-4 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]">help</span>
+                幫助中心
+            </a>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]">logout</span>
+                登出
+            </a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 ml-0 md:ml-sidebar-width min-h-screen bg-background">
+<!-- TopNavBar -->
+<header class="w-full sticky top-0 z-50 bg-surface-container-lowest border-b border-outline-variant flex justify-between items-center px-margin-mobile md:px-margin-desktop py-2 h-16 max-w-container-max-width mx-auto">
+<div class="flex items-center gap-4">
+<button class="md:hidden p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="font-headline-md text-headline-md text-primary hidden md:block">CarePay 管理員</div>
+</div>
+<!-- Search (Left aligned as per JSON, but pushed to right of logo via flex-1) -->
+<div class="flex-1 px-4 md:px-8 max-w-2xl">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full h-9 pl-10 pr-4 bg-surface-container-low border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow" placeholder="搜尋員工、薪資結算..." type="text">
+</div>
+</div>
+<div class="flex items-center gap-2 md:gap-4">
+<button class="text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-colors cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="hidden md:flex text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-colors cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">help</span>
+</button>
+<button class="text-primary font-label-md text-label-md px-3 py-1.5 hover:bg-surface-container-high rounded transition-colors">
+                    支援
+                </button>
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center overflow-hidden border border-outline-variant cursor-pointer ml-2">
+<img alt="Administrator Profile" class="w-full h-full object-cover" data-alt="A small, professional headshot or placeholder avatar for an administrator profile. Minimalist corporate styling with a solid blue background and white text. Bright, clean light-mode aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRobaZBUpko79o6qrs7N05ucLEg0_i0IDwucleNX6aeA4jreLOTGGT4kU_WNI2cyXK2Bem3bStmQ7-w_ODNj5nzelXK0hTBo0296s5ENQSyLiboWa9L46_dXjReXj90vrF2_GSqjetuTJOkGy6pdKRHmpJnTLxUsbsn3OiYHhObd186Vnyy7G3vn5CQ0GdUUvltmI2XSmeSepPKO73rJgBbZugTTjutwDtHlfShqpKkTqitJlNgvZ5ubfOnSlf-d8gsJMNEexDLOs">
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-margin-mobile md:p-margin-desktop max-w-5xl mx-auto">
+<!-- Breadcrumb & Actions -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+<div>
+<nav class="flex items-center text-on-surface-variant font-body-sm text-body-sm mb-1">
+<a class="hover:text-primary transition-colors" href="#">員工</a>
+<span class="material-symbols-outlined text-[16px] mx-1">chevron_right</span>
+<a class="hover:text-primary transition-colors" href="#">Jane Doe</a>
+<span class="material-symbols-outlined text-[16px] mx-1">chevron_right</span>
+<span class="text-on-surface font-medium">薪資明細: 2023年10月</span>
+</nav>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">薪資項目流水表 (Payroll Record)</h2>
+</div>
+<div class="flex gap-3">
+<button class="bg-surface-container-lowest border border-outline text-on-surface font-label-md text-label-md py-2 px-4 rounded flex items-center gap-2 hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">print</span>
+                        列印
+                    </button>
+<button class="bg-primary text-on-primary font-label-md text-label-md py-2 px-4 rounded flex items-center gap-2 hover:bg-primary-container transition-colors shadow-soft">
+<span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+                        產出 PDF
+                    </button>
+</div>
+</div>
+<!-- Employee Profile Header Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 mb-6 shadow-soft flex flex-col md:flex-row items-center md:items-start gap-6">
+<div class="w-20 h-20 rounded-full bg-surface-variant overflow-hidden border-2 border-surface-container flex-shrink-0">
+<img alt="Employee Photo" class="w-full h-full object-cover" data-alt="Professional headshot of a female social care worker in her 30s. She has a warm, approachable smile, wearing neat, practical clinical or administrative attire. The background is a softly blurred modern office interior with natural light. The lighting is bright and even, typical of a professional corporate portrait." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6GU7dgAxC9vkAMU8iEL76DcEB5awgdQXDUkhShXs-1H3Hve5TKGCZrc8isRT2CuQzq0eGG3GIje3xy9HXwqwxa7brK5B7YeGpw638qGuUhRlASUhicw_TB_VMGPf17sxe99_pY7N09L-hNUcM1l_fpJACn2s_d7XdJYYn_QdiBxmntDfzc66eJAepsjCajIGVk-z5UcEkby8t9r-JfTS7Ib0rPhDLfOWipvgdiZREeBrW_yrWTAk2K8wmwCPUrw-Q3mCzfRbmhpI">
+</div>
+<div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-1">Jane Doe</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">資深照護員 (EMP-2023-045)</p>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant">
+                            全職
+                        </span>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex justify-between md:block">
+<span class="font-label-sm text-label-sm text-on-surface-variant block uppercase tracking-wider">部門</span>
+<span class="font-body-md text-body-md text-on-surface font-medium">居家照護</span>
+</div>
+<div class="flex justify-between md:block">
+<span class="font-label-sm text-label-sm text-on-surface-variant block uppercase tracking-wider">計薪週期</span>
+<span class="font-body-md text-body-md text-on-surface font-medium">2023年10月01日 - 10月31日</span>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex justify-between md:block">
+<span class="font-label-sm text-label-sm text-on-surface-variant block uppercase tracking-wider">基本薪資</span>
+<span class="font-body-md text-body-md text-on-surface font-medium">$45,000 TWD</span>
+</div>
+<div class="flex justify-between md:block">
+<span class="font-label-sm text-label-sm text-on-surface-variant block uppercase tracking-wider">狀態</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#e6f4ea] text-[#137333]">
+                                已核准
+                            </span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bento Grid Layout for Payroll Data -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+<!-- Attendance Summary (Spans 1 col) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-soft flex flex-col">
+<div class="flex items-center gap-2 mb-4 border-b border-outline-variant pb-3">
+<span class="material-symbols-outlined text-primary text-[20px]">schedule</span>
+<h4 class="font-label-md text-label-md text-on-surface uppercase tracking-wide">出勤摘要</h4>
+</div>
+<div class="flex-1 flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">正常工時</span>
+<span class="font-body-md text-body-md text-on-surface font-medium font-mono">160.0h</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">加班費 (1.334倍)</span>
+<span class="font-body-md text-body-md text-on-surface font-medium font-mono">12.5h</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">加班費 (1.667倍)</span>
+<span class="font-body-md text-body-md text-on-surface font-medium font-mono">4.0h</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">病假</span>
+<span class="font-body-md text-body-md text-on-surface font-medium font-mono text-error">8.0h</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">特休</span>
+<span class="font-body-md text-body-md text-on-surface font-medium font-mono">16.0h</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-outline-variant flex justify-between items-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">應付總工時</span>
+<span class="font-body-md text-body-md text-primary font-bold font-mono">176.5h</span>
+</div>
+</div>
+<!-- Earnings & Deductions (Spans 2 cols) -->
+<div class="lg:col-span-2 flex flex-col gap-6">
+<!-- Earnings Detail Table -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-soft overflow-hidden">
+<div class="flex items-center justify-between px-5 py-3 bg-surface-container-low border-b border-outline-variant">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">add_circle</span>
+<h4 class="font-label-md text-label-md text-on-surface uppercase tracking-wide">薪資項目明細</h4>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container-lowest px-2 py-1 rounded border border-outline-variant">勞務相關</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-outline-variant bg-surface-container-lowest">
+<th class="py-2 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase">項目名稱</th>
+<th class="py-2 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase">類型</th>
+<th class="py-2 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase text-right">時數/單位</th>
+<th class="py-2 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase text-right">費率</th>
+<th class="py-2 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase text-right">金額 (TWD)</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm">
+<tr class="border-b border-outline-variant hover:bg-surface-container-low transition-colors">
+<td class="py-2 px-4 text-on-surface font-medium">基本薪資</td>
+<td class="py-2 px-4 text-on-surface-variant">固定</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface-variant">-</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface-variant">-</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface">45,000</td>
+</tr>
+<tr class="border-b border-outline-variant bg-surface-bright hover:bg-surface-container-low transition-colors">
+<td class="py-2 px-4 text-on-surface">AA碼加給</td>
+<td class="py-2 px-4 text-on-surface-variant">變動</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface-variant">120 hrs</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface-variant">50</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface">6,000</td>
+</tr>
+<tr class="border-b border-outline-variant hover:bg-surface-container-low transition-colors">
+<td class="py-2 px-4 text-on-surface">加班費 (1.33倍)</td>
+<td class="py-2 px-4 text-on-surface-variant">變動</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface-variant">12.5 hrs</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface-variant">250</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface">3,125</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-2 px-4 text-on-surface">伙食津貼</td>
+<td class="py-2 px-4 text-on-surface-variant">非勞務</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface-variant">-</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface-variant">-</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface">2,400</td>
+</tr>
+<tr class="border-b border-outline-variant bg-surface-bright hover:bg-surface-container-low transition-colors">
+<td class="py-2 px-4 text-on-surface">加班費 (2.667倍)</td>
+<td class="py-2 px-4 text-on-surface-variant">變動</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface-variant">0.0 hrs</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface-variant">500</td>
+<td class="py-2 px-4 text-right font-mono text-on-surface">0</td>
+</tr></tbody>
+</table>
+</div>
+<div class="bg-surface-container px-4 py-3 border-t border-outline-variant flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface uppercase">應發總額</span>
+<span class="font-headline-md text-headline-md text-primary font-mono">56,525</span>
+</div>
+</div>
+<!-- Deductions Table -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-soft overflow-hidden">
+<div class="flex items-center gap-2 px-5 py-3 bg-error-container border-b border-outline-variant">
+<span class="material-symbols-outlined text-error text-[20px]">remove_circle</span>
+<h4 class="font-label-md text-label-md text-on-error-container uppercase tracking-wide">扣款項目</h4>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-outline-variant bg-surface-container-lowest">
+<th class="py-2 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase">項目名稱</th>
+<th class="py-2 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase">類別</th>
+<th class="py-2 px-4 font-label-sm text-label-sm text-on-surface-variant uppercase text-right">金額 (TWD)</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm">
+<tr class="border-b border-outline-variant hover:bg-surface-container-low transition-colors">
+<td class="py-2 px-4 text-on-surface">勞保費</td>
+<td class="py-2 px-4 text-on-surface-variant">法定</td>
+<td class="py-2 px-4 text-right font-mono text-error">-1,050</td>
+</tr>
+<tr class="border-b border-outline-variant bg-surface-bright hover:bg-surface-container-low transition-colors">
+<td class="py-2 px-4 text-on-surface">健保費</td>
+<td class="py-2 px-4 text-on-surface-variant">法定</td>
+<td class="py-2 px-4 text-right font-mono text-error">-680</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-2 px-4 text-on-surface">病假扣薪</td>
+<td class="py-2 px-4 text-on-surface-variant">出勤</td>
+<td class="py-2 px-4 text-right font-mono text-error">-750</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="bg-surface-container px-4 py-3 border-t border-outline-variant flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface uppercase">扣款總額</span>
+<span class="font-headline-md text-headline-md text-error font-mono">-2,480</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Net Pay Footer (Glassmorphism inspired card) -->
+<div class="relative overflow-hidden bg-primary-fixed border border-outline-variant rounded-xl p-6 shadow-soft flex flex-col md:flex-row justify-between items-center gap-4">
+<!-- Decorative background elements -->
+<div class="absolute -right-10 -top-10 w-40 h-40 bg-primary opacity-5 rounded-full blur-2xl"></div>
+<div class="absolute -left-10 -bottom-10 w-32 h-32 bg-secondary opacity-10 rounded-full blur-xl"></div>
+<div class="relative z-10 flex items-center gap-4">
+<div class="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-[24px]">account_balance_wallet</span>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-1">實發薪資 (匯款金額)</h3>
+<p class="font-body-sm text-body-sm text-on-surface">匯款日期: 2023年11月05日</p>
+</div>
+</div>
+<div class="relative z-10 text-right">
+<span class="font-headline-xl text-headline-xl text-on-surface font-mono tracking-tight">$54,045</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant ml-1">TWD</span>
+</div>
+</div>
+</div>
+</main>
+
+
+</body></html>

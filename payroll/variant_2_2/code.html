@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Payroll Canvas - CareAdmin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#d8dadc",
+                        "outline": "#737781",
+                        "surface-variant": "#e0e3e5",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-low": "#f2f4f6",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#bec6e0",
+                        "surface-container": "#eceef0",
+                        "on-surface-variant": "#424750",
+                        "primary-fixed": "#d5e3ff",
+                        "on-secondary": "#ffffff",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-container-highest": "#e0e3e5",
+                        "secondary-fixed": "#d3e4fe",
+                        "on-tertiary-fixed": "#131b2e",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#325f9c",
+                        "on-secondary-container": "#54647a",
+                        "secondary-container": "#d0e1fb",
+                        "on-tertiary-fixed-variant": "#3f465c",
+                        "on-error-container": "#93000a",
+                        "error": "#ba1a1a",
+                        "on-surface": "#191c1e",
+                        "on-primary-fixed-variant": "#114783",
+                        "surface": "#f7f9fb",
+                        "inverse-surface": "#2d3133",
+                        "on-primary-container": "#98bfff",
+                        "secondary": "#505f76",
+                        "inverse-primary": "#a7c8ff",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "on-primary": "#ffffff",
+                        "tertiary-container": "#444c62",
+                        "outline-variant": "#c3c6d1",
+                        "tertiary": "#2e354a",
+                        "background": "#f7f9fb",
+                        "primary-fixed-dim": "#a7c8ff",
+                        "primary-container": "#1b4d89",
+                        "tertiary-fixed": "#dae2fd",
+                        "on-background": "#191c1e",
+                        "on-primary-fixed": "#001b3c",
+                        "surface-bright": "#f7f9fb",
+                        "primary": "#00366b",
+                        "on-error": "#ffffff",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "on-tertiary-container": "#b5bdd7",
+                        "surface-container-high": "#e6e8ea",
+                        "on-secondary-fixed": "#0b1c30"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin-desktop": "32px",
+                        "gutter": "16px",
+                        "margin-mobile": "16px",
+                        "unit": "4px",
+                        "sidebar-width": "260px",
+                        "container-max-width": "1440px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-md": ["Noto Sans"],
+                        "body-lg": ["Noto Sans"],
+                        "headline-xl": ["Inter"],
+                        "body-sm": ["Noto Sans"],
+                        "headline-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "600" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-xl": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        }
+        
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 16px;
+            grid-auto-flow: dense;
+        }
+
+        .canvas-bg {
+            background: linear-gradient(135deg, #f2f4f6 0%, #e0e3e5 100%);
+        }
+
+        /* Nav Drawer Animation */
+        #nav-drawer {
+            transform: translateX(-100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #nav-drawer.open {
+            transform: translateX(0);
+        }
+        
+        /* Interactive Card Hover */
+        .interactive-card {
+            transition: all 0.2s ease-in-out;
+        }
+        .interactive-card:hover {
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.12);
+        }
+    </style>
+</head>
+<body class="canvas-bg text-on-surface min-h-screen overflow-x-hidden relative">
+<!-- Minimal Corner Menu Toggle -->
+<button class="fixed top-6 left-6 z-[60] w-12 h-12 rounded-full glass-card flex items-center justify-center text-primary shadow-lg hover:bg-surface-container-lowest transition-colors focus:outline-none" id="menu-toggle">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">menu</span>
+</button>
+<!-- Hidden Navigation Drawer (SideNavBar JSON Data Applied) -->
+<div class="fixed left-0 top-0 h-screen w-[260px] bg-surface-container-lowest border-r border-outline-variant z-50 flex flex-col p-4 shadow-[0_0_20px_rgba(0,0,0,0.1)]" id="nav-drawer">
+<div class="mt-16 mb-8 px-4 flex items-center gap-4">
+<img alt="Care Association Logo" class="w-12 h-12 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCUQt9C6C_1pkXqBYEQfIIF4K-KS2RS69MTE5QUcfr0RTmMBCiJKW7y0V7nfBUGo9y4Hn_ihIFUT4kbfDyX6qjF7ypE-NblFLf9_f8FfCWTj6ilEVUzV2Cy5TnqTqDg6FX2oyz4KzgPB61o53knWPllLONf8zXTZnUXK1urY142_rz_-Bb72vHdylxfUnh8nxAr44cP1jVja2WuXzvgico7fUO0iOhKDmSLuBXyZ-y6te_CkPE5AZvmzIQagL4oRyC0xENkQBr4zGg"/>
+<div>
+<div class="font-headline-md text-headline-md font-semibold text-primary">機構管理系統</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">管理員控制台</div>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all cursor-pointer duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">儀表板</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all cursor-pointer duration-200" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">員工管理</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all cursor-pointer duration-200" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="font-label-md text-label-md">排班管理</span>
+</a>
+<!-- Active Tab -->
+<a class="flex items-center gap-3 px-4 py-3 bg-secondary-container text-on-secondary-container font-semibold rounded-lg cursor-pointer duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
+<span class="font-label-md text-label-md">薪資結算</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all cursor-pointer duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">系統設定</span>
+</a>
+</nav>
+<div class="mt-auto pt-4 border-t border-outline-variant">
+<button class="w-full py-3 bg-primary text-on-primary font-label-md text-label-md rounded-lg hover:bg-primary-container transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">add</span>
+                新增員工
+            </button>
+</div>
+</div>
+<!-- Main Canvas Area -->
+<main class="pt-6 px-6 pb-12 pl-24 transition-all duration-300" id="main-content">
+<!-- Header Section -->
+<header class="flex justify-between items-end mb-8">
+<div>
+<h1 class="font-headline-xl text-headline-xl text-primary mb-1">Payroll Canvas</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Interactive visual mapping of pending disbursements.</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="glass-card px-4 py-2 rounded-full flex items-center gap-2 text-sm text-on-surface-variant">
+<span class="w-2 h-2 rounded-full bg-error"></span> Urgent Action Req.
+                </div>
+<div class="glass-card px-4 py-2 rounded-full flex items-center gap-2 text-sm text-on-surface-variant">
+<span class="w-2 h-2 rounded-full bg-[#10b981]"></span> Auto-Processing
+                </div>
+</div>
+</header>
+<!-- Bento Grid Workspace -->
+<div class="bento-grid">
+<!-- Global Summary (Large Priority) -->
+<div class="col-span-12 md:col-span-8 lg:col-span-6 interactive-card glass-card rounded-xl p-6 relative overflow-hidden group">
+<div class="absolute -right-12 -top-12 w-48 h-48 bg-primary opacity-5 rounded-full blur-2xl group-hover:bg-primary-container transition-colors"></div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">account_balance</span>
+                    Master Dispersal Queue
+                </h2>
+<div class="flex flex-col gap-6">
+<div>
+<div class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-1">Total Pending Volume</div>
+<div class="font-headline-xl text-headline-xl text-primary font-bold tracking-tight">$1,248,500.00</div>
+</div>
+<div class="grid grid-cols-3 gap-4 border-t border-outline-variant/30 pt-4">
+<div>
+<div class="font-label-sm text-label-sm text-on-surface-variant mb-1">Entities</div>
+<div class="font-headline-md text-headline-md text-on-surface">142</div>
+</div>
+<div>
+<div class="font-label-sm text-label-sm text-on-surface-variant mb-1">Cleared</div>
+<div class="font-headline-md text-headline-md text-[#10b981]">89</div>
+</div>
+<div>
+<div class="font-label-sm text-label-sm text-on-surface-variant mb-1">Blocked</div>
+<div class="font-headline-md text-headline-md text-error">12</div>
+</div>
+</div>
+</div>
+<div class="mt-6 flex justify-end">
+<button class="bg-primary text-on-primary px-6 py-2 rounded-lg font-label-md text-label-md hover:bg-primary-container transition-colors shadow-sm">
+                         Execute Batch Process
+                     </button>
+</div>
+</div>
+<!-- Urgent Blockers (Medium Priority - Red tint) -->
+<div class="col-span-12 md:col-span-4 lg:col-span-3 interactive-card glass-card rounded-xl p-6 border-error/20 bg-error-container/10">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Exception Holds</h3>
+<span class="material-symbols-outlined text-error">warning</span>
+</div>
+<div class="font-headline-lg text-headline-lg text-error mb-2">12 Nodes</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6">Require immediate manual override due to credential expiration.</p>
+<div class="space-y-3">
+<div class="flex justify-between items-center p-3 rounded-lg bg-surface-container-lowest/50 border border-outline-variant/50">
+<span class="font-body-md text-body-md text-on-surface">Node A7-West</span>
+<span class="font-label-sm text-label-sm bg-error-container text-on-error-container px-2 py-1 rounded-full">KYC Fail</span>
+</div>
+<div class="flex justify-between items-center p-3 rounded-lg bg-surface-container-lowest/50 border border-outline-variant/50">
+<span class="font-body-md text-body-md text-on-surface">Unit 42-Bio</span>
+<span class="font-label-sm text-label-sm bg-error-container text-on-error-container px-2 py-1 rounded-full">Tax Mismatch</span>
+</div>
+</div>
+</div>
+<!-- Quick Action Tile -->
+<div class="col-span-6 md:col-span-4 lg:col-span-3 interactive-card glass-card rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary/50 group">
+<div class="w-16 h-16 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-1">Generate Reports</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Q3 Compliance &amp; Tax</p>
+</div>
+<!-- Large Data Node 1 -->
+<div class="col-span-12 md:col-span-6 lg:col-span-4 interactive-card glass-card rounded-xl p-6">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="font-headline-md text-headline-md text-on-surface">Clinical Staff Cluster</h4>
+<div class="font-label-sm text-label-sm text-on-surface-variant">Node ID: CS-092</div>
+</div>
+<span class="material-symbols-outlined text-[#10b981]">check_circle</span>
+</div>
+<div class="font-headline-lg text-headline-lg text-primary font-semibold mb-4">$450,200.00</div>
+<div class="w-full bg-surface-variant rounded-full h-2 mb-2">
+<div class="bg-[#10b981] h-2 rounded-full" style="width: 100%"></div>
+</div>
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant">
+<span>Ready for dispersal</span>
+<span>100% Verified</span>
+</div>
+</div>
+<!-- Medium Data Node 2 -->
+<div class="col-span-12 md:col-span-6 lg:col-span-4 interactive-card glass-card rounded-xl p-6">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="font-headline-md text-headline-md text-on-surface">Admin &amp; Ops</h4>
+<div class="font-label-sm text-label-sm text-on-surface-variant">Node ID: AO-114</div>
+</div>
+<span class="material-symbols-outlined text-[#f59e0b]">pending</span>
+</div>
+<div class="font-headline-lg text-headline-lg text-primary font-semibold mb-4">$185,000.00</div>
+<div class="w-full bg-surface-variant rounded-full h-2 mb-2">
+<div class="bg-[#f59e0b] h-2 rounded-full" style="width: 85%"></div>
+</div>
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant">
+<span>Processing timesheets</span>
+<span>85% Verified</span>
+</div>
+</div>
+<!-- Micro Metrics Tiles -->
+<div class="col-span-6 md:col-span-4 lg:col-span-2 interactive-card glass-card rounded-xl p-4 flex flex-col justify-between">
+<span class="material-symbols-outlined text-outline">trending_up</span>
+<div>
+<div class="font-headline-md text-headline-md text-on-surface">+4.2%</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">MoM Variance</div>
+</div>
+</div>
+<div class="col-span-6 md:col-span-4 lg:col-span-2 interactive-card glass-card rounded-xl p-4 flex flex-col justify-between">
+<span class="material-symbols-outlined text-outline">speed</span>
+<div>
+<div class="font-headline-md text-headline-md text-on-surface">1.2s</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">Avg Process Time</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Simple Navigation Drawer Toggle
+        const menuToggle = document.getElementById('menu-toggle');
+        const navDrawer = document.getElementById('nav-drawer');
+        const mainContent = document.getElementById('main-content');
+        let isDrawerOpen = false;
+
+        menuToggle.addEventListener('click', () => {
+            isDrawerOpen = !isDrawerOpen;
+            if (isDrawerOpen) {
+                navDrawer.classList.add('open');
+                // Optional: Push content on desktop, but for 'canvas' feel, overlay might be better. 
+                // Using overlay style for radical variant.
+            } else {
+                navDrawer.classList.remove('open');
+            }
+        });
+
+        // Close drawer when clicking outside
+        mainContent.addEventListener('click', () => {
+            if (isDrawerOpen) {
+                isDrawerOpen = false;
+                navDrawer.classList.remove('open');
+            }
+        });
+    </script>
+</body></html>

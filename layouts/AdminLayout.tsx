@@ -37,6 +37,8 @@ const AdminLayout: React.FC = () => {
         navigate('/admin/login');
     };
 
+    const payrollUrl = (import.meta as any).env.VITE_PAYROLL_URL || 'http://localhost:3001';
+
     const navItems = [
         { path: '/admin/dashboard', icon: 'dashboard', label: '儀表板' },
         { path: '/admin/employees', icon: 'groups', label: '員工管理' },
@@ -48,7 +50,8 @@ const AdminLayout: React.FC = () => {
         { path: '/admin/requests', label: '差勤/公務車', icon: 'fact_check' },
         { path: '/admin/resource-manager', label: '公務資源管理', icon: 'inventory_2' },
         { path: '/admin/leave-types', label: '假別設定', icon: 'settings_applications' },
-        { path: '/admin/company', icon: 'business', label: '公司管理' }
+        { path: '/admin/company', icon: 'business', label: '公司管理' },
+        { path: payrollUrl, icon: 'payments', label: '薪資系統', isExternal: true }
     ];
 
     return (
@@ -103,20 +106,42 @@ const AdminLayout: React.FC = () => {
                     </div>
 
                     <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                        {navItems.map((item) => (
-                            <Link
-                                key={item.path}
-                                to={item.path}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname === item.path || (location.pathname.startsWith(item.path) && location.pathname[item.path.length] === '/')
+                        {navItems.map((item) => {
+                            const isSelected = !item.isExternal && (location.pathname === item.path || (location.pathname.startsWith(item.path) && location.pathname[item.path.length] === '/'));
+                            const className = `flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${
+                                isSelected
                                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
                                     : 'text-slate-500 hover:bg-slate-50'
-                                    } ${isCollapsed ? 'justify-center px-0' : 'px-4'}`}
-                                title={isCollapsed ? item.label : ''}
-                            >
-                                <span className={`material-symbols-outlined text-xl ${isCollapsed ? 'text-2xl' : ''}`}>{item.icon}</span>
-                                {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
-                            </Link>
-                        ))}
+                            } ${isCollapsed ? 'justify-center px-0' : 'px-4'}`;
+
+                            if (item.isExternal) {
+                                return (
+                                    <a
+                                        key={item.path}
+                                        href={item.path}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={className}
+                                        title={isCollapsed ? item.label : ''}
+                                    >
+                                        <span className={`material-symbols-outlined text-xl ${isCollapsed ? 'text-2xl' : ''}`}>{item.icon}</span>
+                                        {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
+                                    </a>
+                                );
+                            }
+
+                            return (
+                                <Link
+                                    key={item.path}
+                                    to={item.path}
+                                    className={className}
+                                    title={isCollapsed ? item.label : ''}
+                                >
+                                    <span className={`material-symbols-outlined text-xl ${isCollapsed ? 'text-2xl' : ''}`}>{item.icon}</span>
+                                    {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
+                                </Link>
+                            );
+                        })}
                     </nav>
 
                     <div className="p-4 border-t border-slate-100 flex flex-col gap-1 bg-slate-50/50">
