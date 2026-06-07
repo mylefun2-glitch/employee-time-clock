@@ -190,6 +190,11 @@ export interface EmployeeSchedule {
   salary_type: SalaryType;
   standard_daily_hours?: number;
   note?: string;
+  base_salary?: number;
+  hourly_rate?: number;
+  allowance_manager?: number;
+  allowance_license?: number;
+  other_allowance?: number;
 }
 
 export interface EmployeeMovement {

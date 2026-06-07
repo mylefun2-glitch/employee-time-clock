@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+
+<html lang="zh-TW"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Payroll Flow - CareAdmin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "surface-dim": "#d8dadc",
+                "outline": "#737781",
+                "surface-variant": "#e0e3e5",
+                "surface-container-lowest": "#ffffff",
+                "surface-container-low": "#f2f4f6",
+                "error-container": "#ffdad6",
+                "tertiary-fixed-dim": "#bec6e0",
+                "surface-container": "#eceef0",
+                "on-surface-variant": "#424750",
+                "primary-fixed": "#d5e3ff",
+                "on-secondary": "#ffffff",
+                "inverse-on-surface": "#eff1f3",
+                "surface-container-highest": "#e0e3e5",
+                "secondary-fixed": "#d3e4fe",
+                "on-tertiary-fixed": "#131b2e",
+                "on-tertiary": "#ffffff",
+                "surface-tint": "#325f9c",
+                "on-secondary-container": "#54647a",
+                "secondary-container": "#d0e1fb",
+                "on-tertiary-fixed-variant": "#3f465c",
+                "on-error-container": "#93000a",
+                "error": "#ba1a1a",
+                "on-surface": "#191c1e",
+                "on-primary-fixed-variant": "#114783",
+                "surface": "#f7f9fb",
+                "inverse-surface": "#2d3133",
+                "on-primary-container": "#98bfff",
+                "secondary": "#505f76",
+                "inverse-primary": "#a7c8ff",
+                "on-secondary-fixed-variant": "#38485d",
+                "on-primary": "#ffffff",
+                "tertiary-container": "#444c62",
+                "outline-variant": "#c3c6d1",
+                "tertiary": "#2e354a",
+                "background": "#f7f9fb",
+                "primary-fixed-dim": "#a7c8ff",
+                "primary-container": "#1b4d89",
+                "tertiary-fixed": "#dae2fd",
+                "on-background": "#191c1e",
+                "on-primary-fixed": "#001b3c",
+                "surface-bright": "#f7f9fb",
+                "primary": "#00366b",
+                "on-error": "#ffffff",
+                "secondary-fixed-dim": "#b7c8e1",
+                "on-tertiary-container": "#b5bdd7",
+                "surface-container-high": "#e6e8ea",
+                "on-secondary-fixed": "#0b1c30"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+        },
+        "spacing": {
+                "margin-desktop": "32px",
+                "gutter": "16px",
+                "margin-mobile": "16px",
+                "unit": "4px",
+                "sidebar-width": "260px",
+                "container-max-width": "1440px"
+        },
+        "fontFamily": {
+                "label-md": ["Inter"],
+                "label-sm": ["Inter"],
+                "headline-md": ["Inter"],
+                "body-md": ["Noto Sans"],
+                "body-lg": ["Noto Sans"],
+                "headline-xl": ["Inter"],
+                "body-sm": ["Noto Sans"],
+                "headline-lg": ["Inter"]
+        },
+        "fontSize": {
+                "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "500"}],
+                "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                "headline-xl": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "600"}]
+        }
+},
+    },
+  }
+</script>
+<style>
+    /* Custom Scrollbar for a cleaner look */
+    ::-webkit-scrollbar {
+        width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #e0e3e5;
+        border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #c3c6d1;
+    }
+</style>
+</head>
+<body class="bg-surface text-on-surface font-body-md antialiased min-h-screen flex selection:bg-primary-container selection:text-on-primary-container">
+<!-- SideNavBar (from JSON) -->
+<nav class="bg-surface-container-low text-primary docked h-screen w-sidebar-width left-0 border-r border-outline-variant flat no shadows fixed top-0 flex flex-col p-4 z-40 hidden md:flex">
+<div class="mb-8">
+<h1 class="font-headline-md text-headline-md font-semibold text-primary">機構管理系統</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">管理員控制台</p>
+</div>
+<ul class="space-y-2 flex-grow">
+<li>
+<a class="flex items-center space-x-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+<span class="font-label-md text-label-md">儀表板</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">group</span>
+<span class="font-label-md text-label-md">員工管理</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">calendar_month</span>
+<span class="font-label-md text-label-md">排班管理</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-3 px-3 py-2 bg-secondary-container text-on-secondary-container font-semibold rounded-lg transition-all duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
+<span class="font-label-md text-label-md">薪資結算</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+<span class="font-label-md text-label-md">系統設定</span>
+</a>
+</li>
+</ul>
+<button class="mt-auto bg-primary text-on-primary font-label-md text-label-md py-3 px-4 rounded-full flex items-center justify-center space-x-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">add</span>
+<span>新增員工</span>
+</button>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 md:ml-[260px] flex flex-col min-h-screen relative">
+<!-- TopNavBar (from JSON) -->
+<header class="bg-surface-container-lowest text-primary font-headline-md text-headline-md docked full-width top-0 border-b border-outline-variant flat no shadows flex justify-between items-center w-full px-margin-desktop h-16 sticky top-0 z-50">
+<div class="flex items-center">
+<span class="font-headline-lg text-headline-lg font-bold text-primary mr-8 hidden md:block">CareAdmin</span>
+<!-- Mobile Menu Button -->
+<button class="md:hidden mr-4 text-on-surface-variant hover:bg-surface-container-low transition-colors rounded-full p-2">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+<!-- Global Actions -->
+<div class="flex items-center space-x-4">
+<button class="text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer active:opacity-80 p-2 rounded-full relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer active:opacity-80 p-2 rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden cursor-pointer ml-2 border border-outline-variant">
+<img alt="Administrator Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbojtXEQXohA_ImvPIur4bSkV7qlYF8lC9rwRcBahglGJYdmDZrg-KKbV8m228yDk8fu37e9BMkvm477ataG3lr1D-otJ_RtAnp_7haXP1ivj4ZiS8ytQ3WZPf8CE3gvVCyLz3K2-oHsGdqWB9rc3sNI2hfSRm91S8r4UFkbocPcn9L72KyXNLRSqPGvzE7sf1KMOMltY0K2_a-SpLjCojZo5ivIXr5XPWsmF2P64cdnYmUL1W5r743Vmuw7j-iGsLLhBzZWr9T1k"/>
+</div>
+</div>
+</header>
+<!-- Canvas: The Flow -->
+<div class="flex-1 p-margin-desktop bg-surface relative overflow-hidden flex flex-col items-center">
+<!-- Page Header / Timeline Context -->
+<div class="w-full max-w-4xl flex justify-between items-end mb-16 relative z-10">
+<div>
+<h2 class="font-headline-xl text-headline-xl text-on-surface mb-2 tracking-tight">薪資結算流程</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">2024年 10月</p>
+</div>
+<div class="flex space-x-8 text-center">
+<div>
+<div class="font-headline-lg text-headline-lg text-primary">NT$ 1,245,000</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">預估總額</div>
+</div>
+<div>
+<div class="font-headline-lg text-headline-lg text-on-surface">42</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">處理人數</div>
+</div>
+</div>
+</div>
+<!-- The Vertical Timeline Axis -->
+<div class="relative w-full max-w-4xl flex-1 flex justify-center pb-32">
+<!-- Center Line -->
+<div class="absolute top-0 bottom-0 w-px bg-gradient-to-b from-surface-variant via-outline-variant to-surface-variant left-1/2 -translate-x-1/2"></div>
+<!-- Stage: Calculated (Top) -->
+<div class="w-full absolute top-0 flex flex-col items-center">
+<div class="bg-surface px-4 py-2 text-on-surface-variant font-label-md text-label-md uppercase tracking-widest border border-outline-variant rounded-full shadow-sm z-10 mb-8 flex items-center space-x-2">
+<span class="w-2 h-2 rounded-full bg-outline"></span>
+<span>已計算 (Calculated)</span>
+</div>
+<!-- Floating Bubbles - Calculated -->
+<div class="w-full relative h-40">
+<!-- Employee Bubble Left -->
+<div class="absolute left-[20%] top-4 flex items-center group cursor-pointer">
+<div class="w-12 h-12 rounded-full bg-surface-container-lowest border border-outline-variant shadow-sm flex items-center justify-center relative z-10 group-hover:scale-110 transition-transform bg-center bg-cover" data-alt="A small circular avatar placeholder showing a generic profile photo, integrated into a clean, modern administrative dashboard UI with a light gray background and subtle borders." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB41u1HjKOJ4OU9Tf_YGtdyERaxjmxP47zMwBzT-tTuqDQLPPDbpfkHaYr6XVmoELfIW3mgf2TD2mmoGlXAGL7l60Lx-22wggbFqzO-bsapR4F9k6yKhbTmCvLXW0tcdJxnA9ZM8hLMC0PpU33RLbez8dNx5kqpoj_3uhvIGwP2H2eq6rojI4M3ZTERET_-Xw1t_sJcTPzNYQ3gtFVAQH3Sh56nsEDmTOSI6hzbK1m9iIzePWr_9jdA44Fdz1OqeleKi9n-GGpjzmY');">
+</div>
+<div class="ml-4 opacity-0 group-hover:opacity-100 transition-opacity absolute left-14 bg-surface-container-lowest border border-outline-variant p-3 rounded-lg shadow-sm whitespace-nowrap z-20">
+<div class="font-label-md text-label-md text-on-surface">張雅婷</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">護理師 • NT$ 45,000</div>
+</div>
+</div>
+<!-- Employee Bubble Right -->
+<div class="absolute right-[25%] top-16 flex items-center flex-row-reverse group cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-surface-container-lowest border border-outline-variant shadow-sm flex items-center justify-center relative z-10 group-hover:scale-110 transition-transform bg-center bg-cover" data-alt="A small circular avatar placeholder showing a generic profile photo, integrated into a clean, modern administrative dashboard UI with a light gray background and subtle borders." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB4y_OGNHDXj4tLp0nrJWDgyNaR6lK74tKWuPywNEGXEwxMZbbahC0xIfOpbgdpNz6yLaTgNXzzozLdbR2trjYmKmibARaeQe0YcqGO2FvIe4lrahTQQZTOhTdH1OChQPgc36WLijgy3xCbizU9NYlj75tsIrC-XMlN7W2re-8jkdzmUElOPiutJzAQ45YA2rR_HBInhacgQ-kI-9RvK4bt4w32AurFXBI5Wl5jdVA1b7bLsbLkDEnZSbIrXPz06YgS_nrKDJMwtTY');">
+</div>
+<div class="mr-4 opacity-0 group-hover:opacity-100 transition-opacity absolute right-12 bg-surface-container-lowest border border-outline-variant p-3 rounded-lg shadow-sm whitespace-nowrap z-20">
+<div class="font-label-md text-label-md text-on-surface">林冠宇</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">照服員 • NT$ 38,500</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Stage: Pending Approval (Middle) -->
+<div class="w-full absolute top-[35%] flex flex-col items-center">
+<div class="bg-surface px-4 py-2 text-primary font-label-md text-label-md uppercase tracking-widest border border-primary-fixed-dim rounded-full shadow-sm z-10 mb-8 flex items-center space-x-2">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span>待審核 (Pending Approval)</span>
+</div>
+<!-- Focus Area - The "Now" -->
+<div class="w-full relative h-64 border-y border-dashed border-outline-variant/50 bg-gradient-to-r from-transparent via-primary-fixed/10 to-transparent flex items-center justify-center">
+<!-- Batch Card crossing the line -->
+<div class="w-full max-w-lg bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm relative z-20 flex items-center justify-between hover:shadow-md transition-shadow cursor-pointer">
+<div class="flex items-center space-x-4">
+<div class="w-12 h-12 bg-secondary-container text-on-secondary-container rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">第一批次結算單</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">包含 24 名全職員工</p>
+</div>
+</div>
+<div class="text-right">
+<div class="font-headline-md text-headline-md text-primary">NT$ 980,500</div>
+<button class="mt-2 text-primary font-label-sm text-label-sm hover:underline flex items-center justify-end w-full">
+                                    審核細節 <span class="material-symbols-outlined text-[16px] ml-1">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Stage: Approved (Bottom) -->
+<div class="w-full absolute top-[75%] flex flex-col items-center">
+<div class="bg-surface px-4 py-2 text-on-surface-variant font-label-md text-label-md uppercase tracking-widest border border-outline-variant rounded-full shadow-sm z-10 mb-8 flex items-center space-x-2">
+<span class="material-symbols-outlined text-[16px] text-green-600">check_circle</span>
+<span>已核准 (Approved)</span>
+</div>
+<!-- Floating Bubbles - Approved -->
+<div class="w-full relative h-32 opacity-60">
+<!-- Small clusters -->
+<div class="absolute left-[30%] top-0 flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container-highest" data-alt="A small circular avatar placeholder for an approved employee in a modern dashboard interface." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD33YbvCrxgnj2TlqFCF5M9z5aunmZq61PoYBPoCsjxlOjuzrrUBEB9tPVIi91uMrSjxkZNqgQpyOnr6hcn0t_Qnr2Poq5MSZPkLjKCHr_Qk879bzOLt0u7jgUbtmboSgAMRCQ6Lp8pI5nDcfvqXAGiBF5FxfSHoSwTP7jAnHEYiYONYZP3jNJZfZsk1zjD_qv2y3qOki6v2kgH8btT1tmZ9MqAeSrZeYneaZo_DvB7uoMj969fD5uv2QAM7ErWdPvaDtNXYezIV38'); background-size: cover;"></div>
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container-highest" data-alt="A small circular avatar placeholder for an approved employee in a modern dashboard interface." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBtqcY1D21Wk3HU2EaodMnovLqX2hWtGqtsFPTWD-TDdBP48mSDBN-vy7xi9C1ptHfX483zdv7J7wYcqo18JDtFsshCLWTjwxCiHiCrdq-wlMmyhp1muhJVg8kIRrUNmoG5W1xQhov0jkxFBxantr2wUvplBd-X7GHb2BWEKGu3sOdB16uN6rLSW5lEurNAZcp-ABf7nB0KT2joAOd66690hcXcKuJp7hVobOSrrGKBuFu9N6MWCbOmCmnmW1YZno7w2QSbexBZN7M'); background-size: cover;"></div>
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container-highest" data-alt="A small circular avatar placeholder for an approved employee in a modern dashboard interface." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBkYGnR_y-on0HWbBLG9vJVIUIpJVpYqYNKwS_P39RPeeS9ngYeITzOMyGp4bJ6dmvt0MqzpoKvAlQkTji3ueMSF3Hik98YDQAXS6CTT0rNVWsLjXUW1Butc6cKinKu8VjKuoyqY9X5mHB_0LvPg0dvXaGsnkmytYosuuYdGbpy-SgMHGPwDgi7DtGRimklCBwSvP-cJh3ZRBGv9TS2l26r3VonKUjRZ8_yKXmB5MOc7vNqGjLxCf2kj47rE5iICWDlAAzEIBuh_jk'); background-size: cover;"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

@@ -4,8 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev:main": "vite",
+    "dev:payroll-server": "cd payroll/server && npm run dev",
+    "dev:payroll-client": "cd payroll/client && npm run dev",
+    "dev": "concurrently \"npm run dev:main\" \"npm run dev:payroll-server\" \"npm run dev:payroll-client\"",
+    "build:main": "vite build",
+    "build:payroll-client": "cd payroll/client && npm run build",
+    "build": "npm run build:main && npm run build:payroll-client",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -31,6 +36,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "baseline-browser-mapping": "^2.9.18",
     "browserslist": "^4.28.1",
+    "concurrently": "^8.2.2",
     "terser": "^5.46.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"

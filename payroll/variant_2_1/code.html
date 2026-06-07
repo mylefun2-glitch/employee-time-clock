@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+
+<html lang="zh-TW"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>薪資結算 - CareAdmin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed-variant": "#114783",
+                        "outline-variant": "#c3c6d1",
+                        "on-error": "#ffffff",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "inverse-primary": "#a7c8ff",
+                        "on-primary-fixed": "#001b3c",
+                        "surface": "#f7f9fb",
+                        "background": "#f7f9fb",
+                        "secondary-fixed": "#d3e4fe",
+                        "outline": "#737781",
+                        "surface-bright": "#f7f9fb",
+                        "surface-container-low": "#f2f4f6",
+                        "surface-container-highest": "#e0e3e5",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "on-tertiary-fixed-variant": "#3f465c",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "surface-container-high": "#e6e8ea",
+                        "secondary-container": "#d0e1fb",
+                        "on-tertiary-container": "#b5bdd7",
+                        "surface-variant": "#e0e3e5",
+                        "primary-fixed": "#d5e3ff",
+                        "on-secondary": "#ffffff",
+                        "surface-container": "#eceef0",
+                        "on-tertiary-fixed": "#131b2e",
+                        "on-secondary-container": "#54647a",
+                        "on-background": "#191c1e",
+                        "on-primary": "#ffffff",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-secondary-fixed": "#0b1c30",
+                        "on-primary-container": "#98bfff",
+                        "on-surface": "#191c1e",
+                        "tertiary-fixed": "#dae2fd",
+                        "surface-tint": "#325f9c",
+                        "error-container": "#ffdad6",
+                        "on-surface-variant": "#424750",
+                        "primary-container": "#1b4d89",
+                        "primary": "#00366b",
+                        "inverse-surface": "#2d3133",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed-dim": "#bec6e0",
+                        "primary-fixed-dim": "#a7c8ff",
+                        "secondary": "#505f76",
+                        "surface-dim": "#d8dadc",
+                        "tertiary-container": "#444c62",
+                        "tertiary": "#2e354a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "margin-mobile": "16px",
+                        "sidebar-width": "260px",
+                        "gutter": "16px",
+                        "container-max-width": "1440px",
+                        "margin-desktop": "32px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Inter"],
+                        "body-sm": ["Noto Sans"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Noto Sans"],
+                        "label-md": ["Inter"],
+                        "headline-xl": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Noto Sans"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "600" }],
+                        "headline-xl": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Noto Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .fill-icon { font-variation-settings: 'FILL' 1; }
+        
+        /* Custom Scrollbar for Kanban */
+        .kanban-scroll::-webkit-scrollbar {
+            height: 8px;
+        }
+        .kanban-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .kanban-scroll::-webkit-scrollbar-thumb {
+            background-color: #c3c6d1;
+            border-radius: 4px;
+        }
+        .kanban-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #c3c6d1 transparent;
+        }
+        
+        /* Smooth Drag Transitions */
+        .salary-card {
+            transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease;
+        }
+        .salary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex overflow-hidden">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col p-4 z-40 bg-surface-container-low dark:bg-surface-container-low border-r border-outline-variant dark:border-outline-variant docked h-screen w-sidebar-width left-0 fixed top-0">
+<div class="flex items-center gap-3 mb-8 px-2">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined fill-icon">health_and_safety</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-semibold text-primary dark:text-inverse-primary">機構管理系統</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant">管理員控制台</p>
+</div>
+</div>
+<button class="w-full mb-6 bg-primary text-on-primary font-label-md text-label-md py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity shadow-sm">
+<span class="material-symbols-outlined text-sm">add</span>
+            新增員工
+        </button>
+<ul class="flex flex-col gap-1 flex-1">
+<li class="flex items-center gap-3 px-3 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all cursor-pointer duration-200">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">儀表板</span>
+</li>
+<li class="flex items-center gap-3 px-3 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all cursor-pointer duration-200">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">員工管理</span>
+</li>
+<li class="flex items-center gap-3 px-3 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all cursor-pointer duration-200">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="font-label-md text-label-md">排班管理</span>
+</li>
+<li class="flex items-center gap-3 px-3 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-semibold transition-all cursor-pointer duration-200 shadow-sm">
+<span class="material-symbols-outlined fill-icon">payments</span>
+<span class="font-label-md text-label-md">薪資結算</span>
+</li>
+<li class="flex items-center gap-3 px-3 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all cursor-pointer duration-200 mt-auto">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">系統設定</span>
+</li>
+</ul>
+</nav>
+<!-- Main Content -->
+<main class="flex-1 md:ml-[260px] flex flex-col h-screen overflow-hidden bg-surface-bright">
+<!-- TopNavBar (Mobile Only) -->
+<header class="md:hidden flex justify-between items-center w-full px-margin-mobile h-16 sticky top-0 z-50 bg-surface-container-lowest border-b border-outline-variant">
+<span class="font-headline-lg text-headline-lg font-bold text-primary">CareAdmin</span>
+<div class="flex gap-4 text-on-surface-variant">
+<span class="material-symbols-outlined cursor-pointer">notifications</span>
+<span class="material-symbols-outlined cursor-pointer">menu</span>
+</div>
+</header>
+<!-- Top Header Area (Desktop) -->
+<header class="hidden md:flex justify-between items-center w-full px-margin-desktop py-6 bg-transparent shrink-0">
+<div>
+<h2 class="font-headline-xl text-headline-xl text-on-background">薪資結算</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">2023年10月份結算週期</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">search</span>
+<input class="pl-9 pr-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest font-body-sm text-body-sm focus:border-primary focus:ring-1 focus:ring-primary w-64 shadow-sm" placeholder="搜尋員工..." type="text"/>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container-high border border-outline-variant flex items-center justify-center cursor-pointer hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">filter_list</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden border border-outline-variant ml-2">
+<img alt="Administrator Avatar" class="w-full h-full object-cover" data-alt="A professional headshot of a middle-aged female administrator wearing glasses and a neat blue blazer. She is smiling subtly against a clean, well-lit minimalist white background. The lighting is soft and corporate, fitting a modern light-mode web application avatar." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_NbdMy3VuHMCOjjKMTRaCTXS6ZM6Z73tQNeVWrUjOnRPqROxXRvKeDOdbBjWNGwLANwRlToW2ypZAFzd7TQMW5mUVGGjQakyL45l0RY7qhu11ix0tAw9XLodD22f4Go4igOziQCV1CBkm_f2hS96_7WLTki5rb5NAwGAsLaDxJez8zGP7-WnlVhtQBcyvkZccqIbHQ58iDHX4ZyWya3rormLLDXSLn_WQLoAvtbbYzbNINipwpd0ICWknPXfIaEgwLcr6UM9BvT0"/>
+</div>
+</div>
+</header>
+<!-- Apple-esque Health Gauge Section -->
+<section class="px-margin-desktop py-4 shrink-0 flex justify-center items-center">
+<div class="bg-surface-container-lowest rounded-[2rem] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-surface-container-high flex items-center gap-12 max-w-4xl w-full backdrop-blur-xl">
+<!-- Circular Gauge -->
+<div class="relative w-48 h-48 flex items-center justify-center">
+<svg class="w-full h-full transform -rotate-90" viewbox="0 0 100 100">
+<circle cx="50" cy="50" fill="none" r="45" stroke="#f2f4f6" stroke-width="8"></circle>
+<circle class="transition-all duration-1000 ease-out" cx="50" cy="50" fill="none" r="45" stroke="#00366b" stroke-dasharray="283" stroke-dashoffset="70" stroke-linecap="round" stroke-width="8"></circle>
+</svg>
+<div class="absolute flex flex-col items-center justify-center text-center">
+<span class="font-headline-md text-headline-md text-primary mb-1">75%</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">已完成結算</span>
+</div>
+</div>
+<!-- Stats -->
+<div class="flex-1 grid grid-cols-2 gap-8">
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mb-2">預計總發放</p>
+<p class="font-headline-xl text-headline-xl text-on-background tracking-tight">NT$ 1,245,000</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mb-2">待處理人數</p>
+<p class="font-headline-xl text-headline-xl text-on-background tracking-tight">12 <span class="font-body-md text-body-md text-outline font-normal">/ 48</span></p>
+</div>
+<div class="col-span-2">
+<button class="bg-primary-container text-on-primary-container font-label-md text-label-md py-2 px-6 rounded-full hover:bg-primary hover:text-on-primary transition-colors flex items-center gap-2 w-max">
+<span class="material-symbols-outlined text-sm">rocket_launch</span>
+                            執行批次發放
+                        </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Kanban Pipeline Area -->
+<section class="flex-1 overflow-x-auto overflow-y-hidden px-margin-desktop pb-8 pt-4 kanban-scroll">
+<div class="flex gap-6 h-full min-w-max pb-4">
+<!-- Stage 1: Calculation -->
+<div class="w-[320px] flex flex-col h-full">
+<div class="flex items-center justify-between mb-4 px-2">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-outline"></div>
+<h3 class="font-headline-md text-headline-md text-on-background">計算中</h3>
+</div>
+<span class="font-label-sm text-label-sm bg-surface-container text-on-surface-variant px-2 py-1 rounded-full">4</span>
+</div>
+<div class="flex-1 overflow-y-auto pr-2 space-y-4 kanban-scroll" id="col-calculation">
+<!-- Card 1 -->
+<div class="salary-card bg-surface-container-lowest p-5 rounded-2xl border border-surface-container-high shadow-sm cursor-grab active:cursor-grabbing">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden">
+<img alt="Employee" class="w-full h-full object-cover" data-alt="A professional headshot of a young asian female nurse. She is looking slightly off-camera with a neutral expression. Clean, clinical background. Soft, bright lighting typical of corporate software platforms." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOgG57vgXyTI0EDEDIeQeFwyllTPL8kPcjxAoXl-TWjk1_rgYw3LA84UzphSjlxMnWmANWf8JWVTuZzvhU9QyhHDkE0zbToWfDoWpVLFny1UdRfPJ1qwFY0KMnxv8DfhUl4IOcZrsfIXthta2riqnO2xbZcL88HxmDSh4MriCgZNNaCAxyBfQr7alG5Ps1DvAotw4PcNFlwYncK1quIEb5JIAqWCpRdTZZXRwcLTJed5SjTahpnMvb0_jvkiZE_jV-hOW49zA9eBQ"/>
+</div>
+<div>
+<h4 class="font-label-md text-label-md text-on-background">林雅婷</h4>
+<p class="font-label-sm text-label-sm text-on-surface-variant">護理師 • RN-042</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline hover:text-on-surface-variant cursor-pointer">more_horiz</span>
+</div>
+<div class="space-y-2 mb-4">
+<div class="flex justify-between font-body-sm text-body-sm">
+<span class="text-on-surface-variant">基本薪資</span>
+<span class="text-on-background font-medium">NT$ 45,000</span>
+</div>
+<div class="flex justify-between font-body-sm text-body-sm">
+<span class="text-on-surface-variant">津貼/加班</span>
+<span class="text-primary font-medium">+ NT$ 3,200</span>
+</div>
+</div>
+<div class="pt-3 border-t border-surface-container-high flex justify-between items-center">
+<span class="font-label-sm text-label-sm bg-surface-container-highest text-on-surface-variant px-2 py-1 rounded">工時核對中</span>
+<span class="font-label-md text-label-md text-on-background">NT$ 48,200</span>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="salary-card bg-surface-container-lowest p-5 rounded-2xl border border-surface-container-high shadow-sm cursor-grab active:cursor-grabbing">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary font-label-md">
+                                        陳
+                                    </div>
+<div>
+<h4 class="font-label-md text-label-md text-on-background">陳建宏</h4>
+<p class="font-label-sm text-label-sm text-on-surface-variant">照服員 • CG-108</p>
+</div>
+</div>
+</div>
+<div class="space-y-2 mb-4">
+<div class="flex justify-between font-body-sm text-body-sm">
+<span class="text-on-surface-variant">基本薪資</span>
+<span class="text-on-background font-medium">NT$ 36,000</span>
+</div>
+<div class="flex justify-between font-body-sm text-body-sm">
+<span class="text-error flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">warning</span>缺勤扣款</span>
+<span class="text-error font-medium">- NT$ 1,200</span>
+</div>
+</div>
+<div class="pt-3 border-t border-surface-container-high flex justify-between items-center">
+<span class="font-label-sm text-label-sm bg-surface-container-highest text-on-surface-variant px-2 py-1 rounded">等待確認</span>
+<span class="font-label-md text-label-md text-on-background">NT$ 34,800</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Stage 2: Review -->
+<div class="w-[320px] flex flex-col h-full bg-surface/50 rounded-[2rem] p-2">
+<div class="flex items-center justify-between mb-4 px-2 pt-2">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary-container"></div>
+<h3 class="font-headline-md text-headline-md text-on-background">待覆核</h3>
+</div>
+<span class="font-label-sm text-label-sm bg-primary-container text-on-primary-container px-2 py-1 rounded-full">3</span>
+</div>
+<div class="flex-1 overflow-y-auto pr-2 space-y-4 kanban-scroll" id="col-review">
+<!-- Card 3 -->
+<div class="salary-card bg-surface-container-lowest p-5 rounded-2xl border border-primary-container shadow-sm cursor-grab active:cursor-grabbing relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary-container"></div>
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden">
+<img alt="Employee" class="w-full h-full object-cover" data-alt="A professional headshot of a middle-aged male social worker. He has short hair and a warm smile. Clean, clinical background. Soft, bright lighting typical of corporate software platforms." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAFjh455Vr3t7OMFKmFffvbmc0q5ItHtSq8IEVe9rCYhFJQ65bHVTPwIhJXjaWLK22XOX5mWHvn8RjkmuHDAfapL1gGLW6LNsPv3lKIllsKWE4zfxcjZRp96iDTiU0TiCFrqX4CUbtU9_BaffUv-zKikUX5oLwtL_lX6MJr_hlDxdemWbQMwYdSQl8LmF_xZvqsvgkT_n0ZDtqv0iP2VbrYZ7W_WRRoLtt9Hxgj7fSMdYFpA43OQbwZu7-Dg-UA35oX2AjfdUSem3s"/>
+</div>
+<div>
+<h4 class="font-label-md text-label-md text-on-background">王大明</h4>
+<p class="font-label-sm text-label-sm text-on-surface-variant">社工師 • SW-012</p>
+</div>
+</div>
+</div>
+<div class="space-y-2 mb-4">
+<div class="flex justify-between font-body-sm text-body-sm">
+<span class="text-on-surface-variant">實發薪資</span>
+<span class="text-on-background font-medium text-lg">NT$ 52,100</span>
+</div>
+</div>
+<div class="flex gap-2 mt-4">
+<button class="flex-1 py-1.5 border border-outline-variant rounded-lg font-label-sm text-label-sm text-on-surface-variant hover:bg-surface-container transition-colors">退回</button>
+<button class="flex-1 py-1.5 bg-primary text-on-primary rounded-lg font-label-sm text-label-sm hover:opacity-90 transition-opacity">覆核</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Stage 3: Approval -->
+<div class="w-[320px] flex flex-col h-full">
+<div class="flex items-center justify-between mb-4 px-2">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-surface-tint"></div>
+<h3 class="font-headline-md text-headline-md text-on-background">主管核准</h3>
+</div>
+<span class="font-label-sm text-label-sm bg-surface-container text-on-surface-variant px-2 py-1 rounded-full">5</span>
+</div>
+<div class="flex-1 overflow-y-auto pr-2 space-y-4 kanban-scroll" id="col-approval">
+<!-- Card 4 -->
+<div class="salary-card bg-surface-container-lowest p-5 rounded-2xl border border-surface-container-high shadow-sm cursor-grab active:cursor-grabbing opacity-80 hover:opacity-100 transition-opacity">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary font-label-md">
+                                        李
+                                    </div>
+<div>
+<h4 class="font-label-md text-label-md text-on-background">李淑芬</h4>
+<p class="font-label-sm text-label-sm text-on-surface-variant">行政主管 • AD-001</p>
+</div>
+</div>
+</div>
+<div class="flex justify-between font-body-sm text-body-sm mb-4">
+<span class="text-on-surface-variant">實發薪資</span>
+<span class="text-on-background font-medium">NT$ 68,500</span>
+</div>
+<div class="flex items-center gap-2 text-surface-tint">
+<span class="material-symbols-outlined text-[16px]">hourglass_empty</span>
+<span class="font-label-sm text-label-sm">等待主任簽核</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Stage 4: Payout -->
+<div class="w-[320px] flex flex-col h-full bg-surface-container-low rounded-[2rem] p-2">
+<div class="flex items-center justify-between mb-4 px-2 pt-2">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-[#1e8e3e]"></div>
+<h3 class="font-headline-md text-headline-md text-on-background">已發放</h3>
+</div>
+<span class="font-label-sm text-label-sm bg-surface-container-highest text-on-surface-variant px-2 py-1 rounded-full">36</span>
+</div>
+<div class="flex-1 overflow-y-auto pr-2 space-y-4 kanban-scroll" id="col-payout">
+<!-- Card 5 (Completed) -->
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-surface-container-high opacity-60 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container overflow-hidden">
+<img alt="Employee" class="w-full h-full object-cover" data-alt="A professional headshot of a young male physical therapist. Clean, clinical background. Soft, bright lighting typical of corporate software platforms." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRrV4fy4ZsAV0QDMXKIqHORRwAp0rz7uLiSv1iJc1jOF8BtI8BRrzYaUwotfdER-_FrpNGKVRt1ngK2chVHf_jMGuk852K6-_supQ0yGUe_6LpWrqe731qEGUvQN66yAv2SKrcSH8Dgi3VaPFnDzH4za-5dQMzJmkKvPlqfO4jsy5uJSuGveOYqL-JRi87hpkF_A1c6KhfpqSkcu9-qvuE76rxEyPwi8zePcVjS6pBHoz55q4U0ttAldMdvniIvzWjKEqHvjVOeag"/>
+</div>
+<div>
+<h4 class="font-label-sm text-label-sm text-on-background">張智偉</h4>
+<p class="font-body-sm text-[10px] text-on-surface-variant">NT$ 42,000</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-[#1e8e3e]">check_circle</span>
+</div>
+<!-- Card 6 (Completed) -->
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-surface-container-high opacity-60 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-primary font-label-md">
+                                    吳
+                                </div>
+<div>
+<h4 class="font-label-sm text-label-sm text-on-background">吳美玲</h4>
+<p class="font-body-sm text-[10px] text-on-surface-variant">NT$ 38,500</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-[#1e8e3e]">check_circle</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<script>
+        // Simple JS to simulate drag and drop visual state (not full functionality for brevity, just aesthetics)
+        const cards = document.querySelectorAll('.salary-card');
+        cards.forEach(card => {
+            card.addEventListener('mousedown', () => {
+                card.style.transform = 'scale(1.02) rotate(1deg)';
+                card.style.zIndex = '10';
+            });
+            card.addEventListener('mouseup', () => {
+                card.style.transform = 'scale(1) rotate(0deg)';
+                card.style.zIndex = '1';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'scale(1) rotate(0deg)';
+                card.style.zIndex = '1';
+            });
+        });
+    </script>
+</body></html>

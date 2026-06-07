@@ -13,11 +13,20 @@ const MovementHistory: React.FC<MovementHistoryProps> = ({ employeeId, isAdmin =
     const [showForm, setShowForm] = useState(false);
 
     // Form state
-    const [movementType, setMovementType] = useState('職務調整');
+    const [selectedTypes, setSelectedTypes] = useState<string[]>(['職務調整']);
+    const [customType, setCustomType] = useState('');
     const [oldValue, setOldValue] = useState('');
     const [newValue, setNewValue] = useState('');
     const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0]);
     const [reason, setReason] = useState('');
+
+    const handleAddCustomType = () => {
+        const trimmed = customType.trim();
+        if (trimmed && !selectedTypes.includes(trimmed)) {
+            setSelectedTypes([...selectedTypes, trimmed]);
+            setCustomType('');
+        }
+    };
 
     useEffect(() => {
         fetchMovements();
@@ -32,9 +41,10 @@ const MovementHistory: React.FC<MovementHistoryProps> = ({ employeeId, isAdmin =
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const finalType = selectedTypes.join(', ') || '其他';
         const res = await createEmployeeMovement({
             employee_id: employeeId,
-            movement_type: movementType,
+            movement_type: finalType,
             old_value: oldValue,
             new_value: newValue,
             effective_date: effectiveDate,
@@ -45,6 +55,8 @@ const MovementHistory: React.FC<MovementHistoryProps> = ({ employeeId, isAdmin =
             setShowForm(false);
             fetchMovements();
             // Reset form
+            setSelectedTypes(['職務調整']);
+            setCustomType('');
             setOldValue('');
             setNewValue('');
             setReason('');
@@ -68,20 +80,74 @@ const MovementHistory: React.FC<MovementHistoryProps> = ({ employeeId, isAdmin =
             {showForm && isAdmin && (
                 <form onSubmit={handleSubmit} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-4 animate-in fade-in slide-in-from-top-2">
                     <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">異動類型</label>
-                            <select
-                                value={movementType}
-                                onChange={(e) => setMovementType(e.target.value)}
-                                className="w-full rounded-xl border-slate-200 text-xs p-2.5 focus:ring-blue-500"
-                            >
-                                <option>職務調整</option>
-                                <option>部門異動</option>
-                                <option>薪資調整</option>
-                                <option>晉升</option>
-                                <option>轉正</option>
-                                <option>其他</option>
-                            </select>
+                        <div className="col-span-2 space-y-2">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">異動類型 (可複選)</label>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                                {['職務調整', '部門異動', '薪資調整', '晉升', '轉正'].map(type => {
+                                    const isSelected = selectedTypes.includes(type);
+                                    return (
+                                        <button
+                                            key={type}
+                                            type="button"
+                                            onClick={() => {
+                                                if (isSelected) {
+                                                    setSelectedTypes(selectedTypes.filter(t => t !== type));
+                                                } else {
+                                                    setSelectedTypes([...selectedTypes, type]);
+                                                }
+                                            }}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                                isSelected
+                                                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                                                    : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'
+                                            }`}
+                                        >
+                                            {type}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            
+                            <div className="flex gap-2 items-center">
+                                <input
+                                    type="text"
+                                    value={customType}
+                                    onChange={(e) => setCustomType(e.target.value)}
+                                    placeholder="輸入自訂異動類型..."
+                                    className="flex-1 rounded-xl border-slate-200 text-xs p-2.5 focus:ring-blue-500 bg-white"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleAddCustomType();
+                                        }
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleAddCustomType}
+                                    className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 shrink-0 transition-all"
+                                >
+                                    新增自訂
+                                </button>
+                            </div>
+                            
+                            {selectedTypes.filter(t => !['職務調整', '部門異動', '薪資調整', '晉升', '轉正'].includes(t)).length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 pt-1 items-center">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">已選自訂:</span>
+                                    {selectedTypes.filter(t => !['職務調整', '部門異動', '薪資調整', '晉升', '轉正'].includes(t)).map(type => (
+                                        <span key={type} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg shadow-sm animate-in zoom-in-95">
+                                            {type}
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedTypes(selectedTypes.filter(t => t !== type))}
+                                                className="text-slate-400 hover:text-rose-500 font-bold"
+                                            >
+                                                ✕
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">生效日期</label>

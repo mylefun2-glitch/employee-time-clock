@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+
+<html lang="zh-TW"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CareAdmin - 員工管理</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "primary": "#00366b",
+                      "on-tertiary-container": "#b5bdd7",
+                      "surface-tint": "#325f9c",
+                      "on-surface-variant": "#424750",
+                      "on-tertiary-fixed": "#131b2e",
+                      "primary-fixed": "#d5e3ff",
+                      "surface-bright": "#f7f9fb",
+                      "on-primary-container": "#98bfff",
+                      "secondary-container": "#d0e1fb",
+                      "surface-container-highest": "#e0e3e5",
+                      "tertiary-container": "#444c62",
+                      "surface-container-low": "#f2f4f6",
+                      "on-secondary-fixed-variant": "#38485d",
+                      "on-surface": "#191c1e",
+                      "inverse-surface": "#2d3133",
+                      "outline": "#737781",
+                      "tertiary": "#2e354a",
+                      "surface-dim": "#d8dadc",
+                      "primary-container": "#1b4d89",
+                      "on-primary-fixed-variant": "#114783",
+                      "on-primary": "#ffffff",
+                      "inverse-on-surface": "#eff1f3",
+                      "error": "#ba1a1a",
+                      "on-tertiary": "#ffffff",
+                      "on-secondary-fixed": "#0b1c30",
+                      "on-secondary": "#ffffff",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-fixed-dim": "#b7c8e1",
+                      "on-primary-fixed": "#001b3c",
+                      "primary-fixed-dim": "#a7c8ff",
+                      "surface": "#f7f9fb",
+                      "background": "#f7f9fb",
+                      "tertiary-fixed-dim": "#bec6e0",
+                      "error-container": "#ffdad6",
+                      "on-error": "#ffffff",
+                      "surface-container": "#eceef0",
+                      "tertiary-fixed": "#dae2fd",
+                      "inverse-primary": "#a7c8ff",
+                      "surface-variant": "#e0e3e5",
+                      "on-error-container": "#93000a",
+                      "outline-variant": "#c3c6d1",
+                      "on-background": "#191c1e",
+                      "surface-container-high": "#e6e8ea",
+                      "secondary": "#505f76",
+                      "on-tertiary-fixed-variant": "#3f465c",
+                      "on-secondary-container": "#54647a",
+                      "secondary-fixed": "#d3e4fe"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "container-max-width": "1440px",
+                      "margin-mobile": "16px",
+                      "gutter": "16px",
+                      "unit": "4px",
+                      "sidebar-width": "260px",
+                      "margin-desktop": "32px"
+              },
+              "fontFamily": {
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "label-md": [
+                              "Inter"
+                      ],
+                      "headline-xl": [
+                              "Inter"
+                      ],
+                      "body-sm": [
+                              "Noto Sans"
+                      ],
+                      "body-lg": [
+                              "Noto Sans"
+                      ],
+                      "body-md": [
+                              "Noto Sans"
+                      ],
+                      "label-sm": [
+                              "Inter"
+                      ],
+                      "headline-lg": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "headline-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-md": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-xl": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-sm": [
+                              "13px",
+                              {
+                                      "lineHeight": "18px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "11px",
+                              {
+                                      "lineHeight": "14px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased flex h-screen overflow-hidden">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col bg-surface-container-low text-primary font-label-md fixed left-0 top-0 h-full w-sidebar-width border-r border-outline-variant z-40 p-4 transition-all duration-300" id="sidebar">
+<div class="flex items-center gap-3 mb-8 px-2">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="business">business</span>
+</div>
+<div class="overflow-hidden transition-all duration-300" id="sidebar-header-text">
+<h1 class="font-headline-md text-headline-md font-semibold text-primary truncate">機構管理系統</h1>
+<p class="text-on-surface-variant text-label-sm truncate">管理員控制台</p>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary rounded-xl py-3 px-4 mb-6 flex items-center justify-center gap-2 hover:bg-primary-container hover:text-on-primary-container transition-colors shrink-0" id="sidebar-cta">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+<span class="whitespace-nowrap overflow-hidden transition-all duration-300" id="sidebar-cta-text">新增員工</span>
+</button>
+<ul class="flex flex-col gap-1 flex-1 overflow-y-auto no-scrollbar">
+<li>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all cursor-pointer duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
+<span class="whitespace-nowrap overflow-hidden transition-all duration-300 sidebar-text">儀表板</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-semibold transition-all cursor-pointer duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="group" style="font-variation-settings: 'FILL' 1;">group</span>
+<span class="whitespace-nowrap overflow-hidden transition-all duration-300 sidebar-text">員工管理</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all cursor-pointer duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="calendar_month">calendar_month</span>
+<span class="whitespace-nowrap overflow-hidden transition-all duration-300 sidebar-text">排班管理</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all cursor-pointer duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="payments">payments</span>
+<span class="whitespace-nowrap overflow-hidden transition-all duration-300 sidebar-text">薪資結算</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all cursor-pointer duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+<span class="whitespace-nowrap overflow-hidden transition-all duration-300 sidebar-text">系統設定</span>
+</a>
+</li>
+</ul>
+<div class="mt-auto pt-4 border-t border-outline-variant">
+<button class="flex items-center gap-3 px-3 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all cursor-pointer duration-200 w-full" id="toggle-sidebar">
+<span class="material-symbols-outlined text-[20px] transition-transform duration-300" data-icon="keyboard_double_arrow_left" id="toggle-icon">keyboard_double_arrow_left</span>
+<span class="whitespace-nowrap overflow-hidden transition-all duration-300 sidebar-text">收合選單</span>
+</button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col md:ml-sidebar-width transition-all duration-300" id="main-content">
+<!-- TopNavBar -->
+<header class="bg-surface-container-lowest font-headline-md text-headline-md border-b border-outline-variant sticky top-0 z-30 h-16 flex justify-between items-center w-full px-margin-desktop shrink-0">
+<div class="flex items-center gap-4 flex-1">
+<button class="md:hidden text-on-surface-variant p-2 -ml-2 rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<div class="font-headline-lg text-headline-lg font-bold text-primary hidden md:block">CareAdmin</div>
+<div class="relative max-w-md w-full ml-0 md:ml-8 hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]" data-icon="search">search</span>
+<input class="w-full h-9 pl-10 pr-4 bg-surface-container-low border border-outline-variant rounded-xl text-body-md focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors placeholder:text-outline" placeholder="搜尋員工..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors relative cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface-container-lowest"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-secondary-container ml-2 overflow-hidden border border-outline-variant cursor-pointer">
+<img alt="Administrator Avatar" class="w-full h-full object-cover" data-alt="A professional headshot of a corporate administrator, light mode aesthetic, clean white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZ-tpLO9Fk-ExJWjHTQ-YpWqIAS00-VV_6pTeqaGzbkAdO62tDsjE1sKynl_nu4GvGVRd3Whhms7iLVDrZD7jaOUU8Ouns2TMEWNvuNEip1FJ2Q3QQdzyMRYkl7u-YcBdh6Dm2hbdDuFnRcTuGtfeDkB5-3i1gAdmJVB1c4mcvfS_STfMLS89jMXTT8FEEZhlhyTRMkl6lp6hhjUAMR-V-KDOCl7oeErREWYql4P7dPvIhgSO5EfGkRq3xfUlOANbLQaxa5MWqD9g"/>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="flex-1 overflow-y-auto bg-surface p-margin-mobile md:p-margin-desktop">
+<div class="max-w-container-max-width mx-auto">
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+<h2 class="font-headline-xl text-headline-xl text-on-surface">員工管理</h2>
+<div class="flex items-center gap-3 w-full sm:w-auto">
+<button class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 border border-outline text-secondary bg-surface-container-lowest rounded-xl hover:bg-surface-container-low transition-colors text-body-md font-medium h-10">
+<span class="material-symbols-outlined text-[18px]" data-icon="download">download</span>
+                            匯出列表
+                        </button>
+<button class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-xl hover:bg-primary-container hover:text-on-primary-container transition-colors text-body-md font-medium h-10">
+<span class="material-symbols-outlined text-[18px]" data-icon="add">add</span>
+                            新增員工
+                        </button>
+</div>
+</div>
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant flex flex-col gap-2">
+<p class="text-on-surface-variant text-body-sm font-medium">總員工人數</p>
+<div class="flex items-end justify-between">
+<span class="font-headline-xl text-headline-xl text-on-surface">245</span>
+<span class="material-symbols-outlined text-outline text-[24px]" data-icon="groups">groups</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant flex flex-col gap-2 relative overflow-hidden">
+<div class="absolute right-0 top-0 w-16 h-16 bg-primary-fixed/30 rounded-bl-full -z-0"></div>
+<p class="text-on-surface-variant text-body-sm font-medium relative z-10">在職員工</p>
+<div class="flex items-end gap-3 relative z-10">
+<span class="font-headline-xl text-headline-xl text-primary">232</span>
+<span class="text-label-sm font-medium text-[#146c2e] bg-[#e6f4ea] px-2 py-0.5 rounded-full mb-1 flex items-center">
+<span class="material-symbols-outlined text-[12px] mr-0.5" data-icon="arrow_upward">arrow_upward</span>5 本月
+                            </span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant flex flex-col gap-2">
+<p class="text-on-surface-variant text-body-sm font-medium">休假中</p>
+<div class="flex items-end justify-between">
+<span class="font-headline-xl text-headline-xl text-on-surface">8</span>
+<span class="material-symbols-outlined text-[#b36b00] text-[24px]" data-icon="event_busy">event_busy</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant flex flex-col gap-2">
+<p class="text-on-surface-variant text-body-sm font-medium">待入職</p>
+<div class="flex items-end justify-between">
+<span class="font-headline-xl text-headline-xl text-on-surface">5</span>
+<span class="material-symbols-outlined text-secondary text-[24px]" data-icon="pending_actions">pending_actions</span>
+</div>
+</div>
+</div>
+<!-- Data Table Section -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden flex flex-col shadow-sm">
+<!-- Filters Bar -->
+<div class="p-4 border-b border-outline-variant bg-surface-container-lowest flex flex-col sm:flex-row gap-4 justify-between items-center">
+<div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+<div class="relative w-full sm:w-36">
+<select class="w-full h-9 pl-3 pr-8 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-sm appearance-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-on-surface">
+<option value="">部門 (全部)</option>
+<option value="care">照護部</option>
+<option value="admin">行政部</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-[18px]" data-icon="expand_more">expand_more</span>
+</div>
+<div class="relative w-full sm:w-36">
+<select class="w-full h-9 pl-3 pr-8 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-sm appearance-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-on-surface">
+<option value="">狀態 (全部)</option>
+<option value="active">在職</option>
+<option value="leave">休假</option>
+<option value="resigned">離職</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-[18px]" data-icon="expand_more">expand_more</span>
+</div>
+<div class="relative w-full sm:w-36">
+<select class="w-full h-9 pl-3 pr-8 bg-surface-container-lowest border border-outline-variant rounded-xl text-body-sm appearance-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-on-surface">
+<option value="">職稱 (全部)</option>
+<option value="senior">資深照服員</option>
+<option value="junior">照服員</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-[18px]" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<div class="relative w-full sm:w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]" data-icon="search">search</span>
+<input class="w-full h-9 pl-9 pr-4 bg-surface border border-outline-variant rounded-xl text-body-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" placeholder="搜尋姓名或編號..." type="text"/>
+</div>
+</div>
+<!-- Table -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse min-w-[800px]">
+<thead>
+<tr class="bg-surface-container border-b border-outline-variant text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">
+<th class="p-4 w-12 text-center">
+<input class="w-4 h-4 rounded border-outline text-primary focus:ring-primary bg-surface-container-lowest cursor-pointer" type="checkbox"/>
+</th>
+<th class="p-4 font-medium">員工資料</th>
+<th class="p-4 font-medium">部門 / 職稱</th>
+<th class="p-4 font-medium">聘僱別</th>
+<th class="p-4 font-medium">到職日</th>
+<th class="p-4 font-medium">狀態</th>
+<th class="p-4 font-medium text-right">操作</th>
+</tr>
+</thead>
+<tbody class="text-body-md text-on-surface divide-y divide-outline-variant bg-surface-container-lowest">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="p-4 text-center">
+<input class="w-4 h-4 rounded border-outline text-primary focus:ring-primary bg-surface-container-lowest cursor-pointer" type="checkbox"/>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-highest border border-outline-variant shrink-0">
+<img alt="Sarah Jenkins" class="w-full h-full object-cover" data-alt="Professional headshot of a female employee named Sarah Jenkins, corporate style, neutral lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3XBamHTICrgMijubcZVw2thTZPWgILpPWEWLjMRg_EbMMMVYsp5yghWfOcfR670bt96UYSzel-KmAz7hSrRC6R8Fhh1d0d-3WdTI1UDCiMgKjWXhtbkC-G05D7vbWDQuVyAK1ZaohcSqX_UcoWKkJqq4G4mrbRYDd1x2AFgT26RWJJ47C8iHRDL1MRXiqoWvZad4GfaDmILOQfnFc307G74E_nBobLqvsCrgEfwaMdfZMCU5YBCMHZW_YlKXGNyPruvPs1WT-OTw"/>
+</div>
+<div>
+<div class="font-medium text-on-surface">Sarah Jenkins</div>
+<div class="text-body-sm text-on-surface-variant font-mono">EMP-8492</div>
+</div>
+</div>
+</td>
+<td class="p-4">
+<div class="text-on-surface">Senior Care Worker</div>
+<div class="text-body-sm text-on-surface-variant">Care Dept</div>
+</td>
+<td class="p-4 text-on-surface-variant">Full-time</td>
+<td class="p-4 text-on-surface-variant font-mono">2022-05-15</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full font-label-md text-label-sm bg-[#e6f4ea] text-[#146c2e]">
+                                            在職
+                                        </span>
+</td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-secondary hover:bg-surface-container-highest rounded-lg transition-colors tooltip-trigger" title="查看">
+<span class="material-symbols-outlined text-[20px]" data-icon="visibility">visibility</span>
+</button>
+<button class="p-1.5 text-primary hover:bg-primary-fixed rounded-lg transition-colors tooltip-trigger" title="編輯">
+<span class="material-symbols-outlined text-[20px]" data-icon="edit">edit</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="p-4 text-center">
+<input class="w-4 h-4 rounded border-outline text-primary focus:ring-primary bg-surface-container-lowest cursor-pointer" type="checkbox"/>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-highest border border-outline-variant shrink-0">
+<img alt="Michael Ross" class="w-full h-full object-cover" data-alt="Professional headshot of a male employee named Michael Ross, corporate style, neutral lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLJaeKBSDdAaRkoSeuTm0Nasj_p9x_oHQXODSe7PE5V8YqxJVyyOv0bYwF-p-8Obr0MoLaGdhLYymfUTPUq9IjeCEg35O6AaybLwKsIZ4LbK_WKuX5LrYlM51O8vkaPQFqOEdQl1kC_LZioUNjga0OdWbTC-2IWKhyuLvzVsytyqW2MzBEVcw3vtw-cxPfUAVk92jo5yFMGet_ltUqZXTlnpBn8eQo7Ugly3cGBJX4QY6wwltSrfI1UqqlKa0ZR29uaCis8coUoqA"/>
+</div>
+<div>
+<div class="font-medium text-on-surface">Michael Ross</div>
+<div class="text-body-sm text-on-surface-variant font-mono">EMP-8501</div>
+</div>
+</div>
+</td>
+<td class="p-4">
+<div class="text-on-surface">Care Worker</div>
+<div class="text-body-sm text-on-surface-variant">Care Dept</div>
+</td>
+<td class="p-4 text-on-surface-variant">Part-time</td>
+<td class="p-4 text-on-surface-variant font-mono">2023-01-10</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full font-label-md text-label-sm bg-[#fff8e6] text-[#b36b00]">
+                                            休假中
+                                        </span>
+</td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-secondary hover:bg-surface-container-highest rounded-lg transition-colors tooltip-trigger" title="查看">
+<span class="material-symbols-outlined text-[20px]" data-icon="visibility">visibility</span>
+</button>
+<button class="p-1.5 text-primary hover:bg-primary-fixed rounded-lg transition-colors tooltip-trigger" title="編輯">
+<span class="material-symbols-outlined text-[20px]" data-icon="edit">edit</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="p-4 text-center">
+<input class="w-4 h-4 rounded border-outline text-primary focus:ring-primary bg-surface-container-lowest cursor-pointer" type="checkbox"/>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-highest border border-outline-variant shrink-0">
+<img alt="Elena Lopez" class="w-full h-full object-cover" data-alt="Professional headshot of a female employee named Elena Lopez, corporate style, neutral lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAphVqmBfxN9ZzwHOoKS59emv6RdTu7u8Bu7--cMuCcUUF5Irtqhkk27OcxYStRvp5LCmUs1aq0zzU6DnxQ0eJN2cZcuHx4VedUKj0gEtFnwN90nKEC6iNnaVoxYV--h4bLBgytk7ZKN3D9EMsbHUlTZVz7dbmL04EOvDTXjKyoDJ5HvOJ4-ckoQlBwnI4QuLCwVdebQMZcVI62apNJvWgBc7ETPKpr8PtP0YfwLarCXxgOCVGHu4Id1bWagI2uy14RZg8LYn6Efyo"/>
+</div>
+<div>
+<div class="font-medium text-on-surface">Elena Lopez</div>
+<div class="text-body-sm text-on-surface-variant font-mono">EMP-8522</div>
+</div>
+</div>
+</td>
+<td class="p-4">
+<div class="text-on-surface">Nursing Assistant</div>
+<div class="text-body-sm text-on-surface-variant">Medical Dept</div>
+</td>
+<td class="p-4 text-on-surface-variant">Contract</td>
+<td class="p-4 text-on-surface-variant font-mono">2023-08-01</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full font-label-md text-label-sm bg-[#e6f4ea] text-[#146c2e]">
+                                            在職
+                                        </span>
+</td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-secondary hover:bg-surface-container-highest rounded-lg transition-colors tooltip-trigger" title="查看">
+<span class="material-symbols-outlined text-[20px]" data-icon="visibility">visibility</span>
+</button>
+<button class="p-1.5 text-primary hover:bg-primary-fixed rounded-lg transition-colors tooltip-trigger" title="編輯">
+<span class="material-symbols-outlined text-[20px]" data-icon="edit">edit</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="p-4 text-center">
+<input class="w-4 h-4 rounded border-outline text-primary focus:ring-primary bg-surface-container-lowest cursor-pointer" type="checkbox"/>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-highest border border-outline-variant shrink-0">
+<img alt="David Thompson" class="w-full h-full object-cover" data-alt="Professional headshot of a male employee named David Thompson, corporate style, neutral lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUByZXJ4cTe-aBroG_xWAM-l7d8JKW8JmfZkC48V35bCW2L_fluGuGpV3GMr2xTLs057vExmMqhFQ9JLfJwMJiBxcmFaLHmxmQCZQXJq1NzI4FNj8nvyTA-XYSbAZnZAYROJyRyJ4JHrpj6ZTb_Xy14_rpCNsY-Ab6oCwvYhBcjNAkUcJ8ByS6Bq6Zm6AVefmnITe8HmOeNSMULxDzgFEALwVEwcVTEEjyM7OxyNkHFTZC7sGHvm3bkFp1MTSFCiiL9FrftxfjnyM"/>
+</div>
+<div>
+<div class="font-medium text-on-surface">David Thompson</div>
+<div class="text-body-sm text-on-surface-variant font-mono">EMP-8410</div>
+</div>
+</div>
+</td>
+<td class="p-4">
+<div class="text-on-surface">Administrator</div>
+<div class="text-body-sm text-on-surface-variant">Admin Dept</div>
+</td>
+<td class="p-4 text-on-surface-variant">Full-time</td>
+<td class="p-4 text-on-surface-variant font-mono">2021-11-20</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full font-label-md text-label-sm bg-surface-variant text-on-surface-variant">
+                                            離職
+                                        </span>
+</td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-secondary hover:bg-surface-container-highest rounded-lg transition-colors tooltip-trigger" title="查看">
+<span class="material-symbols-outlined text-[20px]" data-icon="visibility">visibility</span>
+</button>
+<button class="p-1.5 text-primary hover:bg-primary-fixed rounded-lg transition-colors tooltip-trigger" title="編輯">
+<span class="material-symbols-outlined text-[20px]" data-icon="edit">edit</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="p-4 border-t border-outline-variant bg-surface-container-lowest flex items-center justify-between text-body-sm text-on-surface-variant">
+<div>
+                            顯示 1 至 4 筆，共 245 筆
+                        </div>
+<div class="flex items-center gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-outline hover:bg-surface-container-low disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-[18px]" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded bg-primary text-on-primary font-medium">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-on-surface hover:bg-surface-container-low font-medium">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-on-surface hover:bg-surface-container-low font-medium">3</button>
+<span class="px-1">...</span>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-on-surface hover:bg-surface-container-low font-medium">25</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-outline hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[18px]" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Sidebar Toggle Logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('main-content');
+            const toggleBtn = document.getElementById('toggle-sidebar');
+            const toggleIcon = document.getElementById('toggle-icon');
+            
+            const headerText = document.getElementById('sidebar-header-text');
+            const ctaBtn = document.getElementById('sidebar-cta');
+            const ctaText = document.getElementById('sidebar-cta-text');
+            const navTexts = document.querySelectorAll('.sidebar-text');
+            
+            let isCollapsed = false;
+
+            toggleBtn.addEventListener('click', () => {
+                isCollapsed = !isCollapsed;
+                
+                if (isCollapsed) {
+                    sidebar.style.width = '80px';
+                    mainContent.classList.remove('md:ml-sidebar-width');
+                    mainContent.style.marginLeft = '80px';
+                    
+                    headerText.style.opacity = '0';
+                    setTimeout(() => headerText.style.display = 'none', 300);
+                    
+                    ctaText.style.display = 'none';
+                    ctaBtn.classList.remove('px-4', 'rounded-xl');
+                    ctaBtn.classList.add('p-2', 'rounded-full', 'w-10', 'h-10');
+                    
+                    navTexts.forEach(text => {
+                        text.style.display = 'none';
+                    });
+                    
+                    toggleIcon.style.transform = 'rotate(180deg)';
+                } else {
+                    sidebar.style.width = '260px';
+                    mainContent.style.marginLeft = '';
+                    mainContent.classList.add('md:ml-sidebar-width');
+                    
+                    headerText.style.display = 'block';
+                    setTimeout(() => headerText.style.opacity = '1', 10);
+                    
+                    ctaText.style.display = 'inline';
+                    ctaBtn.classList.add('px-4', 'rounded-xl');
+                    ctaBtn.classList.remove('p-2', 'rounded-full', 'w-10', 'h-10');
+                    
+                    navTexts.forEach(text => {
+                        text.style.display = 'inline';
+                    });
+                    
+                    toggleIcon.style.transform = 'rotate(0deg)';
+                }
+            });
+        });
+    </script>
+</body></html>
