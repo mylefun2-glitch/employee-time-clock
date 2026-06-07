@@ -177,7 +177,7 @@ export default function Sidebar({ isCollapsed, onToggle }) {
         </div>
         <button
           onClick={() => {
-            const mainSystemUrl = import.meta.env.VITE_MAIN_SYSTEM_URL || 'http://localhost:3000';
+            const mainSystemUrl = import.meta.env.VITE_MAIN_SYSTEM_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
             window.location.href = `${mainSystemUrl}/admin/dashboard`;
           }}
           style={{

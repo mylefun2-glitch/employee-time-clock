@@ -1,7 +1,11 @@
 {
     "rewrites": [
         {
-            "source": "/(.*)",
+            "source": "/payroll/(.*)",
+            "destination": "/payroll/index.html"
+        },
+        {
+            "source": "/((?!payroll/).*)",
             "destination": "/index.html"
         }
     ]

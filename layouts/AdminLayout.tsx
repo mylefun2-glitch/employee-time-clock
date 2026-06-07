@@ -37,7 +37,7 @@ const AdminLayout: React.FC = () => {
         navigate('/admin/login');
     };
 
-    const payrollUrl = (import.meta as any).env.VITE_PAYROLL_URL || 'http://localhost:3001';
+    const payrollUrl = (import.meta as any).env.VITE_PAYROLL_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '/payroll/');
 
     const navItems = [
         { path: '/admin/dashboard', icon: 'dashboard', label: '儀表板' },
