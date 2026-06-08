@@ -1,6 +1,10 @@
 {
     "rewrites": [
         {
+            "source": "/api/:path*",
+            "destination": "https://employee-time-clock-9s7a.onrender.com/api/:path*"
+        },
+        {
             "source": "/payroll/(.*)",
             "destination": "/payroll/index.html"
         },
