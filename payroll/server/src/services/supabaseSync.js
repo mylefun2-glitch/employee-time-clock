@@ -20,18 +20,6 @@ export async function syncEmployees() {
 
     console.log(`Fetched ${sbEmployees.length} employees from Supabase.`);
 
-    // 2. Fetch all schedules to get salary types
-    const { data: sbSchedules, error: schedError } = await supabase
-      .from('employee_schedules')
-      .select('*');
-
-    const schedulesMap = {};
-    if (!schedError && sbSchedules) {
-      sbSchedules.forEach(s => {
-        schedulesMap[s.employee_id] = s.salary_type || 'MONTHLY';
-      });
-    }
-
     let syncedCount = 0;
 
     for (const sbEmp of sbEmployees) {
@@ -44,7 +32,7 @@ export async function syncEmployees() {
         employeeNo = `EMP-${sbEmp.id.substring(0, 4).toUpperCase()}`;
       }
 
-      const salaryType = (schedulesMap[sbEmp.id] || 'MONTHLY').toLowerCase() === 'hourly' ? 'hourly' : 'monthly';
+      const salaryType = (sbEmp.salary_type || 'MONTHLY').toLowerCase() === 'hourly' ? 'hourly' : 'monthly';
       const gender = sbEmp.gender === 'FEMALE' ? 'F' : sbEmp.gender === 'MALE' ? 'M' : 'F';
 
       const baseSalaryVal = salaryType === 'hourly'
