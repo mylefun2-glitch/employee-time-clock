@@ -3,7 +3,7 @@ import { Plus, Pencil, Trash2, Search, Upload, Download, Filter, ArrowUpDown, Ch
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Employee } from '../../types';
-import { createEmployee, updateEmployee, deleteEmployee, addEmployeeSchedule } from '../../services/admin';
+import { createEmployee, updateEmployee, deleteEmployee, addEmployeeSchedule, importBulkEmployeeSchedules } from '../../services/admin';
 import EmployeeModal from '../../components/admin/EmployeeModal';
 import { calculateSeniority, getSeniorityRange } from '../../lib/hrUtils';
 import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
@@ -72,6 +72,7 @@ const EmployeesPage: React.FC = () => {
     const [importing, setImporting] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: keyof Employee | 'seniority'; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const scheduleFileInputRef = useRef<HTMLInputElement>(null);
     const navigate = useNavigate();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -340,6 +341,128 @@ const EmployeesPage: React.FC = () => {
         URL.revokeObjectURL(url);
     };
 
+    const handleScheduleImportClick = () => {
+        scheduleFileInputRef.current?.click();
+    };
+
+    const handleScheduleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (!file.name.endsWith('.csv')) {
+            alert('請選擇 CSV 檔案');
+            return;
+        }
+        setImporting(true);
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const text = e.target?.result as string;
+                const rows = parseCSV(text);
+
+                if (rows.length <= 1) {
+                    alert('檔案中沒有資料');
+                    return;
+                }
+
+                const importLogs: any[] = [];
+                for (let i = 1; i < rows.length; i++) {
+                    const values = rows[i];
+                    if (values.length < 6) {
+                        continue;
+                    }
+
+                    const [
+                        name, pin, effective_date, salary_type,
+                        work_start_time, work_end_time,
+                        break_start_time, break_end_time,
+                        break2_start_time, break2_end_time,
+                        break3_start_time, break3_end_time,
+                        standard_daily_hours, base_salary,
+                        allowance_manager, allowance_license, other_allowance,
+                        rest_days, note
+                    ] = values;
+
+                    if (!effective_date) continue;
+
+                    const baseSalaryVal = salary_type === 'MONTHLY' ? base_salary : '0';
+                    const hourlyRateVal = salary_type === 'HOURLY' ? base_salary : '0';
+
+                    importLogs.push({
+                        name,
+                        pin,
+                        effective_date,
+                        salary_type,
+                        work_start_time,
+                        work_end_time,
+                        break_start_time,
+                        break_end_time,
+                        break2_start_time,
+                        break2_end_time,
+                        break3_start_time,
+                        break3_end_time,
+                        standard_daily_hours,
+                        base_salary: baseSalaryVal,
+                        hourly_rate: hourlyRateVal,
+                        allowance_manager,
+                        allowance_license,
+                        other_allowance,
+                        rest_days,
+                        note
+                    });
+                }
+
+                if (importLogs.length === 0) {
+                    alert('找不到有效的班表與薪資異動資料');
+                    return;
+                }
+
+                const res = await importBulkEmployeeSchedules(importLogs);
+                let resultMsg = `歷史紀錄匯入完成！\n成功：${res.succeeded} 筆\n失敗：${res.failed} 筆`;
+                if (res.errors && res.errors.length > 0) {
+                    resultMsg += `\n\n失敗詳情：\n` + res.errors.map(err => `第 ${err.line} 行 (${err.name}): ${err.error}`).join('\n');
+                }
+
+                alert(resultMsg);
+                fetchEmployees();
+            } catch (error: any) {
+                alert(`歷史紀錄匯入執行錯誤：${error.message}`);
+            } finally {
+                setImporting(false);
+                if (scheduleFileInputRef.current) scheduleFileInputRef.current.value = '';
+            }
+        };
+        reader.readAsText(file, 'UTF-8');
+    };
+
+    const handleDownloadScheduleTemplate = () => {
+        const headers = [
+            '姓名(供檢視)', 'PIN碼(6位，必填)', '生效日期(YYYY-MM-DD)', '薪資類型(MONTHLY/HOURLY)',
+            '上班時間(HH:mm)', '下班時間(HH:mm)', '主要休息開始(HH:mm)', '主要休息結束(HH:mm)',
+            '第二組休息開始(選填)', '第二組休息結束(選填)', '第三組休息開始(選填)', '第三組休息結束(選填)',
+            '每日標準工時(選填)', '底薪或基本時薪', '主管加給(選填)', '證照加給(選填)', '其他津貼(選填)',
+            '每週休息日(數字逗號分隔，如0,6表示日和六)', '備註(選填)'
+        ].join(',');
+
+        const example = [
+            '林雅雯', '123456', '2024-01-01', 'MONTHLY',
+            '08:00', '17:00', '12:00', '13:00',
+            '', '', '', '',
+            '8.0', '37410', '0', '0', '0',
+            '0,6', '調薪與更新班表'
+        ].join(',');
+
+        const template = `${headers}\n${example}`;
+        const blob = new Blob(['\uFEFF' + template], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', '員工歷史班表與薪資變動匯入範本.csv');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     const departments = ['ALL', ...Array.from(new Set(employees.map(emp => emp.department || '未分配')))];
 
     const filteredEmployees = employees
@@ -411,17 +534,36 @@ const EmployeesPage: React.FC = () => {
                     <button
                         onClick={handleDownloadTemplate}
                         className="flex-1 md:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+                        title="下載員工基本資料匯入範本"
                     >
                         <Download className="h-4 w-4 mr-2" />
-                        下載範本
+                        下載員工範本
                     </button>
                     <button
                         onClick={handleImportClick}
                         disabled={importing}
                         className="flex-1 md:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
+                        title="匯入員工基本資料 CSV"
                     >
                         <Upload className="h-4 w-4 mr-2" />
-                        {importing ? '匯入中...' : '匯入 CSV'}
+                        匯入員工 CSV
+                    </button>
+                    <button
+                        onClick={handleDownloadScheduleTemplate}
+                        className="flex-1 md:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+                        title="下載員工歷史班表與薪資變動匯入範本"
+                    >
+                        <Download className="h-4 w-4 mr-2" />
+                        下載歷史班表範本
+                    </button>
+                    <button
+                        onClick={handleScheduleImportClick}
+                        disabled={importing}
+                        className="flex-1 md:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
+                        title="匯入員工歷史班表與薪資變動 CSV"
+                    >
+                        <Upload className="h-4 w-4 mr-2" />
+                        匯入歷史班表 CSV
                     </button>
                     <button
                         onClick={handleCreate}
@@ -601,6 +743,7 @@ const EmployeesPage: React.FC = () => {
             />
 
             <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileChange} className="hidden" />
+            <input ref={scheduleFileInputRef} type="file" accept=".csv" onChange={handleScheduleFileChange} className="hidden" />
         </div>
     );
 };

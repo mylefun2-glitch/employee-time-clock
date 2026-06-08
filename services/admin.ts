@@ -761,3 +761,166 @@ export const importAttendanceLogs = async (logs: any[]): Promise<{ success: bool
         return { success: false, succeeded: 0, skipped: 0, failed: logs.length, errors: [{ line: 0, name: '系統', error: err.message || '系統錯誤' }] };
     }
 };
+
+/**
+ * 批量匯入員工班表與薪資異動歷史紀錄
+ */
+export const importBulkEmployeeSchedules = async (
+    logs: any[]
+): Promise<{ success: boolean; succeeded: number; failed: number; errors: any[] }> => {
+    try {
+        // 1. 獲取所有現有員工 PIN 碼與 ID 的對照表
+        const { data: employees, error: empError } = await supabase
+            .from('employees')
+            .select('id, name, pin')
+            .eq('is_active', true);
+
+        if (empError) throw empError;
+
+        const results = {
+            success: true,
+            succeeded: 0,
+            failed: 0,
+            errors: [] as any[]
+        };
+
+        const insertData: any[] = [];
+        const affectedEmployeeIds = new Set<string>();
+
+        for (let i = 0; i < logs.length; i++) {
+            const log = logs[i];
+            const lineNum = i + 2;
+
+            const employee = employees?.find(e => e.pin === log.pin || e.name === log.name);
+            if (!employee) {
+                results.failed++;
+                results.errors.push({
+                    line: lineNum,
+                    name: log.name || log.pin || '未知',
+                    error: `找不到員工 (PIN/姓名: ${log.pin || log.name})`
+                });
+                continue;
+            }
+
+            // 驗證生效日期
+            if (!log.effective_date) {
+                results.failed++;
+                results.errors.push({
+                    line: lineNum,
+                    name: employee.name,
+                    error: `生效日期為必填`
+                });
+                continue;
+            }
+
+            // 解析休息日，如果是字串如 "0,6" 或 [0,6]
+            let restDaysArray = [0, 6];
+            if (log.rest_days !== undefined && log.rest_days !== null && log.rest_days !== '') {
+                if (typeof log.rest_days === 'string') {
+                    restDaysArray = log.rest_days.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                } else if (Array.isArray(log.rest_days)) {
+                    restDaysArray = log.rest_days;
+                }
+            }
+
+            insertData.push({
+                employee_id: employee.id,
+                effective_date: log.effective_date,
+                work_start_time: log.work_start_time || '08:00',
+                work_end_time: log.work_end_time || '17:00',
+                break_start_time: log.break_start_time || '12:00',
+                break_end_time: log.break_end_time || '13:00',
+                break2_start_time: log.break2_start_time || null,
+                break2_end_time: log.break2_end_time || null,
+                break3_start_time: log.break3_start_time || null,
+                break3_end_time: log.break3_end_time || null,
+                salary_type: log.salary_type || 'MONTHLY',
+                standard_daily_hours: log.standard_daily_hours ? parseFloat(log.standard_daily_hours) : null,
+                base_salary: log.base_salary ? parseFloat(log.base_salary) : 0,
+                hourly_rate: log.hourly_rate ? parseFloat(log.hourly_rate) : 0,
+                allowance_manager: log.allowance_manager ? parseFloat(log.allowance_manager) : 0,
+                allowance_license: log.allowance_license ? parseFloat(log.allowance_license) : 0,
+                other_allowance: log.other_allowance ? parseFloat(log.other_allowance) : 0,
+                rest_days: restDaysArray,
+                note: log.note || '批次匯入'
+            });
+
+            affectedEmployeeIds.add(employee.id);
+        }
+
+        if (insertData.length > 0) {
+            // 批次寫入/覆寫
+            const { error: upsertError } = await supabase
+                .from('employee_schedules')
+                .upsert(insertData, { onConflict: 'employee_id,effective_date' });
+
+            if (upsertError) {
+                console.error('Error bulk inserting employee schedules:', upsertError);
+                return {
+                    success: false,
+                    succeeded: 0,
+                    failed: logs.length,
+                    errors: [{ line: 0, name: '系統', error: upsertError.message }]
+                };
+            }
+            results.succeeded = insertData.length;
+
+            // 同步受影響員工的最新設定回 employees 主表
+            for (const employeeId of affectedEmployeeIds) {
+                const { data: latestSchedule, error: fetchError } = await supabase
+                    .from('employee_schedules')
+                    .select('*')
+                    .eq('employee_id', employeeId)
+                    .order('effective_date', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (fetchError) {
+                    console.error(`Error fetching latest schedule for employee ${employeeId}:`, fetchError);
+                    continue;
+                }
+
+                if (latestSchedule) {
+                    const updates = {
+                        work_start_time: latestSchedule.work_start_time,
+                        work_end_time: latestSchedule.work_end_time,
+                        break_start_time: latestSchedule.break_start_time,
+                        break_end_time: latestSchedule.break_end_time,
+                        break2_start_time: latestSchedule.break2_start_time,
+                        break2_end_time: latestSchedule.break2_end_time,
+                        break3_start_time: latestSchedule.break3_start_time,
+                        break3_end_time: latestSchedule.break3_end_time,
+                        rest_days: latestSchedule.rest_days,
+                        salary_type: latestSchedule.salary_type,
+                        standard_daily_hours: latestSchedule.standard_daily_hours,
+                        base_salary: latestSchedule.base_salary,
+                        hourly_rate: latestSchedule.hourly_rate,
+                        allowance_manager: latestSchedule.allowance_manager,
+                        allowance_license: latestSchedule.allowance_license,
+                        other_allowance: latestSchedule.other_allowance
+                    };
+
+                    const { error: updateError } = await supabase
+                        .from('employees')
+                        .update(updates)
+                        .eq('id', employeeId);
+
+                    if (updateError) {
+                        console.error(`Error updating employee ${employeeId} main info:`, updateError);
+                    }
+                }
+            }
+        }
+
+        return results;
+    } catch (err: any) {
+        console.error('Unexpected error in importBulkEmployeeSchedules:', err);
+        return {
+            success: false,
+            succeeded: 0,
+            failed: logs.length,
+            errors: [{ line: 0, name: '系統', error: err.message || '系統錯誤' }]
+        };
+    }
+};
+
