@@ -170,7 +170,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             isOpen={isOpen}
             onClose={onClose}
             title={employee ? '編輯員工資料' : '新增員工資料'}
-            maxWidth="max-w-3xl"
+            maxWidth={activeTab === 'schedule' || activeTab === 'history' || activeTab === 'seniority' || activeTab === 'fourDayWorkweek' ? 'max-w-6xl' : 'max-w-3xl'}
         >
             <div className="flex border-b border-slate-100 mb-6 overflow-x-auto whitespace-nowrap no-scrollbar -mx-6 px-6 pt-2 min-h-[48px]">
                 {(['basic', 'personal', 'work', 'schedule', 'seniority', 'fourDayWorkweek', 'history'] as const).map((tab) => {

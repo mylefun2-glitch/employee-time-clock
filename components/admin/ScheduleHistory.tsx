@@ -410,105 +410,101 @@ const ScheduleHistory: React.FC<ScheduleHistoryProps> = ({ employeeId, isAdmin =
                     <p className="text-sm text-slate-400 font-bold">尚無歷史紀錄，目前使用預設設定</p>
                 </div>
             ) : (
-                <div className="space-y-4">
-                    {schedules.map((s) => (
-                        <div key={s.id} className="bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
-
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg tracking-wider">生效日期</span>
-                                        <span className="text-sm font-black text-slate-900">{s.effective_date}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
-                                        <span className="text-xs font-bold text-slate-500 uppercase">{s.salary_type === 'MONTHLY' ? '月薪制度' : '時薪制度'}</span>
-                                    </div>
-                                </div>
-                                {isAdmin && (
-                                    <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all">
-                                        <button
-                                            onClick={() => handleEditClick(s)}
-                                            className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
-                                            title="編輯紀錄"
-                                        >
-                                            <Edit2 className="h-5 w-5" />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(s.id)}
-                                            className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-                                            title="刪除紀錄"
-                                        >
-                                            <Trash2 className="h-5 w-5" />
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                                <div className="space-y-1">
-                                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest block">上班時間</span>
-                                    <span className="text-sm font-bold text-slate-700">{s.work_start_time} - {s.work_end_time}</span>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest block">標準每日工時</span>
-                                    <span className="text-sm font-bold text-blue-600">{s.standard_daily_hours || 8.0}h</span>
-                                </div>
-
-                                <div className="col-span-2 pt-2 border-t border-slate-50 grid grid-cols-2 gap-y-2">
-                                    <div className="space-y-0.5">
-                                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest block">薪資結構</span>
-                                        <span className="text-xs font-bold text-slate-700">
-                                            {s.salary_type === 'MONTHLY' ? `月薪底薪: ${s.base_salary || 0}` : `基本時薪: ${s.hourly_rate || 0}`}
-                                        </span>
-                                    </div>
-                                    <div className="space-y-0.5">
-                                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest block">各項加給與津貼</span>
-                                        <span className="text-xs font-bold text-slate-600">
-                                            主管: {s.allowance_manager || 0} | 證照: {s.allowance_license || 0} | 其他: {s.other_allowance || 0}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="col-span-2 space-y-2 pt-2 border-t border-slate-50">
-                                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest block">休息時段</span>
-                                    <div className="flex flex-wrap gap-2">
-                                        <span className="text-[11px] font-bold text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
-                                            {s.break_start_time} - {s.break_end_time}
-                                        </span>
-                                        {s.break2_start_time && (
-                                            <span className="text-[11px] font-bold text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
-                                                {s.break2_start_time} - {s.break2_end_time}
-                                            </span>
-                                        )}
-                                        {s.break3_start_time && (
-                                            <span className="text-[11px] font-bold text-slate-600 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
-                                                {s.break3_start_time} - {s.break3_end_time}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="col-span-2 space-y-2 pt-2 border-t border-slate-50">
-                                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest block">每週休息日</span>
-                                    <div className="flex gap-1.5">
-                                        {['日', '一', '二', '三', '四', '五', '六'].map((label, idx) => (
-                                            <span
-                                                key={idx}
-                                                className={`text-[11px] font-black w-7 h-7 flex items-center justify-center rounded-lg ${(s.rest_days || []).includes(idx)
-                                                    ? 'bg-blue-600 text-white'
-                                                    : 'bg-slate-50 text-slate-300'
-                                                    }`}
-                                            >
-                                                {label}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto custom-scrollbar">
+                        <table className="min-w-full divide-y divide-slate-100 text-left">
+                            <thead className="bg-slate-50/50">
+                                <tr>
+                                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">生效日期</th>
+                                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">制度</th>
+                                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">出勤時間</th>
+                                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">主要休息</th>
+                                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">每日工時</th>
+                                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">每週休息</th>
+                                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">薪資結構</th>
+                                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">固定津貼</th>
+                                    <th className="px-4 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">備註</th>
+                                    {isAdmin && <th className="px-4 py-4 text-right text-xs font-black text-slate-400 uppercase tracking-widest">操作</th>}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {schedules.map((s) => {
+                                    const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+                                    const restDaysStr = (s.rest_days || []).map(d => dayNames[d]).join(', ') || '無';
+                                    return (
+                                        <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-slate-900">
+                                                {s.effective_date}
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-xs">
+                                                <span className={`inline-flex px-2 py-0.5 rounded-lg font-bold border ${s.salary_type === 'MONTHLY'
+                                                    ? 'bg-blue-50 text-blue-600 border-blue-100'
+                                                    : 'bg-amber-50 text-amber-600 border-amber-100'
+                                                    }`}>
+                                                    {s.salary_type === 'MONTHLY' ? '月薪' : '時薪'}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-slate-600">
+                                                {s.work_start_time} - {s.work_end_time}
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-600">
+                                                <div>{s.break_start_time} - {s.break_end_time}</div>
+                                                {(s.break2_start_time || s.break3_start_time) && (
+                                                    <div className="text-[10px] text-slate-400 mt-0.5">
+                                                        {s.break2_start_time && `② ${s.break2_start_time}-${s.break2_end_time}`}
+                                                        {s.break3_start_time && ` ③ ${s.break3_start_time}-${s.break3_end_time}`}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-blue-600">
+                                                {s.standard_daily_hours || 8.0}h
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-xs font-bold text-slate-500">
+                                                {restDaysStr}
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-700">
+                                                {s.salary_type === 'MONTHLY' ? (
+                                                    <div>底薪: <span className="font-bold">{s.base_salary || 0}</span></div>
+                                                ) : (
+                                                    <div>時薪: <span className="font-bold">{s.hourly_rate || 0}</span></div>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-xs text-slate-500">
+                                                <div className="space-y-0.5">
+                                                    <div>主管: {s.allowance_manager || 0}</div>
+                                                    <div>證照: {s.allowance_license || 0}</div>
+                                                    <div>其他: {s.other_allowance || 0}</div>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-4 text-xs text-slate-500 max-w-[150px] truncate" title={s.note || ''}>
+                                                {s.note || '-'}
+                                            </td>
+                                            {isAdmin && (
+                                                <td className="px-4 py-4 whitespace-nowrap text-right text-sm">
+                                                    <div className="flex justify-end gap-1">
+                                                        <button
+                                                            onClick={() => handleEditClick(s)}
+                                                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                            title="編輯紀錄"
+                                                        >
+                                                            <Edit2 className="h-4 w-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(s.id)}
+                                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                                            title="刪除紀錄"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 
