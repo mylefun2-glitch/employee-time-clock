@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useEmployee } from '../../contexts/EmployeeContext';
 import { supabase } from '../../lib/supabase';
 import { getPendingApprovalsForSupervisor } from '../../services/supervisorService';
+import { requestService } from '../../services/requestService';
+import { RequestStatus } from '../../types';
 
 const EmployeeDashboardPage: React.FC = () => {
     const { employee } = useEmployee();
@@ -21,6 +24,15 @@ const EmployeeDashboardPage: React.FC = () => {
     
     // 版本更新紀錄對話框狀態
     const [showChangelog, setShowChangelog] = useState(false);
+
+    // 審核對話框狀態
+    const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
+    const [processing, setProcessing] = useState(false);
+    const [resultDialog, setResultDialog] = useState<{
+        show: boolean;
+        success: boolean;
+        message: string;
+    }>({ show: false, success: false, message: '' });
 
     const renderLeaveTime = (startDate: string, endDate: string) => {
         const start = new Date(startDate);
@@ -93,9 +105,18 @@ const EmployeeDashboardPage: React.FC = () => {
 
             // 主管待審核
             let pendingApprovals = 0;
+            let pendingApprovalsList: any[] = [];
             if (employee.is_supervisor) {
-                const { count } = await getPendingApprovalsForSupervisor(employee.id);
+                const { count, requests } = await getPendingApprovalsForSupervisor(employee.id);
                 pendingApprovals = count;
+                pendingApprovalsList = requests || [];
+            }
+            if (employee.is_chairman) {
+                const chairmanPending = await requestService.getChairmanPendingRequests();
+                const existingIds = new Set(pendingApprovalsList.map(r => r.id));
+                const uniqueChairmanPending = (chairmanPending || []).filter(r => !existingIds.has(r.id));
+                pendingApprovalsList = [...pendingApprovalsList, ...uniqueChairmanPending];
+                pendingApprovals = pendingApprovalsList.length;
             }
 
             // 獲取當天請假的同部門員工(所有人都能看到)
@@ -151,12 +172,21 @@ const EmployeeDashboardPage: React.FC = () => {
                 pendingApprovals
             });
 
-            // 依請假開始時間進行降序排序 (最近的申請在最上面)
-            const sortedRequests = (leaveData || [])
-                .filter(r => r.status !== 'WITHDRAWN')
-                .sort((a: any, b: any) => {
-                    return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
-                });
+            // 合併自己申請的與下屬待審核的
+            const combinedRequests = [
+                ...(leaveData || []).filter(r => r.status !== 'WITHDRAWN'),
+                ...pendingApprovalsList
+            ];
+
+            // 去除重複 ID
+            const uniqueRequests = Array.from(new Map(combinedRequests.map(r => [r.id, r])).values());
+
+            // 依建立時間或開始時間進行降序排序 (最近在最上面)
+            const sortedRequests = uniqueRequests.sort((a: any, b: any) => {
+                const dateA = new Date(a.created_at || a.start_date).getTime();
+                const dateB = new Date(b.created_at || b.start_date).getTime();
+                return dateB - dateA;
+            });
 
             setRecentRequests(sortedRequests);
             setCurrentRecentPage(1); // 重新獲取資料時重設頁碼
@@ -380,10 +410,10 @@ const EmployeeDashboardPage: React.FC = () => {
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <h3 className="text-2xl font-black text-slate-900 tracking-tight">最近申請動態</h3>
-                    <a href="/employee/requests" className="text-sm font-bold text-blue-600 hover:underline flex items-center gap-1">
+                    <Link to="/employee/requests" className="text-sm font-bold text-blue-600 hover:underline flex items-center gap-1">
                         查看全部
                         <span className="material-symbols-outlined text-base">arrow_forward</span>
-                    </a>
+                    </Link>
                 </div>
 
                 <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
@@ -401,31 +431,56 @@ const EmployeeDashboardPage: React.FC = () => {
                                     <thead>
                                         <tr className="border-b border-slate-100 bg-slate-50/50">
                                             <th className="px-6 py-4 text-sm font-bold text-slate-500 whitespace-nowrap w-[20%]">假別/類型</th>
-                                            <th className="px-6 py-4 text-sm font-bold text-slate-500 whitespace-nowrap w-[50%]">請假時間</th>
                                             <th className="px-6 py-4 text-sm font-bold text-slate-500 whitespace-nowrap w-[15%]">狀態</th>
+                                            <th className="px-6 py-4 text-sm font-bold text-slate-500 whitespace-nowrap w-[50%]">請假時間</th>
                                             <th className="px-6 py-4 text-sm font-bold text-slate-500 whitespace-nowrap w-[15%]">申請日期</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {paginatedRecentRequests.map((request) => {
                                             const badge = getStatusBadge(request.status);
+                                            const isPendingApproval = (request.status === 'PENDING' || request.status === 'WITHDRAW_PENDING') && request.employee_id !== employee?.id;
                                             return (
-                                                <tr key={request.id} className="hover:bg-slate-50/50 transition-all group">
+                                                <tr 
+                                                    key={request.id} 
+                                                    onClick={() => {
+                                                        if (isPendingApproval) {
+                                                            setSelectedRequest(request);
+                                                        }
+                                                    }}
+                                                    className={`transition-all group ${
+                                                        isPendingApproval 
+                                                            ? 'hover:bg-slate-100/85 cursor-pointer bg-amber-50/10' 
+                                                            : 'hover:bg-slate-50/50'
+                                                    }`}
+                                                >
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-slate-900">
                                                         <div className="flex items-center gap-2">
                                                             <div className="w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center border border-slate-100 group-hover:bg-white transition-colors shrink-0">
                                                                 <span className="material-symbols-outlined text-slate-400 text-base">description</span>
                                                             </div>
-                                                            {request.leave_type?.name || '請假申請'}
+                                                            <div className="flex flex-col">
+                                                                <span>{request.leave_type?.name || '請假申請'}</span>
+                                                                {request.employee_id !== employee?.id && (
+                                                                    <span className="text-[10px] text-slate-400 font-bold mt-0.5">申請人: {request.employee?.name}</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className={`px-2.5 py-1 text-xs font-black rounded-lg border ${badge.class}`}>
+                                                                {badge.text}
+                                                            </span>
+                                                            {isPendingApproval && (
+                                                                <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[9px] font-black rounded-full uppercase tracking-tighter animate-pulse shrink-0">
+                                                                    待處理
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-bold">
                                                         {renderLeaveTime(request.start_date, request.end_date)}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`px-2.5 py-1 text-xs font-black rounded-lg border ${badge.class}`}>
-                                                            {badge.text}
-                                                        </span>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400 font-medium">
                                                         {new Date(request.created_at).toLocaleDateString('zh-TW')}
@@ -560,6 +615,142 @@ const EmployeeDashboardPage: React.FC = () => {
                                 關閉更新紀錄
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* 快速審核對話框 */}
+            {selectedRequest && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-300 relative flex flex-col">
+                        
+                        {/* Header */}
+                        <div className="flex items-center justify-between pb-4 border-b border-slate-100 shrink-0">
+                            <div className="flex items-center gap-2">
+                                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                                    <span className="material-symbols-outlined text-xl">fact_check</span>
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-black text-slate-900">審核申請</h2>
+                                    <p className="text-xs text-slate-400 font-bold">快速核准或拒絕此差勤申請</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setSelectedRequest(null)}
+                                className="w-8 h-8 rounded-full hover:bg-slate-50 text-slate-400 flex items-center justify-center transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-lg">close</span>
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="my-6 space-y-4">
+                            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl">
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">申請人</p>
+                                    <p className="text-sm font-black text-slate-950">{selectedRequest.employee?.name || '同仁'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">部門</p>
+                                    <p className="text-sm font-bold text-slate-600">{selectedRequest.employee?.department || '未分配'}</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-50 p-4 rounded-2xl space-y-3">
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">假別/類型</p>
+                                    <span className="inline-block px-2.5 py-1 text-xs font-black rounded-md" style={{ backgroundColor: selectedRequest.leave_type?.color + '20', color: selectedRequest.leave_type?.color }}>
+                                        {selectedRequest.leave_type?.name || '請假'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">請假時間</p>
+                                    <p className="text-xs font-bold text-slate-700 leading-relaxed">
+                                        {renderLeaveTime(selectedRequest.start_date, selectedRequest.end_date)}
+                                    </p>
+                                </div>
+                                {selectedRequest.reason && (
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">請假事由</p>
+                                        <p className="text-xs text-slate-600 font-medium italic">"{selectedRequest.reason}"</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-4 pt-4 border-t border-slate-100 shrink-0">
+                            <button
+                                onClick={async () => {
+                                    if (processing) return;
+                                    setProcessing(true);
+                                    try {
+                                        const result = await requestService.updateRequestStatus(selectedRequest.id, RequestStatus.REJECTED, employee?.id);
+                                        if (result.success) {
+                                            setResultDialog({ show: true, success: true, message: '已成功拒絕該筆申請' });
+                                            setSelectedRequest(null);
+                                            fetchData();
+                                        } else {
+                                            setResultDialog({ show: true, success: false, message: `拒絕失敗: ${result.error || '未知錯誤'}` });
+                                        }
+                                    } catch (err: any) {
+                                        setResultDialog({ show: true, success: false, message: `操作失敗: ${err.message || '未知錯誤'}` });
+                                    } finally {
+                                        setProcessing(false);
+                                    }
+                                }}
+                                disabled={processing}
+                                className="flex-1 py-4 bg-white text-rose-600 border-2 border-rose-200 rounded-2xl font-black hover:bg-rose-50 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                拒絕申請
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (processing) return;
+                                    setProcessing(true);
+                                    try {
+                                        const result = await requestService.updateRequestStatus(selectedRequest.id, RequestStatus.APPROVED, employee?.id);
+                                        if (result.success) {
+                                            setResultDialog({ show: true, success: true, message: '該筆請假申請已核准成功' });
+                                            setSelectedRequest(null);
+                                            fetchData();
+                                        } else {
+                                            setResultDialog({ show: true, success: false, message: `核准失敗: ${result.error || '未知錯誤'}` });
+                                        }
+                                    } catch (err: any) {
+                                        setResultDialog({ show: true, success: false, message: `操作失敗: ${err.message || '未知錯誤'}` });
+                                    } finally {
+                                        setProcessing(false);
+                                    }
+                                }}
+                                disabled={processing}
+                                className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                核准申請
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 結果提示對話框 */}
+            {resultDialog.show && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-sm w-full p-8 animate-in zoom-in-95 duration-300 text-center">
+                        <div className={`w-20 h-20 ${resultDialog.success ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} rounded-3xl flex items-center justify-center mx-auto mb-6`}>
+                            <span className="material-symbols-outlined text-4xl">
+                                {resultDialog.success ? 'check_circle' : 'error'}
+                            </span>
+                        </div>
+                        <h2 className="text-2xl font-black text-slate-900 mb-2">
+                            {resultDialog.success ? '處理成功' : '操作失敗'}
+                        </h2>
+                        <p className="text-slate-500 font-bold mb-8 px-4">{resultDialog.message}</p>
+                        <button
+                            onClick={() => setResultDialog({ show: false, success: false, message: '' })}
+                            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black shadow-xl shadow-slate-200 transition-all active:scale-95"
+                        >
+                            我了解了
+                        </button>
                     </div>
                 </div>
             )}
