@@ -827,11 +827,11 @@ export const importBulkEmployeeSchedules = async (
             }
             processedInThisBatch.add(batchKey);
 
-            // 解析休息日，如果是字串如 "0,6" 或 [0,6]
+            // 解析休息日，如果是字串，支援分號、斜線、空格或逗號分隔，避免 CSV 被逗號切分的問題
             let restDaysArray = [0, 6];
             if (log.rest_days !== undefined && log.rest_days !== null && log.rest_days !== '') {
                 if (typeof log.rest_days === 'string') {
-                    restDaysArray = log.rest_days.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                    restDaysArray = log.rest_days.split(/[;|\/\s,]+/).map(s => parseInt(s.trim())).filter(n => !isNaN(n));
                 } else if (Array.isArray(log.rest_days)) {
                     restDaysArray = log.rest_days;
                 }
