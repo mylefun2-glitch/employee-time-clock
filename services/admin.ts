@@ -786,6 +786,7 @@ export const importBulkEmployeeSchedules = async (
 
         const insertData: any[] = [];
         const affectedEmployeeIds = new Set<string>();
+        const processedInThisBatch = new Set<string>();
 
         for (let i = 0; i < logs.length; i++) {
             const log = logs[i];
@@ -812,6 +813,19 @@ export const importBulkEmployeeSchedules = async (
                 });
                 continue;
             }
+
+            // 檢查同一員工在同一個生效日期是否重複，避免 Postgres ON CONFLICT 錯誤
+            const batchKey = `${employee.id}_${log.effective_date}`;
+            if (processedInThisBatch.has(batchKey)) {
+                results.failed++;
+                results.errors.push({
+                    line: lineNum,
+                    name: employee.name,
+                    error: `生效日期 ${log.effective_date} 在此檔案中重複`
+                });
+                continue;
+            }
+            processedInThisBatch.add(batchKey);
 
             // 解析休息日，如果是字串如 "0,6" 或 [0,6]
             let restDaysArray = [0, 6];
