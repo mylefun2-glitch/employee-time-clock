@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { getEmployeeSchedules, addEmployeeSchedule, deleteEmployeeSchedule } from '../../services/admin';
 import { EmployeeSchedule } from '../../types';
 import { Trash2, History, Plus, AlertCircle, X, Check, RotateCw, Edit2 } from 'lucide-react';
@@ -15,6 +15,15 @@ const ScheduleHistory: React.FC<ScheduleHistoryProps> = ({ employeeId, isAdmin =
     const [loading, setLoading] = useState(true);
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+    const formRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (showAddForm) {
+            setTimeout(() => {
+                formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        }
+    }, [showAddForm]);
 
     // Form state for new record
     const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
@@ -208,7 +217,7 @@ const ScheduleHistory: React.FC<ScheduleHistoryProps> = ({ employeeId, isAdmin =
             </div>
 
             {showAddForm && (
-                <div className="bg-slate-50 p-6 rounded-[32px] border border-blue-100 shadow-sm space-y-5 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div ref={formRef} className="bg-slate-50 p-6 rounded-[32px] border border-blue-100 shadow-sm space-y-5 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="flex justify-between items-center">
                         <span className="text-sm font-black text-blue-600 uppercase tracking-widest">
                             {editingScheduleId ? '編輯班表與薪資規則' : '新增班表與薪資規則'}
