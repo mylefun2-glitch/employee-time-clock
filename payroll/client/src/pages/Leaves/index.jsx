@@ -108,11 +108,10 @@ export default function Leaves() {
       });
     };
 
-    // Initialize with all active employees to ensure they are listed
+    // Initialize with all active employees
     employees.forEach(emp => {
       const initObj = {
         employee: emp,
-        rule_other: 0,
         totalDeductibleHours: 0
       };
       deductionRules.forEach(rule => {
@@ -127,7 +126,6 @@ export default function Leaves() {
       if (!employeeLeavesMap[empId]) {
         const initObj = {
           employee: l.employee || { name: '未知', department: '未知' },
-          rule_other: 0,
           totalDeductibleHours: 0
         };
         deductionRules.forEach(rule => {
@@ -137,43 +135,22 @@ export default function Leaves() {
       }
 
       const hours = (parseFloat(l.days) || 0) * 8;
-      const typeStr = (l.leaveType || '').trim().toLowerCase();
-
-      // Check if it matches any rule (including rate = 0)
-      const matchedRule = leaveRules.find(r => {
-        const ruleType = (r.leaveType || '').trim().toLowerCase();
-        const ruleLabel = (r.label || '').trim().toLowerCase();
-        return typeStr === ruleType || typeStr === ruleLabel || typeStr.includes(ruleType) || ruleType.includes(typeStr);
-      });
+      const matchedRule = findDeductionRule(l.leaveType);
 
       if (matchedRule) {
-        if (parseFloat(matchedRule.rate) > 0) {
-          // It's a deductible leave
-          // Does it have a specific column (in deductionRules)?
-          const hasCol = deductionRules.some(r => r.leaveType === matchedRule.leaveType);
-          if (hasCol) {
-            employeeLeavesMap[empId][`rule_${matchedRule.leaveType}`] += hours;
-          } else {
-            employeeLeavesMap[empId].rule_other += hours;
-          }
-          employeeLeavesMap[empId].totalDeductibleHours += hours;
-        }
-      } else {
-        // Completely unmatched leave type. By default, it's unpaid (deductible)
-        employeeLeavesMap[empId].rule_other += hours;
+        employeeLeavesMap[empId][`rule_${matchedRule.leaveType}`] += hours;
         employeeLeavesMap[empId].totalDeductibleHours += hours;
       }
     });
 
-    // Convert map to array, showing employees who have leaves or are in the employee directory
+    // Convert map to array, showing only employees who have totalDeductibleHours > 0
     return Object.values(employeeLeavesMap)
-      .filter(item => item.totalDeductibleHours > 0 || leaves.some(l => l.employeeId === item.employee.id))
+      .filter(item => item.totalDeductibleHours > 0)
       .map((item, idx) => {
         const result = {
           id: item.employee.id || idx,
           department: item.employee.department,
           name: item.employee.name,
-          rule_other: parseFloat(item.rule_other.toFixed(2)),
           totalDeductibleHours: parseFloat(item.totalDeductibleHours.toFixed(2))
         };
         deductionRules.forEach(rule => {
@@ -198,16 +175,8 @@ export default function Leaves() {
         title: `${rule.label} (H)`,
         key: `rule_${rule.leaveType}`,
         align: 'center',
-        render: (val) => val > 0 ? `${val} H` : '—'
+        render: (val) => val > 0 ? val : '—'
       });
-    });
-
-    // Always append "其他扣薪假 (H)" for unmatched or other custom leaves
-    cols.push({
-      title: '其他扣薪假 (H)',
-      key: 'rule_other',
-      align: 'center',
-      render: (val) => val > 0 ? `${val} H` : '—'
     });
 
     cols.push({
@@ -215,7 +184,7 @@ export default function Leaves() {
       key: 'totalDeductibleHours',
       align: 'center',
       bold: true,
-      render: (val) => val > 0 ? <span style={{ color: 'var(--color-error)', fontWeight: 'bold' }}>{val} H</span> : '0 H'
+      render: (val) => val > 0 ? <span style={{ color: 'var(--color-error)', fontWeight: 'bold' }}>{val}</span> : '0'
     });
 
     return cols;

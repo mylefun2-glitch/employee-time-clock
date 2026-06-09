@@ -102,20 +102,27 @@ async function ensureLeaveDeductionRules() {
   try {
     const key = 'leave_deduction_rules';
     const existing = await prisma.systemSetting.findUnique({ where: { key } });
+    const defaultRules = [
+      { leaveType: '生理假', deductionType: 'half', rate: 0.5, label: '生理假' },
+      { leaveType: '病假', deductionType: 'half', rate: 0.5, label: '普通傷病假' },
+      { leaveType: '事假', deductionType: 'full', rate: 1.0, label: '事假' },
+      { leaveType: '家庭照顧假', deductionType: 'full', rate: 1.0, label: '家庭照顧假' },
+      { leaveType: '特休', deductionType: 'none', rate: 0.0, label: '特別休假' },
+      { leaveType: '公假', deductionType: 'none', rate: 0.0, label: '公假' },
+      { leaveType: '婚假', deductionType: 'none', rate: 0.0, label: '婚假' },
+      { leaveType: '喪假', deductionType: 'none', rate: 0.0, label: '喪假' },
+      { leaveType: '產假', deductionType: 'none', rate: 0.0, label: '產假' },
+      { leaveType: '陪產假', deductionType: 'none', rate: 0.0, label: '陪產檢及陪產假' },
+      { leaveType: '補休', deductionType: 'none', rate: 0.0, label: '補休' },
+      { leaveType: '公出', deductionType: 'none', rate: 0.0, label: '公出' },
+      { leaveType: '家訪', deductionType: 'none', rate: 0.0, label: '家訪' },
+      { leaveType: '出差', deductionType: 'none', rate: 0.0, label: '出差' },
+      { leaveType: '會議', deductionType: 'none', rate: 0.0, label: '會議' },
+      { leaveType: '訓練', deductionType: 'none', rate: 0.0, label: '訓練' },
+      { leaveType: '培訓', deductionType: 'none', rate: 0.0, label: '培訓' }
+    ];
+
     if (!existing) {
-      const defaultRules = [
-        { leaveType: '生理假', deductionType: 'half', rate: 0.5, label: '生理假' },
-        { leaveType: '病假', deductionType: 'half', rate: 0.5, label: '普通傷病假' },
-        { leaveType: '事假', deductionType: 'full', rate: 1.0, label: '事假' },
-        { leaveType: '家庭照顧假', deductionType: 'full', rate: 1.0, label: '家庭照顧假' },
-        { leaveType: '特休', deductionType: 'none', rate: 0.0, label: '特別休假' },
-        { leaveType: '公假', deductionType: 'none', rate: 0.0, label: '公假' },
-        { leaveType: '婚假', deductionType: 'none', rate: 0.0, label: '婚假' },
-        { leaveType: '喪假', deductionType: 'none', rate: 0.0, label: '喪假' },
-        { leaveType: '產假', deductionType: 'none', rate: 0.0, label: '產假' },
-        { leaveType: '陪產假', deductionType: 'none', rate: 0.0, label: '陪產檢及陪產假' },
-        { leaveType: '補休', deductionType: 'none', rate: 0.0, label: '補休' }
-      ];
       await prisma.systemSetting.create({
         data: {
           category: 'leave_rules',
@@ -126,6 +133,28 @@ async function ensureLeaveDeductionRules() {
         }
       });
       console.log('[Startup] Created default leave deduction rules setting.');
+    } else {
+      // Merge missing default rules into the existing rules list
+      try {
+        const currentRules = JSON.parse(existing.value);
+        let modified = false;
+        defaultRules.forEach(defRule => {
+          const exists = currentRules.some(r => r.leaveType.toLowerCase() === defRule.leaveType.toLowerCase());
+          if (!exists) {
+            currentRules.push(defRule);
+            modified = true;
+          }
+        });
+        if (modified) {
+          await prisma.systemSetting.update({
+            where: { key },
+            data: { value: JSON.stringify(currentRules) }
+          });
+          console.log('[Startup] Upgraded leave deduction rules setting with missing default types.');
+        }
+      } catch (e) {
+        console.error('[Startup] Failed to upgrade existing leave rules:', e);
+      }
     }
   } catch (error) {
     console.error('[Startup] Failed to check/create leave deduction rules:', error);

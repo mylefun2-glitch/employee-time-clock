@@ -493,7 +493,13 @@ async function main() {
         { leaveType: '喪假', deductionType: 'none', rate: 0.0, label: '喪假' },
         { leaveType: '產假', deductionType: 'none', rate: 0.0, label: '產假' },
         { leaveType: '陪產假', deductionType: 'none', rate: 0.0, label: '陪產檢及陪產假' },
-        { leaveType: '補休', deductionType: 'none', rate: 0.0, label: '補休' }
+        { leaveType: '補休', deductionType: 'none', rate: 0.0, label: '補休' },
+        { leaveType: '公出', deductionType: 'none', rate: 0.0, label: '公出' },
+        { leaveType: '家訪', deductionType: 'none', rate: 0.0, label: '家訪' },
+        { leaveType: '出差', deductionType: 'none', rate: 0.0, label: '出差' },
+        { leaveType: '會議', deductionType: 'none', rate: 0.0, label: '會議' },
+        { leaveType: '訓練', deductionType: 'none', rate: 0.0, label: '訓練' },
+        { leaveType: '培訓', deductionType: 'none', rate: 0.0, label: '培訓' }
       ]),
       label: '請假扣薪規則設定',
       notes: '自訂假別的扣薪規則與比例'
