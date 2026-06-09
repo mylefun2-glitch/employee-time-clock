@@ -37,6 +37,8 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
     const [insuranceStartDate, setInsuranceStartDate] = useState('');
     const [insuranceEndDate, setInsuranceEndDate] = useState('');
     const [joinDate, setJoinDate] = useState('');
+    const [bankName, setBankName] = useState('');
+    const [bankAccount, setBankAccount] = useState('');
     const [workStartTime, setWorkStartTime] = useState('08:00');
     const [workEndTime, setWorkEndTime] = useState('17:00');
     const [breakStartTime, setBreakStartTime] = useState('12:00');
@@ -74,6 +76,8 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             setInsuranceStartDate(employee.insurance_start_date || '');
             setInsuranceEndDate(employee.insurance_end_date || '');
             setJoinDate(employee.join_date || '');
+            setBankName(employee.bank_name || '');
+            setBankAccount(employee.bank_account || '');
             setWorkStartTime(employee.work_start_time || '08:00');
             setWorkEndTime(employee.work_end_time || '17:00');
             setBreakStartTime(employee.break_start_time || '12:00');
@@ -104,6 +108,8 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             setInsuranceStartDate('');
             setInsuranceEndDate('');
             setJoinDate(new Date().toISOString().split('T')[0]);
+            setBankName('');
+            setBankAccount('');
             setStandardDailyHours(8.0);
             setActiveTab('basic');
         }
@@ -144,6 +150,8 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                 insurance_start_date: insuranceStartDate || null,
                 insurance_end_date: insuranceEndDate || null,
                 join_date: joinDate || null,
+                bank_name: bankName || null,
+                bank_account: bankAccount || null,
                 work_start_time: workStartTime,
                 work_end_time: workEndTime,
                 break_start_time: breakStartTime,
@@ -170,7 +178,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
             isOpen={isOpen}
             onClose={onClose}
             title={employee ? '編輯員工資料' : '新增員工資料'}
-            maxWidth={activeTab === 'schedule' || activeTab === 'history' || activeTab === 'seniority' || activeTab === 'fourDayWorkweek' ? 'max-w-6xl' : 'max-w-3xl'}
+            maxWidth="max-w-5xl"
         >
             <div className="flex border-b border-slate-100 mb-6 overflow-x-auto whitespace-nowrap no-scrollbar -mx-6 px-6 pt-2 min-h-[48px]">
                 {(['basic', 'personal', 'work', 'schedule', 'seniority', 'fourDayWorkweek', 'history'] as const).map((tab) => {
@@ -201,7 +209,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                         )}
 
                         {activeTab === 'basic' && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">姓名</label>
                                     <input
@@ -271,7 +279,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                         )}
 
                         {activeTab === 'personal' && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">性別</label>
                                     <select
@@ -295,7 +303,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                                         className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
                                     />
                                 </div>
-                                <div className="items-center sm:col-span-2">
+                                <div className="items-center sm:col-span-2 lg:col-span-3">
                                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">通訊地址</label>
                                     <input
                                         type="text"
@@ -322,7 +330,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                                         className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
                                     />
                                 </div>
-                                <div className="sm:col-span-2 mt-4 pt-4 border-t border-slate-100">
+                                <div className="sm:col-span-2 lg:col-span-3 mt-4 pt-4 border-t border-slate-100">
                                     <h4 className="text-sm font-bold text-slate-900 mb-4">緊急聯絡資訊</h4>
                                 </div>
                                 <div>
@@ -343,7 +351,7 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                                         className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
                                     />
                                 </div>
-                                <div className="sm:col-span-2">
+                                <div className="sm:col-span-2 lg:col-span-3">
                                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">緊急聯絡電話</label>
                                     <input
                                         type="text"
@@ -356,8 +364,8 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                         )}
 
                         {activeTab === 'work' && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="sm:col-span-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div>
                                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">到職日期</label>
                                     <input
                                         type="date"
@@ -387,9 +395,30 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                                         className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
                                     />
                                 </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">銀行名稱</label>
+                                    <input
+                                        type="text"
+                                        value={bankName}
+                                        onChange={(e) => setBankName(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                        placeholder="例如：台灣銀行 (004)"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">銀行帳號</label>
+                                    <input
+                                        type="text"
+                                        value={bankAccount}
+                                        onChange={(e) => setBankAccount(e.target.value)}
+                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                        placeholder="請輸入帳號"
+                                    />
+                                </div>
+                                <div className="hidden lg:block"></div>
 
                                 {employee && (
-                                    <div className="sm:col-span-2 mt-4 flex items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                    <div className="sm:col-span-2 lg:col-span-3 mt-4 flex items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
                                         <input
                                             id="is_active"
                                             type="checkbox"

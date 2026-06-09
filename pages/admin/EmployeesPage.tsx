@@ -85,12 +85,16 @@ const EmployeesPage: React.FC = () => {
         department: string[];
         seniorityRange: string[];
         status: boolean[];
+        bank_name: string[];
+        bank_account: string[];
     }>({
         name: [],
         gender: [],
         department: [],
         seniorityRange: [],
-        status: []
+        status: [],
+        bank_name: [],
+        bank_account: []
     });
 
     useEffect(() => {
@@ -471,7 +475,9 @@ const EmployeesPage: React.FC = () => {
             const matchesSearch = (
                 emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 emp.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                emp.pin.includes(searchTerm)
+                emp.pin.includes(searchTerm) ||
+                (emp.bank_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (emp.bank_account || '').includes(searchTerm)
             );
             // 部門下拉篩選
             const matchesDept = selectedDept === 'ALL' || (emp.department || '未分配') === selectedDept;
@@ -480,6 +486,8 @@ const EmployeesPage: React.FC = () => {
             const empName = emp.name.trim();
             const empDept = (emp.department || '未分配').trim();
             const empGender = (emp.gender === 'MALE' ? '男' : emp.gender === 'FEMALE' ? '女' : emp.gender === 'OTHER' ? '其他' : '-').trim();
+            const empBankName = (emp.bank_name || '-').trim();
+            const empBankAccount = (emp.bank_account || '-').trim();
 
             const nameMatch = columnFilters.name.length === 0 ||
                 columnFilters.name.map(v => typeof v === 'string' ? v.trim() : v).includes(empName);
@@ -493,9 +501,13 @@ const EmployeesPage: React.FC = () => {
                 columnFilters.seniorityRange.includes(range);
             const statusMatch = columnFilters.status.length === 0 ||
                 columnFilters.status.includes(emp.is_active);
+            const bankNameMatch = columnFilters.bank_name.length === 0 ||
+                columnFilters.bank_name.map(v => typeof v === 'string' ? v.trim() : v).includes(empBankName);
+            const bankAccountMatch = columnFilters.bank_account.length === 0 ||
+                columnFilters.bank_account.map(v => typeof v === 'string' ? v.trim() : v).includes(empBankAccount);
 
             return matchesSearch && matchesDept && nameMatch && genderMatch &&
-                deptMatch && seniorityMatch && statusMatch;
+                deptMatch && seniorityMatch && statusMatch && bankNameMatch && bankAccountMatch;
         })
         .sort((a, b) => {
             const direction = sortConfig.direction === 'asc' ? 1 : -1;
@@ -651,6 +663,20 @@ const EmployeesPage: React.FC = () => {
                                     sortConfig={sortConfig.key === 'seniority' ? sortConfig : null}
                                     onSort={() => handleSort('seniority')}
                                 />
+                                <TableHeaderFilter
+                                    columnKey="bank_name"
+                                    label="銀行名稱"
+                                    values={employees.map(e => e.bank_name || '-')}
+                                    selectedValues={columnFilters.bank_name}
+                                    onChange={(values) => setColumnFilters({ ...columnFilters, bank_name: values })}
+                                />
+                                <TableHeaderFilter
+                                    columnKey="bank_account"
+                                    label="銀行帳號"
+                                    values={employees.map(e => e.bank_account || '-')}
+                                    selectedValues={columnFilters.bank_account}
+                                    onChange={(values) => setColumnFilters({ ...columnFilters, bank_account: values })}
+                                />
                                 <TableHeaderFilter<boolean>
                                     columnKey="is_active"
                                     label="狀態"
@@ -668,11 +694,11 @@ const EmployeesPage: React.FC = () => {
                         <tbody className="divide-y divide-slate-50">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold text-base">數據加載中...</td>
+                                    <td colSpan={8} className="px-6 py-20 text-center text-slate-400 font-bold text-base">數據加載中...</td>
                                 </tr>
                             ) : filteredEmployees.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold text-base">找不到相符的員工資料</td>
+                                    <td colSpan={8} className="px-6 py-20 text-center text-slate-400 font-bold text-base">找不到相符的員工資料</td>
                                 </tr>
                             ) : filteredEmployees.map((person) => {
                                 const seniority = person.join_date ? calculateSeniority(person.join_date) : 0;
@@ -692,6 +718,12 @@ const EmployeesPage: React.FC = () => {
                                             <div className="text-sm font-black text-slate-700">
                                                 {seniority} 年 <span className="text-[11px] font-medium text-slate-400 ml-1">({range})</span>
                                             </div>
+                                        </td>
+                                        <td className="px-6 py-5 whitespace-nowrap text-base font-bold text-slate-600">
+                                            {person.bank_name || '-'}
+                                        </td>
+                                        <td className="px-6 py-5 whitespace-nowrap text-base font-mono font-bold text-slate-600">
+                                            {person.bank_account || '-'}
                                         </td>
                                         <td className="px-6 py-5 whitespace-nowrap">
                                             <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider border ${person.is_active

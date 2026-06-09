@@ -161,6 +161,8 @@ export interface Employee {
   salary_type?: 'MONTHLY' | 'HOURLY';
   schedule_effective_date?: string;
   standard_daily_hours?: number; // 新增：標準每日工時
+  bank_name?: string;
+  bank_account?: string;
 }
 
 export interface SenioritySuspension {

@@ -133,6 +133,8 @@ const EmployeeProfilePage: React.FC = () => {
                                 <InfoItem icon="hourglass_empty" label="目前年資" value={`${seniority} 年`} />
                                 <InfoItem icon="verified_user" label="加保日期" value={employee.insurance_start_date || '未設定'} />
                                 <InfoItem icon="shield" label="退保日期" value={employee.insurance_end_date || '未設定'} />
+                                <InfoItem icon="account_balance" label="銀行名稱" value={employee.bank_name || '未設定'} />
+                                <InfoItem icon="credit_card" label="銀行帳號" value={employee.bank_account || '未設定'} />
                             </div>
                         </div>
                     )}
