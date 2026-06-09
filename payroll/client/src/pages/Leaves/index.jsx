@@ -64,12 +64,17 @@ export default function Leaves() {
         pageSize: 10000
       });
       
-      // Filter out business travel, overtime, and conversions from leaves view
+      // Filter out business travel, overtime, conversions, and official business from leaves view
       const filteredLeaves = (res.data || []).filter(l => {
         const type = (l.leaveType || '').toLowerCase();
         return !(
           type.includes('加班') || 
           type.includes('公出') || 
+          type.includes('家訪') || 
+          type.includes('出差') || 
+          type.includes('會議') || 
+          type.includes('訓練') || 
+          type.includes('培訓') || 
           type.includes('折算') || 
           type.includes('折現') || 
           type === 'co' || 

@@ -251,13 +251,23 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         }
       });
 
-      // Split leaves into normal leaves and overtime conversion leaves
+      // Split leaves into normal leaves and overtime conversion leaves, excluding official business (work)
       const normalLeaves = [];
       const otLeaves = [];
       leaves.forEach(l => {
         const type = (l.leaveType || '').toLowerCase();
         if (type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現')) {
           otLeaves.push(l);
+        } else if (
+          type.includes('公出') ||
+          type.includes('家訪') ||
+          type.includes('出差') ||
+          type.includes('會議') ||
+          type.includes('訓練') ||
+          type.includes('培訓') ||
+          type === 'ob'
+        ) {
+          // Skip official business - they are not leaves and shouldn't deduct pay
         } else {
           normalLeaves.push(l);
         }
