@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { getEmployeeLeaveBalances } from '../../services/employee';
+import { getEmployeeLeaveBalances, getAllEmployeesLeaveBalances } from '../../services/employee';
 import { LeaveBalance, Employee } from '../../types';
 import { Search, Download, FileText, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -40,15 +40,19 @@ const AdminLeaveStatsPage: React.FC = () => {
             if (error) throw error;
 
             if (userData) {
-                const statsPromises = userData.map(async (emp: any) => {
-                    const balance = await getEmployeeLeaveBalances(emp.id);
-                    return {
-                        ...emp,
-                        leaveBalance: balance
-                    };
-                });
+                const allBalances = await getAllEmployeesLeaveBalances();
+                const balanceMap = new Map(
+                    allBalances?.map((item: any) => {
+                        // Transform postgres JSON format if needed (it already maps keys)
+                        const bal = item.balance;
+                        return [item.employee_id, bal];
+                    }) || []
+                );
 
-                const results = await Promise.all(statsPromises);
+                const results = userData.map((emp: any) => ({
+                    ...emp,
+                    leaveBalance: balanceMap.get(emp.id) || null
+                }));
                 setEmployees(results);
             }
         } catch (error) {

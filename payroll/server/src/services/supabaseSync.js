@@ -3,10 +3,20 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+let lastEmployeeSync = 0;
+const lastAttendanceSyncs = {};
+const SYNC_COOLDOWN_MS = 30 * 1000; // 30 seconds cooldown
+
 /**
  * Sync employees from Supabase to SQLite.
  */
-export async function syncEmployees() {
+export async function syncEmployees(force = false) {
+  const now = Date.now();
+  if (!force && (now - lastEmployeeSync < SYNC_COOLDOWN_MS)) {
+    console.log('[Sync] Skipping employee sync (cooldown active)');
+    return 0;
+  }
+
   console.log('Starting employee sync from Supabase...');
   try {
     // 1. Fetch all employees from Supabase
@@ -24,7 +34,6 @@ export async function syncEmployees() {
 
     for (const sbEmp of sbEmployees) {
       // Generate a clean employee no if not present
-      // e.g. based on ID first 4 chars or email
       let employeeNo = '';
       if (sbEmp.username && sbEmp.username.includes('@')) {
         employeeNo = sbEmp.username.split('@')[0].toUpperCase();
@@ -47,7 +56,7 @@ export async function syncEmployees() {
         where: { employeeNo },
         update: {
           name: sbEmp.name || '無名',
-          idNumber: sbEmp.pin || null, // Fallback pin as placeholder or leave null
+          idNumber: sbEmp.pin || null,
           gender,
           birthDate: sbEmp.birth_date || null,
           phone: sbEmp.contact_phone || null,
@@ -89,6 +98,7 @@ export async function syncEmployees() {
       syncedCount++;
     }
 
+    lastEmployeeSync = Date.now();
     console.log(`Successfully synced ${syncedCount} employees to SQLite.`);
     return syncedCount;
   } catch (err) {
@@ -103,8 +113,14 @@ export async function syncEmployees() {
  */
 const activeSyncs = {};
 
-export function syncAttendanceAndLeaves(year, month) {
+export function syncAttendanceAndLeaves(year, month, force = false) {
   const key = `${year}_${month}`;
+  const now = Date.now();
+  if (!force && lastAttendanceSyncs[key] && (now - lastAttendanceSyncs[key] < SYNC_COOLDOWN_MS)) {
+    console.log(`[Sync] Skipping attendance and leaves sync for ${key} (cooldown active)`);
+    return Promise.resolve();
+  }
+
   if (activeSyncs[key]) {
     console.log(`[Sync] Reusing active sync promise for ${key}`);
     return activeSyncs[key];
@@ -188,8 +204,9 @@ export function syncAttendanceAndLeaves(year, month) {
 
       if (leaveError) throw leaveError;
 
-      if (sbLeaves) {
+      if (sbLeaves && sbLeaves.length > 0) {
         console.log(`Syncing ${sbLeaves.length} leave requests...`);
+        const leaveRecordsData = [];
         for (const leave of sbLeaves) {
           const localEmpId = uuidToDbId[leave.employee_id];
           if (!localEmpId) continue;
@@ -201,19 +218,22 @@ export function syncAttendanceAndLeaves(year, month) {
           const leaveDays = parseFloat(leave.hours) / 8 || 1;
           const status = (leave.status || 'pending').toLowerCase();
 
-          await prisma.leaveRecord.create({
-            data: {
-              employeeId: localEmpId,
-              leaveType: leaveName,
-              startDate: startYMD,
-              endDate: endYMD,
-              days: leaveDays,
-              reason: leave.reason || '',
-              status,
-              approvedBy: leave.approver_id || null,
-              approvedAt: leave.approved_at || null,
-              notes: leave.notes || null,
-            }
+          leaveRecordsData.push({
+            employeeId: localEmpId,
+            leaveType: leaveName,
+            startDate: startYMD,
+            endDate: endYMD,
+            days: leaveDays,
+            reason: leave.reason || '',
+            status,
+            approvedBy: leave.approver_id || null,
+            approvedAt: leave.approved_at || null,
+            notes: leave.notes || null,
+          });
+        }
+        if (leaveRecordsData.length > 0) {
+          await prisma.leaveRecord.createMany({
+            data: leaveRecordsData
           });
         }
       }
@@ -227,7 +247,7 @@ export function syncAttendanceAndLeaves(year, month) {
 
       if (logError) throw logError;
 
-      if (logs) {
+      if (logs && logs.length > 0) {
         console.log(`Processing ${logs.length} raw attendance logs...`);
         
         // Group logs by employee_id and date (YYYY-MM-DD)
@@ -272,6 +292,7 @@ export function syncAttendanceAndLeaves(year, month) {
         });
 
         // Insert aggregated logs as AttendanceRecord
+        const attendanceRecordsData = [];
         for (const key of Object.keys(groupedLogs)) {
           const { employeeId, date, inTime, outTime } = groupedLogs[key];
           
@@ -302,20 +323,24 @@ export function syncAttendanceAndLeaves(year, month) {
             regularHours = 8;
           }
 
-          await prisma.attendanceRecord.create({
-            data: {
-              employeeId,
-              date,
-              clockIn: inTime,
-              clockOut: outTime,
-              regularHours,
-              overtimeHours,
-              status,
-            }
+          attendanceRecordsData.push({
+            employeeId,
+            date,
+            clockIn: inTime,
+            clockOut: outTime,
+            regularHours,
+            overtimeHours,
+            status,
+          });
+        }
+        if (attendanceRecordsData.length > 0) {
+          await prisma.attendanceRecord.createMany({
+            data: attendanceRecordsData
           });
         }
       }
 
+      lastAttendanceSyncs[key] = Date.now();
       console.log('Supabase attendance and leaves sync completed!');
     } catch (err) {
       console.error('Error syncing attendance and leaves:', err);
@@ -333,3 +358,4 @@ export default {
   syncEmployees,
   syncAttendanceAndLeaves
 };
+

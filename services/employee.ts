@@ -141,12 +141,18 @@ export const getEmployeeLeaveBalances = async (employeeId: string): Promise<Leav
             return transformed;
         }
 
-        return null;
+// 獲取所有員工的差勤餘額 (批次 RPC)
+export const getAllEmployeesLeaveBalances = async (): Promise<{ employee_id: string; balance: LeaveBalance }[] | null> => {
+    try {
+        const { data, error } = await supabase.rpc('get_all_employees_leave_balances');
+        if (error) throw error;
+        return data;
     } catch (error) {
-        console.error('Error fetching leave balances:', error);
+        console.error('Error fetching all employees leave balances:', error);
         return null;
     }
 };
+
 // 獲取員工年資中斷記錄
 export const getSenioritySuspensions = async (employeeId: string): Promise<any[]> => {
     try {
