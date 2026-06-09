@@ -478,6 +478,7 @@ async function main() {
       ]),
       label: '勞退月提繳工資分級表',
       notes: '2025年勞退月提繳工資分級表',
+    },
     // Leave Rules (請假扣薪規則)
     {
       category: 'leave_rules',
