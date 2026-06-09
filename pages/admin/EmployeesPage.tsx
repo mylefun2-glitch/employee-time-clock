@@ -250,15 +250,15 @@ const EmployeesPage: React.FC = () => {
                         continue;
                     }
 
-                    // 映射 16 個欄位
-                    // [姓名, 帳號, PIN, 部門, 職務, 性別, 生出日期, 到職日期, Gmail, 電話, 地址, 緊急聯絡人, 關係, 緊急電話, 加保, 退保]
+                    // 映射 24 個欄位 (含銀行名稱與帳號)
+                    // [姓名, 帳號, PIN, 部門, 職務, 性別, 生日, 到職日, Gmail, 電話, 地址, 緊急聯絡人, 關係, 緊急電話, 加保, 退保, 上班時間, 下班時間, 休息開始, 休息結束, 薪資類型, 標準工時, 銀行名稱, 銀行帳號]
                     const [
                         name, username, pin, department, position, gender,
                         birth_date, join_date, gmail, contact_phone, mailing_address,
                         emergency_contact_name, emergency_contact_relationship, emergency_contact_phone,
                         insurance_start_date, insurance_end_date,
                         work_start_time, work_end_time, break_start_time, break_end_time,
-                        salary_type, standard_daily_hours
+                        salary_type, standard_daily_hours, bank_name, bank_account
                     ] = values;
 
                     const employeeData: Partial<Employee> = {
@@ -284,6 +284,8 @@ const EmployeesPage: React.FC = () => {
                         break_end_time: break_end_time || undefined,
                         salary_type: (salary_type === 'MONTHLY' || salary_type === 'HOURLY') ? salary_type : undefined,
                         standard_daily_hours: standard_daily_hours ? parseFloat(standard_daily_hours) : undefined,
+                        bank_name: bank_name || undefined,
+                        bank_account: bank_account || undefined,
                         is_active: true
                     };
 
@@ -314,14 +316,14 @@ const EmployeesPage: React.FC = () => {
     };
 
     const handleDownloadTemplate = () => {
-        // 更新下載範本，包含帳號與其他擴展欄位
+        // 更新下載範本，包含帳號與其他擴展欄位 (新增銀行名稱與帳號)
         const headers = [
             '姓名', '帳號(可與姓名相同)', 'PIN碼(6位)', '部門', '職務', '性別(MALE/FEMALE/OTHER)',
             '出生日期(YYYY-MM-DD)', '到職日期(YYYY-MM-DD)', 'Gmail', '通訊電話',
             '通訊地址', '緊急聯絡人姓名', '緊急聯絡人關係', '緊急聯絡人電話',
             '勞保加保日期(YYYY-MM-DD)', '勞保退保日期(YYYY-MM-DD)',
             '上班時間(HH:mm)', '下班時間(HH:mm)', '休息開始(HH:mm)', '休息結束(HH:mm)',
-            '薪資類型(MONTHLY/HOURLY)', '每日標準工時'
+            '薪資類型(MONTHLY/HOURLY)', '每日標準工時', '銀行名稱', '銀行帳號'
         ].join(',');
 
         const example = [
@@ -330,7 +332,7 @@ const EmployeesPage: React.FC = () => {
             '台北市中正區123號', '王大明', '父子', '0987654321',
             '2023-01-01', '',
             '08:00', '17:00', '12:00', '13:00',
-            'MONTHLY', '8.0'
+            'MONTHLY', '8.0', '台灣銀行', '012345678901'
         ].join(',');
 
         const template = `${headers}\n${example}`;
