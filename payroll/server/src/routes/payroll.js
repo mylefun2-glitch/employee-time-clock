@@ -277,6 +277,38 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       let leaveHoursHalf = 0;
       let leaveHoursPaid = 0;
 
+      // Parse leave deduction rules from settings
+      let leaveRules = [];
+      try {
+        if (settings.leave_deduction_rules) {
+          leaveRules = JSON.parse(settings.leave_deduction_rules);
+        }
+      } catch (err) {
+        console.error('Failed to parse leave deduction rules:', err);
+      }
+
+      // Helper to find leave rule rate (default to 1.0/full if not configured)
+      const getLeaveRate = (leaveType) => {
+        const typeStr = (leaveType || '').trim().toLowerCase();
+        const rule = leaveRules.find(r => {
+          const ruleType = (r.leaveType || '').trim().toLowerCase();
+          const ruleLabel = (r.label || '').trim().toLowerCase();
+          return typeStr === ruleType || typeStr === ruleLabel || typeStr.includes(ruleType) || ruleType.includes(typeStr);
+        });
+        return rule ? parseFloat(rule.rate) : 1.0;
+      };
+
+      // Helper to find leave deduction type (default to 'full' if not configured)
+      const getLeaveDeductionType = (leaveType) => {
+        const typeStr = (leaveType || '').trim().toLowerCase();
+        const rule = leaveRules.find(r => {
+          const ruleType = (r.leaveType || '').trim().toLowerCase();
+          const ruleLabel = (r.label || '').trim().toLowerCase();
+          return typeStr === ruleType || typeStr === ruleLabel || typeStr.includes(ruleType) || ruleType.includes(typeStr);
+        });
+        return rule ? rule.deductionType : 'full';
+      };
+
       normalLeaves.forEach(l => { leaveDays += l.days; });
 
       // Daily rate for leave deduction (monthly employee)
@@ -286,28 +318,17 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       if (currentEmp.salaryType === 'monthly') {
         normalLeaves.forEach(l => {
           const hours = l.days * 8;
-          const type = (l.leaveType || '').toLowerCase();
-          if (type.includes('病') || type.includes('生理') || type.includes('physiological')) {
-            // Sick/Physiological: half pay deduction
-            leaveDeduction += Math.round(hourlyLeaveRate * hours * 0.5);
-          } else if (type.includes('事') || type.includes('家庭') || type.includes('照顧') || type.includes('family') || type.includes('personal')) {
-            // Personal/Family Care: full pay deduction
-            leaveDeduction += Math.round(hourlyLeaveRate * hours * 1.0);
-          } else if (type.includes('特休') || type.includes('annual') || type.includes('公假') || type.includes('婚') || type.includes('喪') || type.includes('產') || type.includes('陪產') || type.includes('補休')) {
-            // Paid leaves: 0 deduction
-          } else {
-            // Unspecified: full pay deduction
-            leaveDeduction += Math.round(hourlyLeaveRate * hours * 1.0);
-          }
+          const rate = getLeaveRate(l.leaveType);
+          leaveDeduction += Math.round(hourlyLeaveRate * hours * rate);
         });
       } else {
         // Hourly: sum hours for supplement
         normalLeaves.forEach(l => {
           const hours = l.days * 8;
-          const type = (l.leaveType || '').toLowerCase();
-          if (type.includes('病') || type.includes('生理') || type.includes('physiological')) {
+          const dedType = getLeaveDeductionType(l.leaveType);
+          if (dedType === 'half') {
             leaveHoursHalf += hours;
-          } else if (type.includes('特休') || type.includes('annual') || type.includes('公假') || type.includes('婚') || type.includes('喪') || type.includes('產') || type.includes('陪產') || type.includes('補休')) {
+          } else if (dedType === 'none') {
             leaveHoursPaid += hours;
           }
         });

@@ -138,16 +138,16 @@ export default function Attendance() {
   const summaryColumns = [
     { title: '部門', key: 'department', bold: true },
     { title: '姓名', key: 'name', bold: true },
-    { title: '當月正常出勤 (小時)', key: 'regularHours', align: 'center', render: (val) => `${val} H` },
+    { title: '正常工時 (H)', key: 'regularHours', align: 'center', render: (val) => `${val} H` },
     { 
-      title: '加班申報總時數 (小時)', 
+      title: '加班申報總時數 (H)', 
       key: 'overtimeHours', 
       align: 'center', 
       bold: true, 
       render: (val) => val > 0 ? <span style={{ color: 'var(--color-primary-700)', fontWeight: 'bold' }}>{val} H</span> : '—' 
     },
-    { title: '加班折算補休 (小時)', key: 'compConversionHours', align: 'center', render: (val) => val > 0 ? `${val} H` : '—' },
-    { title: '加班折算薪資 (小時)', key: 'cashConversionHours', align: 'center', render: (val) => val > 0 ? `${val} H` : '—' }
+    { title: '補休 (H)', key: 'compConversionHours', align: 'center', render: (val) => val > 0 ? `${val} H` : '—' },
+    { title: '加班折算薪資 (H)', key: 'cashConversionHours', align: 'center', render: (val) => val > 0 ? `${val} H` : '—' }
   ];
 
   const detailColumns = [

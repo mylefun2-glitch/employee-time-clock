@@ -478,7 +478,26 @@ async function main() {
       ]),
       label: '勞退月提繳工資分級表',
       notes: '2025年勞退月提繳工資分級表',
-    },
+    // Leave Rules (請假扣薪規則)
+    {
+      category: 'leave_rules',
+      key: 'leave_deduction_rules',
+      value: JSON.stringify([
+        { leaveType: '生理假', deductionType: 'half', rate: 0.5, label: '生理假' },
+        { leaveType: '病假', deductionType: 'half', rate: 0.5, label: '普通傷病假' },
+        { leaveType: '事假', deductionType: 'full', rate: 1.0, label: '事假' },
+        { leaveType: '家庭照顧假', deductionType: 'full', rate: 1.0, label: '家庭照顧假' },
+        { leaveType: '特休', deductionType: 'none', rate: 0.0, label: '特別休假' },
+        { leaveType: '公假', deductionType: 'none', rate: 0.0, label: '公假' },
+        { leaveType: '婚假', deductionType: 'none', rate: 0.0, label: '婚假' },
+        { leaveType: '喪假', deductionType: 'none', rate: 0.0, label: '喪假' },
+        { leaveType: '產假', deductionType: 'none', rate: 0.0, label: '產假' },
+        { leaveType: '陪產假', deductionType: 'none', rate: 0.0, label: '陪產檢及陪產假' },
+        { leaveType: '補休', deductionType: 'none', rate: 0.0, label: '補休' }
+      ]),
+      label: '請假扣薪規則設定',
+      notes: '自訂假別的扣薪規則與比例'
+    }
   ];
 
   for (const setting of settings) {

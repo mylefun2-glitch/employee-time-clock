@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import leaveService from '../../services/leaveService';
 import employeeService from '../../services/employeeService';
+import settingService from '../../services/settingService';
 import { Card, DataTable, Input, LoadingSpinner, Badge, Button } from '../../components/common';
 
 export default function Leaves() {
@@ -9,6 +10,7 @@ export default function Leaves() {
   const [month, setMonth] = useState((now.getMonth() + 1).toString());
   const [leaves, setLeaves] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [leaveRules, setLeaveRules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('approved'); // Default to approved leaves for statistics
   const [activeTab, setActiveTab] = useState('summary'); // 'summary' or 'detail'
@@ -19,7 +21,20 @@ export default function Leaves() {
 
   useEffect(() => {
     loadEmployees();
+    loadLeaveRules();
   }, []);
+
+  const loadLeaveRules = async () => {
+    try {
+      const res = await settingService.getSettings();
+      const ruleSetting = res.data.leave_rules?.find(s => s.key === 'leave_deduction_rules');
+      if (ruleSetting) {
+        setLeaveRules(JSON.parse(ruleSetting.value));
+      }
+    } catch (err) {
+      console.error('Failed to load leave rules:', err);
+    }
+  };
 
   const loadEmployees = async () => {
     try {
@@ -75,64 +90,72 @@ export default function Leaves() {
   const getSummaryData = () => {
     const employeeLeavesMap = {};
 
+    // Find rules that have deductions (rate > 0)
+    const deductionRules = leaveRules.filter(r => parseFloat(r.rate) > 0);
+
+    // Helper to find matching rule
+    const findDeductionRule = (leaveType) => {
+      const typeStr = (leaveType || '').trim().toLowerCase();
+      return deductionRules.find(r => {
+        const ruleType = (r.leaveType || '').trim().toLowerCase();
+        const ruleLabel = (r.label || '').trim().toLowerCase();
+        return typeStr === ruleType || typeStr === ruleLabel || typeStr.includes(ruleType) || ruleType.includes(typeStr);
+      });
+    };
+
     // Initialize with all active employees to ensure they are listed
     employees.forEach(emp => {
-      employeeLeavesMap[emp.id] = {
+      const initObj = {
         employee: emp,
-        sickHours: 0,
-        physiologicalHours: 0,
-        personalHours: 0,
-        familyCareHours: 0,
-        otherHours: 0,
+        rule_other: 0,
         totalDeductibleHours: 0
       };
+      deductionRules.forEach(rule => {
+        initObj[`rule_${rule.leaveType}`] = 0;
+      });
+      employeeLeavesMap[emp.id] = initObj;
     });
 
     // Aggregate leave records
     leaves.forEach(l => {
       const empId = l.employeeId;
       if (!employeeLeavesMap[empId]) {
-        employeeLeavesMap[empId] = {
+        const initObj = {
           employee: l.employee || { name: '未知', department: '未知' },
-          sickHours: 0,
-          physiologicalHours: 0,
-          personalHours: 0,
-          familyCareHours: 0,
-          otherHours: 0,
+          rule_other: 0,
           totalDeductibleHours: 0
         };
+        deductionRules.forEach(rule => {
+          initObj[`rule_${rule.leaveType}`] = 0;
+        });
+        employeeLeavesMap[empId] = initObj;
       }
 
-      const type = (l.leaveType || '').toLowerCase();
       const hours = (parseFloat(l.days) || 0) * 8;
+      const typeStr = (l.leaveType || '').trim().toLowerCase();
 
-      // Filter leaves that result in pay deduction (生理假, 病假, 事假, 家庭照顧假 etc.)
-      if (type.includes('生理') || type.includes('physiological')) {
-        employeeLeavesMap[empId].physiologicalHours += hours;
-        employeeLeavesMap[empId].totalDeductibleHours += hours;
-      } else if (type.includes('病') || type.includes('sick')) {
-        employeeLeavesMap[empId].sickHours += hours;
-        employeeLeavesMap[empId].totalDeductibleHours += hours;
-      } else if (type.includes('家庭') || type.includes('照顧') || type.includes('family')) {
-        employeeLeavesMap[empId].familyCareHours += hours;
-        employeeLeavesMap[empId].totalDeductibleHours += hours;
-      } else if (type.includes('事') || type.includes('personal')) {
-        employeeLeavesMap[empId].personalHours += hours;
-        employeeLeavesMap[empId].totalDeductibleHours += hours;
-      } else if (
-        type.includes('特休') || 
-        type.includes('annual') || 
-        type.includes('公假') || 
-        type.includes('婚') || 
-        type.includes('喪') || 
-        type.includes('產') || 
-        type.includes('陪產') ||
-        type.includes('補休')
-      ) {
-        // Fully paid leaves are excluded from unpaid statistics
+      // Check if it matches any rule (including rate = 0)
+      const matchedRule = leaveRules.find(r => {
+        const ruleType = (r.leaveType || '').trim().toLowerCase();
+        const ruleLabel = (r.label || '').trim().toLowerCase();
+        return typeStr === ruleType || typeStr === ruleLabel || typeStr.includes(ruleType) || ruleType.includes(typeStr);
+      });
+
+      if (matchedRule) {
+        if (parseFloat(matchedRule.rate) > 0) {
+          // It's a deductible leave
+          // Does it have a specific column (in deductionRules)?
+          const hasCol = deductionRules.some(r => r.leaveType === matchedRule.leaveType);
+          if (hasCol) {
+            employeeLeavesMap[empId][`rule_${matchedRule.leaveType}`] += hours;
+          } else {
+            employeeLeavesMap[empId].rule_other += hours;
+          }
+          employeeLeavesMap[empId].totalDeductibleHours += hours;
+        }
       } else {
-        // Any other unspecified unpaid leaves
-        employeeLeavesMap[empId].otherHours += hours;
+        // Completely unmatched leave type. By default, it's unpaid (deductible)
+        employeeLeavesMap[empId].rule_other += hours;
         employeeLeavesMap[empId].totalDeductibleHours += hours;
       }
     });
@@ -140,42 +163,64 @@ export default function Leaves() {
     // Convert map to array, showing employees who have leaves or are in the employee directory
     return Object.values(employeeLeavesMap)
       .filter(item => item.totalDeductibleHours > 0 || leaves.some(l => l.employeeId === item.employee.id))
-      .map((item, idx) => ({
-        id: item.employee.id || idx,
-        department: item.employee.department,
-        name: item.employee.name,
-        physiologicalHours: parseFloat(item.physiologicalHours.toFixed(2)),
-        sickHours: parseFloat(item.sickHours.toFixed(2)),
-        personalHours: parseFloat(item.personalHours.toFixed(2)),
-        familyCareHours: parseFloat(item.familyCareHours.toFixed(2)),
-        otherHours: parseFloat(item.otherHours.toFixed(2)),
-        totalDeductibleHours: parseFloat(item.totalDeductibleHours.toFixed(2))
-      }))
+      .map((item, idx) => {
+        const result = {
+          id: item.employee.id || idx,
+          department: item.employee.department,
+          name: item.employee.name,
+          rule_other: parseFloat(item.rule_other.toFixed(2)),
+          totalDeductibleHours: parseFloat(item.totalDeductibleHours.toFixed(2))
+        };
+        deductionRules.forEach(rule => {
+          result[`rule_${rule.leaveType}`] = parseFloat((item[`rule_${rule.leaveType}`] || 0).toFixed(2));
+        });
+        return result;
+      })
       .sort((a, b) => b.totalDeductibleHours - a.totalDeductibleHours);
   };
 
-  const summaryColumns = [
-    { title: '部門', key: 'department', bold: true },
-    { title: '姓名', key: 'name', bold: true },
-    { title: '生理假 (小時)', key: 'physiologicalHours', align: 'center', render: (val) => val > 0 ? `${val} H` : '—' },
-    { title: '病假 (小時)', key: 'sickHours', align: 'center', render: (val) => val > 0 ? `${val} H` : '—' },
-    { title: '事假 (小時)', key: 'personalHours', align: 'center', render: (val) => val > 0 ? `${val} H` : '—' },
-    { title: '家庭照顧假 (小時)', key: 'familyCareHours', align: 'center', render: (val) => val > 0 ? `${val} H` : '—' },
-    { title: '其他扣薪假 (小時)', key: 'otherHours', align: 'center', render: (val) => val > 0 ? `${val} H` : '—' },
-    { 
-      title: '總扣薪時數 (小時)', 
-      key: 'totalDeductibleHours', 
-      align: 'center', 
-      bold: true, 
-      render: (val) => val > 0 ? <span style={{ color: 'var(--color-error)', fontWeight: 'bold' }}>{val} H</span> : '0 H' 
-    },
-  ];
+  const getSummaryColumns = () => {
+    const cols = [
+      { title: '部門', key: 'department', bold: true },
+      { title: '姓名', key: 'name', bold: true }
+    ];
+
+    // Find rules that have deductions (rate > 0)
+    const deductionRules = leaveRules.filter(r => parseFloat(r.rate) > 0);
+    
+    deductionRules.forEach(rule => {
+      cols.push({
+        title: `${rule.label} (H)`,
+        key: `rule_${rule.leaveType}`,
+        align: 'center',
+        render: (val) => val > 0 ? `${val} H` : '—'
+      });
+    });
+
+    // Always append "其他扣薪假 (H)" for unmatched or other custom leaves
+    cols.push({
+      title: '其他扣薪假 (H)',
+      key: 'rule_other',
+      align: 'center',
+      render: (val) => val > 0 ? `${val} H` : '—'
+    });
+
+    cols.push({
+      title: '總扣薪時數 (H)',
+      key: 'totalDeductibleHours',
+      align: 'center',
+      bold: true,
+      render: (val) => val > 0 ? <span style={{ color: 'var(--color-error)', fontWeight: 'bold' }}>{val} H</span> : '0 H'
+    });
+
+    return cols;
+  };
 
   const detailColumns = [
     { title: '部門', key: 'employee.department', bold: true, render: (_, row) => row.employee?.department },
     { title: '姓名', key: 'employee.name', bold: true, render: (_, row) => row.employee?.name },
     { title: '假別', key: 'leaveType', render: (val) => val },
-    { title: '時數', key: 'days', render: (val) => `${parseFloat((val * 8).toFixed(2))} H` },
+    { title: '時數 (H)', key: 'days', render: (val) => `${parseFloat((val * 8).toFixed(2))} H` },
     { 
       title: '狀態', 
       key: 'status',
@@ -299,7 +344,7 @@ export default function Leaves() {
       {/* Leave List / Summary */}
       <Card>
         <DataTable 
-          columns={activeTab === 'summary' ? summaryColumns : detailColumns}
+          columns={activeTab === 'summary' ? getSummaryColumns() : detailColumns}
           data={activeTab === 'summary' ? getSummaryData() : leaves}
           loading={loading}
           emptyMessage={activeTab === 'summary' ? "該月份尚無任何會扣薪的請假統計資料" : "查無符合條件的請假申請明細"}

@@ -9,6 +9,7 @@ export default function Settings() {
   
   // Local form state for key-value inputs
   const [formValues, setFormValues] = useState({});
+  const [leaveRules, setLeaveRules] = useState([]);
 
   useEffect(() => {
     loadSettings();
@@ -24,16 +25,72 @@ export default function Settings() {
       const initialValues = {};
       Object.keys(res.data).forEach(cat => {
         res.data[cat].forEach(s => {
-          if (cat !== 'grade_table') {
+          if (cat !== 'grade_table' && s.key !== 'leave_deduction_rules') {
             initialValues[s.key] = s.value;
           }
         });
       });
       setFormValues(initialValues);
+
+      // Initialize leave rules
+      const leaveRulesSetting = res.data.leave_rules?.find(s => s.key === 'leave_deduction_rules');
+      if (leaveRulesSetting) {
+        try {
+          setLeaveRules(JSON.parse(leaveRulesSetting.value));
+        } catch (e) {
+          console.error('Failed to parse leave rules:', e);
+        }
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddLeaveRule = () => {
+    setLeaveRules(prev => [
+      ...prev,
+      { leaveType: '', label: '', deductionType: 'full', rate: 1.0 }
+    ]);
+  };
+
+  const handleRemoveLeaveRule = (index) => {
+    setLeaveRules(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateLeaveRule = (index, field, value, rateOverride) => {
+    setLeaveRules(prev => prev.map((rule, i) => {
+      if (i === index) {
+        const updated = { ...rule, [field]: value };
+        if (rateOverride !== undefined) {
+          updated.rate = rateOverride;
+        }
+        return updated;
+      }
+      return rule;
+    }));
+  };
+
+  const handleSaveLeaveRules = async () => {
+    setSaving(true);
+    try {
+      const invalid = leaveRules.some(r => !r.leaveType.trim() || !r.label.trim());
+      if (invalid) {
+        alert('請填寫所有規則的假別關鍵字與顯示名稱！');
+        setSaving(false);
+        return;
+      }
+      await settingService.updateSettings({
+        leave_deduction_rules: JSON.stringify(leaveRules)
+      });
+      alert('請假扣薪設定更新成功！');
+      loadSettings();
+    } catch (err) {
+      console.error(err);
+      alert(err.message || '更新失敗');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -207,6 +264,98 @@ export default function Settings() {
             value={formValues.tax_free_meal_allowance || ''}
             onChange={e => handleChange('tax_free_meal_allowance', e.target.value)}
           />
+        </div>
+      </Card>
+
+      {/* 4. Leave Deduction settings */}
+      <Card title="請假扣薪與假別規則設定" footer={
+        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+          <Button variant="outline" onClick={handleAddLeaveRule}>新增假別規則</Button>
+          <Button variant="primary" loading={saving} onClick={handleSaveLeaveRules}>儲存規則設定</Button>
+        </div>
+      }>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          {leaveRules.map((rule, idx) => (
+            <div key={idx} style={{ 
+              display: 'flex', 
+              alignItems: 'flex-end', 
+              gap: 'var(--space-3)', 
+              paddingBottom: 'var(--space-3)',
+              borderBottom: '1px solid var(--color-neutral-100)'
+            }}>
+              <div style={{ flex: 2 }}>
+                <Input
+                  label={idx === 0 ? "假別關鍵字 (例如：生理)" : ""}
+                  value={rule.leaveType}
+                  placeholder="假別關鍵字"
+                  onChange={e => handleUpdateLeaveRule(idx, 'leaveType', e.target.value)}
+                  style={{ marginBottom: 0 }}
+                />
+              </div>
+              <div style={{ flex: 2 }}>
+                <Input
+                  label={idx === 0 ? "顯示名稱" : ""}
+                  value={rule.label}
+                  placeholder="顯示名稱"
+                  onChange={e => handleUpdateLeaveRule(idx, 'label', e.target.value)}
+                  style={{ marginBottom: 0 }}
+                />
+              </div>
+              <div style={{ flex: 2 }}>
+                <Input
+                  label={idx === 0 ? "扣薪類型" : ""}
+                  type="select"
+                  value={rule.deductionType}
+                  options={[
+                    { value: 'none', label: '不扣薪 (Paid)' },
+                    { value: 'half', label: '扣半薪 (Half unpaid)' },
+                    { value: 'full', label: '扣全薪 (Unpaid)' },
+                    { value: 'custom', label: '自訂比例 (Custom)' }
+                  ]}
+                  onChange={e => {
+                    const type = e.target.value;
+                    let rate = 1.0;
+                    if (type === 'none') rate = 0.0;
+                    else if (type === 'half') rate = 0.5;
+                    else if (type === 'full') rate = 1.0;
+                    handleUpdateLeaveRule(idx, 'deductionType', type, rate);
+                  }}
+                  style={{ marginBottom: 0 }}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: '80px' }}>
+                <Input
+                  label={idx === 0 ? "扣薪比例" : ""}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="1"
+                  value={rule.rate}
+                  disabled={rule.deductionType !== 'custom'}
+                  onChange={e => handleUpdateLeaveRule(idx, 'rate', parseFloat(e.target.value) || 0)}
+                  style={{ marginBottom: 0 }}
+                />
+              </div>
+              <div style={{ paddingBottom: '2px' }}>
+                <Button 
+                  variant="outline" 
+                  style={{ 
+                    color: 'var(--color-error)', 
+                    borderColor: 'var(--color-error)',
+                    padding: '8px 12px'
+                  }}
+                  onClick={() => handleRemoveLeaveRule(idx)}
+                >
+                  刪除
+                </Button>
+              </div>
+            </div>
+          ))}
+          {leaveRules.length === 0 && (
+            <p style={{ color: 'var(--color-neutral-500)', fontSize: 'var(--text-sm)', textAlign: 'center', margin: 'var(--space-4) 0' }}>
+              尚無自訂假別規則，未設定假別預設會以「扣全薪」計算。
+            </p>
+          )}
         </div>
       </Card>
     </div>
