@@ -141,6 +141,13 @@ export const getEmployeeLeaveBalances = async (employeeId: string): Promise<Leav
             return transformed;
         }
 
+        return null;
+    } catch (error) {
+        console.error('Error fetching leave balances:', error);
+        return null;
+    }
+};
+
 // 獲取所有員工的差勤餘額 (批次 RPC)
 export const getAllEmployeesLeaveBalances = async (): Promise<{ employee_id: string; balance: LeaveBalance }[] | null> => {
     try {
@@ -152,6 +159,7 @@ export const getAllEmployeesLeaveBalances = async (): Promise<{ employee_id: str
         return null;
     }
 };
+
 
 // 獲取員工年資中斷記錄
 export const getSenioritySuspensions = async (employeeId: string): Promise<any[]> => {
