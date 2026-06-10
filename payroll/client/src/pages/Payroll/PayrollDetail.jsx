@@ -358,7 +358,7 @@ export default function PayrollDetail() {
                       onChange={e => setEditForm(prev => ({ ...prev, overtimeHours167: e.target.value }))}
                     />
                     <Input
-                      label="2.000倍加班"
+                      label={employee?.salaryType === 'monthly' ? "加發 1.000 倍加班 (國假/例假)" : "2.000倍加班"}
                       type="number"
                       step="0.01"
                       value={editForm.overtimeHours200}
@@ -582,12 +582,21 @@ export default function PayrollDetail() {
                         
                         return (
                           <>
-                            <div>(公式：(底薪 {formatCurr(record.baseSalary)} + 固定加給 {formatCurr(fixedAdd)}) / 30 / 8 × 請假時數 × 扣薪比例)</div>
+                            {normalLeaves.length === 1 ? (
+                              (() => {
+                                const l = normalLeaves[0];
+                                const hours = l.days * 8;
+                                const rate = l.rate !== undefined ? l.rate : (l.leaveType.includes('病') ? 0.5 : (l.leaveType.includes('特') || l.leaveType.includes('公') || l.leaveType.includes('婚') || l.leaveType.includes('喪') ? 0.0 : 1.0));
+                                return (
+                                  <div>(公式：({formatCurr(record.baseSalary)} + {formatCurr(fixedAdd)}) / 30 / 8 × {hours}H × {Math.round(rate * 100)}% = -{formatCurr(record.leaveDeduction)})</div>
+                                );
+                              })()
+                            ) : (
+                              <div>(公式：(底薪 {formatCurr(record.baseSalary)} + 固定加給 {formatCurr(fixedAdd)}) / 30 / 8 × 請假時數 × 扣薪比例)</div>
+                            )}
                             {normalLeaves.map((l, idx) => {
                               const hours = l.days * 8;
-                              let rate = 1.0;
-                              if (l.leaveType.includes('病')) rate = 0.5;
-                              else if (l.leaveType.includes('特') || l.leaveType.includes('公') || l.leaveType.includes('婚') || l.leaveType.includes('喪')) rate = 0.0;
+                              const rate = l.rate !== undefined ? l.rate : (l.leaveType.includes('病') ? 0.5 : (l.leaveType.includes('特') || l.leaveType.includes('公') || l.leaveType.includes('婚') || l.leaveType.includes('喪') ? 0.0 : 1.0));
                               
                               const hourlyLeaveRate = (record.baseSalary + fixedAdd) / 240;
                               const ded = Math.round(hourlyLeaveRate * hours * rate);
@@ -723,6 +732,20 @@ export default function PayrollDetail() {
                     <strong>請假扣薪計算公式：</strong><br />
                     {(() => {
                       const fixedAdd = (record.allowanceAA || 0) + (record.allowanceLicense || 0) + (record.allowanceManager || 0) + (record.otherAllowance || 0);
+                      const normalLeaves = record.leaves ? record.leaves.filter(l => {
+                        const type = (l.leaveType || '').toLowerCase();
+                        const isOt = type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現') || type === 'ot' || type === '加班';
+                        const isOfficial = type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓') || type === 'ob';
+                        return !isOt && !isOfficial;
+                      }) : [];
+                      
+                      if (normalLeaves.length === 1) {
+                        const l = normalLeaves[0];
+                        const hours = l.days * 8;
+                        const rate = l.rate !== undefined ? l.rate : (l.leaveType.includes('病') ? 0.5 : (l.leaveType.includes('特') || l.leaveType.includes('公') || l.leaveType.includes('婚') || l.leaveType.includes('喪') ? 0.0 : 1.0));
+                        return `(公式：(${formatCurr(record.baseSalary)} + ${formatCurr(fixedAdd)}) / 30 / 8 × ${hours}H × 扣薪比例 ${Math.round(rate * 100)}% = ${formatCurr(record.leaveDeduction)})`;
+                      }
+                      
                       return `(底薪 ${formatCurr(record.baseSalary)} + 固定加給 ${formatCurr(fixedAdd)}) / 30 / 8 × 請假時數 × 扣薪比例`;
                     })()}<br />
                     <span style={{ fontSize: '10px', color: 'var(--color-neutral-400)' }}>
@@ -741,7 +764,7 @@ export default function PayrollDetail() {
                   - 1.667倍加班：{record.overtimeHours167.toFixed(4)} 小時
                 </div>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-600)' }}>
-                  - 2.000倍加班：{record.overtimeHours200.toFixed(4)} 小時
+                  - {employee?.salaryType === 'monthly' ? '加發 1.000 倍加班' : '2.000倍加班'}：{record.overtimeHours200.toFixed(4)} 小時
                 </div>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-600)' }}>
                   - 2.667倍加班：{record.overtimeHours267.toFixed(4)} 小時

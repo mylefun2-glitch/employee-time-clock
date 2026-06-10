@@ -593,7 +593,36 @@ router.get('/:id', validateId(), async (req, res) => {
       }
     });
 
-    res.json({ data: { ...record, leaves } });
+    // Get settings to parse leave rates
+    const rawSettings = await req.prisma.systemSetting.findMany();
+    const settings = {};
+    rawSettings.forEach(s => { settings[s.key] = s.value; });
+
+    let leaveRules = [];
+    try {
+      if (settings.leave_deduction_rules) {
+        leaveRules = JSON.parse(settings.leave_deduction_rules);
+      }
+    } catch (err) {
+      console.error('Failed to parse leave deduction rules:', err);
+    }
+
+    const getLeaveRate = (leaveType) => {
+      const typeStr = (leaveType || '').trim().toLowerCase();
+      const rule = leaveRules.find(r => {
+        const ruleType = (r.leaveType || '').trim().toLowerCase();
+        const ruleLabel = (r.label || '').trim().toLowerCase();
+        return typeStr === ruleType || typeStr === ruleLabel || typeStr.includes(ruleType) || ruleType.includes(typeStr);
+      });
+      return rule ? parseFloat(rule.rate) : 1.0;
+    };
+
+    const enrichedLeaves = leaves.map(l => ({
+      ...l,
+      rate: getLeaveRate(l.leaveType)
+    }));
+
+    res.json({ data: { ...record, leaves: enrichedLeaves } });
   } catch (error) {
     console.error('Get payroll record error:', error);
     res.status(500).json({ error: '取得薪資明細失敗' });

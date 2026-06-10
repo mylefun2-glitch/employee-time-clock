@@ -145,7 +145,7 @@ export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}, lea
     { label: '加班倍率', value: '時數' },
     { label: '1.334', value: payrollRecord.overtimeHours134 > 0 ? payrollRecord.overtimeHours134.toFixed(4) : '0' },
     { label: '1.667', value: payrollRecord.overtimeHours167 > 0 ? payrollRecord.overtimeHours167.toFixed(4) : '0' },
-    { label: '2.000', value: payrollRecord.overtimeHours200 > 0 ? payrollRecord.overtimeHours200.toFixed(4) : '0' },
+    { label: employee.salaryType === 'monthly' ? '加發1.000' : '2.000', value: payrollRecord.overtimeHours200 > 0 ? payrollRecord.overtimeHours200.toFixed(4) : '0' },
     { label: '2.667', value: payrollRecord.overtimeHours267 > 0 ? payrollRecord.overtimeHours267.toFixed(4) : '0' },
     { label: '加班費', value: formatAmount(payrollRecord.overtimePay) }
   ];
@@ -232,8 +232,6 @@ export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}, lea
     // 1. Leave Deduction Formula (請假扣薪計算公式)
     const baseVal = payrollRecord.baseSalary;
     const fixedAdd = (payrollRecord.allowanceAA || 0) + (payrollRecord.allowanceLicense || 0) + (payrollRecord.allowanceManager || 0) + (payrollRecord.otherAllowance || 0);
-    doc.text(`● 請假扣薪計算公式：(底薪 ${formatAmount(baseVal)} + 固定加給 ${formatAmount(fixedAdd)}) / 30 / 8 × 請假時數 × 扣薪比例`, 50, notesY);
-    notesY += 14;
 
     let leaveRules = [];
     try {
@@ -259,6 +257,16 @@ export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}, lea
       const isOfficial = type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓') || type === 'ob';
       return !isOt && !isOfficial;
     });
+
+    if (normalLeaves.length === 1) {
+      const l = normalLeaves[0];
+      const hours = l.days * 8;
+      const rate = getLeaveRate(l.leaveType);
+      doc.text(`● 請假扣薪計算公式：(底薪 ${formatAmount(baseVal)} + 固定加給 ${formatAmount(fixedAdd)}) / 30 / 8 × ${hours}H × 扣薪比例 ${Math.round(rate * 100)}% = -${formatAmount(payrollRecord.leaveDeduction)}`, 50, notesY);
+    } else {
+      doc.text(`● 請假扣薪計算公式：(底薪 ${formatAmount(baseVal)} + 固定加給 ${formatAmount(fixedAdd)}) / 30 / 8 × 請假時數 × 扣薪比例`, 50, notesY);
+    }
+    notesY += 14;
 
     if (payrollRecord.leaveDeduction > 0 && normalLeaves.length > 0) {
       doc.text(`  請假扣薪明細：`, 50, notesY);
