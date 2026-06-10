@@ -328,7 +328,7 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       const otLeaves = [];
       leaves.forEach(l => {
         const type = (l.leaveType || '').toLowerCase();
-        if (type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現')) {
+        if (type === 'co' || type === 'alc' || type === 'ot' || type.includes('折算') || type.includes('折現') || type.includes('加班')) {
           otLeaves.push(l);
         } else if (
           type.includes('公出') ||

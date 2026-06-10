@@ -156,20 +156,12 @@ export function syncAttendanceAndLeaves(year, month, force = false) {
 
       await prisma.leaveRecord.deleteMany({
         where: {
-          OR: [
-            {
-              startDate: {
-                gte: startDate,
-                lte: endDate
-              }
-            },
-            {
-              endDate: {
-                gte: startDate,
-                lte: endDate
-              }
-            }
-          ]
+          startDate: {
+            lte: endDate
+          },
+          endDate: {
+            gte: startDate
+          }
         }
       });
 
@@ -199,12 +191,12 @@ export function syncAttendanceAndLeaves(year, month, force = false) {
         }
       });
 
-      // 2. Fetch leave requests from Supabase for this period (no status filter)
+      // 2. Fetch leave requests from Supabase for this period (overlapping with the month)
       const { data: sbLeaves, error: leaveError } = await supabase
         .from('leave_requests')
         .select('*, leave_types(code, name)')
-        .gte('start_date', `${startDate}T00:00:00`)
-        .lte('end_date', `${endDate}T23:59:59`);
+        .lte('start_date', `${endDate}T23:59:59`)
+        .gte('end_date', `${startDate}T00:00:00`);
 
       if (leaveError) throw leaveError;
 

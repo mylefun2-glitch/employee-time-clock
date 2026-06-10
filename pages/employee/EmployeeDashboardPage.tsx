@@ -270,7 +270,7 @@ const EmployeeDashboardPage: React.FC = () => {
                         className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-100 text-slate-500 px-4 py-2.5 rounded-2xl text-xs font-black transition-all active:scale-95 cursor-pointer shadow-sm"
                     >
                         <span className="material-symbols-outlined text-sm">info</span>
-                        v1.3.5
+                        v1.3.6
                     </button>
                     {/* 簡化後的系統狀態呼吸燈 (僅有圖示，不須文字) */}
                     <div className="flex items-center justify-center bg-white w-11 h-11 rounded-2xl border border-slate-100 shadow-sm relative group cursor-pointer" title="系統連線正常">
@@ -545,9 +545,23 @@ const EmployeeDashboardPage: React.FC = () => {
 
                         {/* 更新歷史時間軸內容 */}
                         <div className="flex-1 overflow-y-auto py-6 pr-2 space-y-8 scrollbar-thin">
-                            {/* v1.3.5 */}
+                            {/* v1.3.6 */}
                             <div className="relative pl-6 border-l-2 border-blue-500/20 last:border-l-0">
                                 <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-blue-500 border-2 border-white ring-4 ring-blue-50"></span>
+                                <div className="space-y-2">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-sm font-black text-slate-900">v1.3.6</span>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">2026-06-10</span>
+                                    </div>
+                                    <ul className="text-xs text-slate-500 font-bold space-y-1.5 list-disc pl-4 leading-relaxed">
+                                        <li>🩹 <b>請假與加班薪資結算修正</b>：修正加班假別 (code: <code>OT</code> / 加班) 被誤歸類為一般請假導致扣除薪資的問題；優化 Supabase 同步邏輯以完整支援跨月或跨日之邊界請假記錄。</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* v1.3.5 */}
+                            <div className="relative pl-6 border-l-2 border-blue-500/20 last:border-l-0">
+                                <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white ring-4 ring-slate-50"></span>
                                 <div className="space-y-2">
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-sm font-black text-slate-900">v1.3.5</span>
@@ -555,7 +569,7 @@ const EmployeeDashboardPage: React.FC = () => {
                                     </div>
                                     <ul className="text-xs text-slate-500 font-bold space-y-1.5 list-disc pl-4 leading-relaxed">
                                         <li>🚀 <b>薪資計算效能大幅優化</b>：資料庫讀取操作由迴圈內逐條查詢改為記憶體對照批量讀取，減少 480+ 次 RTT 延遲。</li>
-                                        <li>🛡️ <b>資料庫連線過載防禦</b>：解決 Supabase 連線池上限（<code>pool_size: 15</code>）導致 of <code>EMAXCONNSESSION</code> 崩潰問題，全面改採分批並行（Batch Size 5）寫入策略。</li>
+                                        <li>🛡️ <b>資料庫連線過載防禦</b>：解決 Supabase 連線池上限（<code>pool_size: 15</code>）導致的 <code>EMAXCONNSESSION</code> 崩潰問題，全面改採分批並行（Batch Size 5）寫入策略。</li>
                                     </ul>
                                 </div>
                             </div>
