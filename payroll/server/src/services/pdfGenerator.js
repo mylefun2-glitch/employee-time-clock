@@ -3,6 +3,11 @@ import fs from 'fs';
 import path from 'path';
 import https from 'https';
 import os from 'os';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const BUNDLED_FONT_PATH = path.join(__dirname, '../assets/fonts/NotoSansTC-Regular.ttf');
 
 const FONT_TEMP_PATH = path.join(os.tmpdir(), 'NotoSansTC-Regular.ttf');
 const FONT_URL = 'https://fonts.gstatic.com/s/notosanstc/v39/-nFuOG829Oofr2wohFbTp9ifNAn722rq0MXz76Cy_Co.ttf';
@@ -41,6 +46,8 @@ export function ensureFontDownloaded() {
  */
 function applyChineseFont(doc) {
   const fontsToTry = [
+    // Bundled font (highest priority)
+    { path: BUNDLED_FONT_PATH },
     // macOS
     { path: '/System/Library/Fonts/Supplemental/Songti.ttc', postscript: 'STSong' },
     { path: '/System/Library/Fonts/PingFang.ttc', postscript: 'PingFangTC-Regular' },

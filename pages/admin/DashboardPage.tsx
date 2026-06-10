@@ -178,7 +178,7 @@ const DashboardPage: React.FC = () => {
                         className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-100 text-slate-500 px-4 py-2.5 rounded-2xl text-xs font-black transition-all active:scale-95 cursor-pointer shadow-sm"
                     >
                         <span className="material-symbols-outlined text-sm">info</span>
-                        v1.3.8
+                        v1.3.9
                     </button>
                     <div className="text-right">
                         <p className="text-xs font-black text-slate-400 uppercase tracking-widest">最後更新時間</p>
@@ -281,9 +281,23 @@ const DashboardPage: React.FC = () => {
 
                         {/* 更新歷史時間軸內容 */}
                         <div className="flex-1 overflow-y-auto py-6 pr-2 space-y-8 scrollbar-thin">
-                            {/* v1.3.8 */}
+                            {/* v1.3.9 */}
                             <div className="relative pl-6 border-l-2 border-blue-500/20 last:border-l-0">
                                 <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-blue-500 border-2 border-white ring-4 ring-blue-50"></span>
+                                <div className="space-y-2">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-sm font-black text-slate-900">v1.3.9</span>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">2026-06-10</span>
+                                    </div>
+                                    <ul className="text-xs text-slate-500 font-bold space-y-1.5 list-disc pl-4 leading-relaxed">
+                                        <li>📄 <b>徹底解決 PDF 檔案下載失敗</b>：內置打包中文字型（Noto Sans TC），免除從外部網路下載或依賴系統字型的風險；同時對 Content-Disposition 標頭中的中文檔名進行 URL 編碼，防止 Node.js 因特殊字元報錯而中斷下載。</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* v1.3.8 */}
+                            <div className="relative pl-6 border-l-2 border-blue-500/20 last:border-l-0">
+                                <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white ring-4 ring-slate-50"></span>
                                 <div className="space-y-2">
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-sm font-black text-slate-900">v1.3.8</span>

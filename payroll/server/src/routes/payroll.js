@@ -1051,8 +1051,11 @@ router.get('/:id/pdf', validateId(), async (req, res) => {
 
     const pdfBuffer = await generatePayrollPDF(record, record.employee, settings, leaves);
 
+    const filename = `payroll_${record.year}_${record.month}_${record.employee.name}.pdf`;
+    const encodedFilename = encodeURIComponent(filename);
+
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=payroll_${record.year}_${record.month}_${record.employee.name}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
     res.send(pdfBuffer);
   } catch (error) {
     console.error('Generate PDF error:', error);

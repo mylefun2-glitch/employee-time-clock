@@ -180,8 +180,11 @@ export default function PayrollDetail() {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     })
-    .then(res => {
-      if (!res.ok) throw new Error('PDF 檔案下載失敗');
+    .then(async res => {
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'PDF 檔案下載失敗');
+      }
       return res.blob();
     })
     .then(blob => {

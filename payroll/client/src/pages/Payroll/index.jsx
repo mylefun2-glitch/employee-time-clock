@@ -180,7 +180,10 @@ export default function PayrollList() {
         body: JSON.stringify({ ids })
       });
 
-      if (!response.ok) throw new Error('批次下載失敗');
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error || '批次下載失敗');
+      }
       
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
