@@ -570,8 +570,37 @@ export default function PayrollDetail() {
                       <span>請假扣薪:</span>
                       <span className="font-mono">{formatCurr(record.leaveDeduction)}</span>
                     </div>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-500)', marginTop: '2px', textAlign: 'right' }}>
-                      (公式：(底薪 + 固定加給) / 30 / 8 × 請假時數 {record.leaveDays * 8}H)
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-500)', marginTop: '4px', textAlign: 'right', lineHeight: '1.4' }}>
+                      {(() => {
+                        const fixedAdd = (record.allowanceAA || 0) + (record.allowanceLicense || 0) + (record.allowanceManager || 0) + (record.otherAllowance || 0);
+                        const normalLeaves = record.leaves ? record.leaves.filter(l => {
+                          const type = (l.leaveType || '').toLowerCase();
+                          const isOt = type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現') || type === 'ot' || type === '加班';
+                          const isOfficial = type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓') || type === 'ob';
+                          return !isOt && !isOfficial;
+                        }) : [];
+                        
+                        return (
+                          <>
+                            <div>(公式：(底薪 {formatCurr(record.baseSalary)} + 固定加給 {formatCurr(fixedAdd)}) / 30 / 8 × 請假時數 × 扣薪比例)</div>
+                            {normalLeaves.map((l, idx) => {
+                              const hours = l.days * 8;
+                              let rate = 1.0;
+                              if (l.leaveType.includes('病')) rate = 0.5;
+                              else if (l.leaveType.includes('特') || l.leaveType.includes('公') || l.leaveType.includes('婚') || l.leaveType.includes('喪')) rate = 0.0;
+                              
+                              const hourlyLeaveRate = (record.baseSalary + fixedAdd) / 240;
+                              const ded = Math.round(hourlyLeaveRate * hours * rate);
+                              
+                              return (
+                                <div key={idx} style={{ marginTop: '2px' }}>
+                                  • {l.leaveType} {hours}H (比例 {Math.round(rate * 100)}%)：({formatCurr(record.baseSalary)} + {formatCurr(fixedAdd)}) / 240 × {hours} × {rate} = -{formatCurr(ded)}
+                                </div>
+                              );
+                            })}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -692,7 +721,10 @@ export default function PayrollDetail() {
                 {employee.salaryType === 'monthly' && (
                   <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-500)', marginTop: 'var(--space-2)', borderTop: '1px dashed var(--color-neutral-200)', paddingTop: 'var(--space-2)' }}>
                     <strong>請假扣薪計算公式：</strong><br />
-                    (底薪 + 固定加給) / 30 / 8 × 請假時數<br />
+                    {(() => {
+                      const fixedAdd = (record.allowanceAA || 0) + (record.allowanceLicense || 0) + (record.allowanceManager || 0) + (record.otherAllowance || 0);
+                      return `(底薪 ${formatCurr(record.baseSalary)} + 固定加給 ${formatCurr(fixedAdd)}) / 30 / 8 × 請假時數 × 扣薪比例`;
+                    })()}<br />
                     <span style={{ fontSize: '10px', color: 'var(--color-neutral-400)' }}>
                       * 固定加給包含：AA加給、專業證照、主管加給、其他津貼。
                     </span>

@@ -101,7 +101,7 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
   const otBase = employee.salaryType === 'hourly' ? averageHourlyRate : hourlyRate;
   const overtimePay134 = Math.round(overtimeHours134 * otBase * 1.334);
   const overtimePay167 = Math.round(overtimeHours167 * otBase * 1.667);
-  const overtimePay200 = Math.round(overtimeHours200 * otBase * 2.00);
+  const overtimePay200 = Math.round(overtimeHours200 * otBase * (employee.salaryType === 'monthly' ? 1.00 : 2.00));
   const overtimePay267 = Math.round(overtimeHours267 * otBase * 2.667);
   
   let finalOvertimePay = overtimePay134 + overtimePay167 + overtimePay200 + overtimePay267;

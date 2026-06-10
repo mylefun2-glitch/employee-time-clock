@@ -178,7 +178,7 @@ const DashboardPage: React.FC = () => {
                         className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-100 text-slate-500 px-4 py-2.5 rounded-2xl text-xs font-black transition-all active:scale-95 cursor-pointer shadow-sm"
                     >
                         <span className="material-symbols-outlined text-sm">info</span>
-                        v1.3.6
+                        v1.3.7
                     </button>
                     <div className="text-right">
                         <p className="text-xs font-black text-slate-400 uppercase tracking-widest">最後更新時間</p>
@@ -281,9 +281,25 @@ const DashboardPage: React.FC = () => {
 
                         {/* 更新歷史時間軸內容 */}
                         <div className="flex-1 overflow-y-auto py-6 pr-2 space-y-8 scrollbar-thin">
-                            {/* v1.3.6 */}
+                            {/* v1.3.7 */}
                             <div className="relative pl-6 border-l-2 border-blue-500/20 last:border-l-0">
                                 <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-blue-500 border-2 border-white ring-4 ring-blue-50"></span>
+                                <div className="space-y-2">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-sm font-black text-slate-900">v1.3.7</span>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">2026-06-10</span>
+                                    </div>
+                                    <ul className="text-xs text-slate-500 font-bold space-y-1.5 list-disc pl-4 leading-relaxed">
+                                        <li>📝 <b>請假扣薪與加班費計算精細化</b>：薪資條與 PDF 公式中呈現實際底薪、固定加給數值，並個別帶入請假假別的扣薪比例計算。</li>
+                                        <li>📅 <b>國定假日與休息日加班費調整</b>：5/1 等國定假日加班最少加發 1 日薪，超過 8H 以 1.334 倍計；5/23 週六休息日前 2H 延長工時以 1.334 倍，後 6H 以 1.667 倍處理。</li>
+                                        <li>🛡️ <b>區分一般加班與加班折算</b>：僅「加班折算」之假別會轉換為加班費，其餘一般加班假別不列入計薪（轉補休額度）。</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* v1.3.6 */}
+                            <div className="relative pl-6 border-l-2 border-blue-500/20 last:border-l-0">
+                                <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white ring-4 ring-slate-50"></span>
                                 <div className="space-y-2">
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-sm font-black text-slate-900">v1.3.6</span>

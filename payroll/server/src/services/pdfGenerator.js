@@ -57,7 +57,7 @@ function formatAmount(amount) {
 /**
  * Draw a single payroll slip onto a PDFkit document instance.
  */
-export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}) {
+export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}, leaves = []) {
   applyChineseFont(doc);
 
   // Title & Header
@@ -230,13 +230,52 @@ export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}) {
     }
   } else {
     // 1. Leave Deduction Formula (請假扣薪計算公式)
-    const fixedMonthly = payrollRecord.baseSalary + payrollRecord.allowanceAA + payrollRecord.allowanceLicense + payrollRecord.allowanceManager + payrollRecord.otherAllowance;
-    doc.text(`● 請假扣薪計算公式：(底薪 + 固定加給) / 30 / 8 × 請假時數  [固定加給包含：AA加給、專業證照、主管加給、其他津貼]`, 50, notesY);
+    const baseVal = payrollRecord.baseSalary;
+    const fixedAdd = (payrollRecord.allowanceAA || 0) + (payrollRecord.allowanceLicense || 0) + (payrollRecord.allowanceManager || 0) + (payrollRecord.otherAllowance || 0);
+    doc.text(`● 請假扣薪計算公式：(底薪 ${formatAmount(baseVal)} + 固定加給 ${formatAmount(fixedAdd)}) / 30 / 8 × 請假時數 × 扣薪比例`, 50, notesY);
     notesY += 14;
-    
-    if (payrollRecord.leaveDeduction > 0) {
+
+    let leaveRules = [];
+    try {
+      if (settings.leave_deduction_rules) {
+        leaveRules = JSON.parse(settings.leave_deduction_rules);
+      }
+    } catch (err) {
+      // ignore
+    }
+    const getLeaveRate = (leaveType) => {
+      const typeStr = (leaveType || '').trim().toLowerCase();
+      const rule = leaveRules.find(r => {
+        const ruleType = (r.leaveType || '').trim().toLowerCase();
+        const ruleLabel = (r.label || '').trim().toLowerCase();
+        return typeStr === ruleType || typeStr === ruleLabel || typeStr.includes(ruleType) || ruleType.includes(typeStr);
+      });
+      return rule ? parseFloat(rule.rate) : 1.0;
+    };
+
+    const normalLeaves = leaves.filter(l => {
+      const type = (l.leaveType || '').toLowerCase();
+      const isOt = type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現') || type === 'ot' || type === '加班';
+      const isOfficial = type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓') || type === 'ob';
+      return !isOt && !isOfficial;
+    });
+
+    if (payrollRecord.leaveDeduction > 0 && normalLeaves.length > 0) {
+      doc.text(`  請假扣薪明細：`, 50, notesY);
+      notesY += 14;
+      
+      const hourlyLeaveRate = (baseVal + fixedAdd) / 240;
+      normalLeaves.forEach(l => {
+        const hours = l.days * 8;
+        const rate = getLeaveRate(l.leaveType);
+        const deduction = Math.round(hourlyLeaveRate * hours * rate);
+        const ratePercent = `${Math.round(rate * 100)}%`;
+        doc.text(`    - ${l.leaveType} ${hours}H (比例 ${ratePercent})：(${formatAmount(baseVal)} + ${formatAmount(fixedAdd)}) / 240 × ${hours}H × ${rate} = 扣薪 ${formatAmount(deduction)} 元`, 60, notesY);
+        notesY += 14;
+      });
+    } else if (payrollRecord.leaveDeduction > 0) {
       const hours = payrollRecord.leaveDays * 8;
-      doc.text(`  實際請假扣薪：${formatAmount(payrollRecord.leaveDeduction)} 元 (${formatAmount(fixedMonthly)} / 30 / 8 × ${hours}H)`, 50, notesY);
+      doc.text(`  實際請假扣薪：${formatAmount(payrollRecord.leaveDeduction)} 元 (請假時數 ${hours}H)`, 50, notesY);
       notesY += 14;
     }
   }
@@ -270,7 +309,7 @@ export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}) {
 /**
  * Generate PDF for a payroll record.
  */
-export function generatePayrollPDF(payrollRecord, employee, settings = {}) {
+export function generatePayrollPDF(payrollRecord, employee, settings = {}, leaves = []) {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ size: 'A4', margin: 40 });
@@ -280,7 +319,7 @@ export function generatePayrollPDF(payrollRecord, employee, settings = {}) {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', err => reject(err));
 
-      drawPayrollSlip(doc, payrollRecord, employee, settings);
+      drawPayrollSlip(doc, payrollRecord, employee, settings, leaves);
 
       doc.end();
     } catch (error) {

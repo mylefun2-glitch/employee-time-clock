@@ -7,6 +7,17 @@ import { syncAttendanceAndLeaves } from '../services/supabaseSync.js';
 import { lookupLaborInsuranceGrade, lookupHealthInsuranceGrade } from '../services/insuranceCalculator.js';
 import { supabase } from '../services/supabase.js';
 
+const HOLIDAYS_2025_2026 = new Set([
+  // 2025
+  '2025-01-01', '2025-01-27', '2025-01-28', '2025-01-29', '2025-01-30', '2025-01-31', '2025-02-01', '2025-02-02', '2025-02-28', '2025-04-03', '2025-04-04', '2025-05-01', '2025-05-30', '2025-05-31', '2025-10-06', '2025-10-10', '2025-12-25',
+  // 2026
+  '2026-01-01', '2026-02-16', '2026-02-17', '2026-02-18', '2026-02-19', '2026-02-20', '2026-02-21', '2026-02-22', '2026-02-27', '2026-02-28', '2026-04-03', '2026-04-04', '2026-04-05', '2026-04-06', '2026-05-01', '2026-06-19', '2026-09-25', '2026-09-28', '2026-10-09', '2026-10-10', '2026-12-25'
+]);
+
+function isHoliday(dateStr) {
+  return HOLIDAYS_2025_2026.has(dateStr);
+}
+
 // Helper to fetch active schedules from Supabase for a given month and build mappings
 async function fetchActiveSchedulesForMonth(y, m) {
   try {
@@ -328,8 +339,10 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       const otLeaves = [];
       leaves.forEach(l => {
         const type = (l.leaveType || '').toLowerCase();
-        if (type === 'co' || type === 'alc' || type === 'ot' || type.includes('折算') || type.includes('折現') || type.includes('加班')) {
+        if (type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現')) {
           otLeaves.push(l);
+        } else if (type === 'ot' || type === '加班') {
+          // Skip: overtime to be compensated as compensatory leave (補休), not cash payout
         } else if (
           type.includes('公出') ||
           type.includes('家訪') ||
@@ -387,15 +400,38 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       // Calculate Overtime Hours from OT conversion leaves
       otLeaves.forEach(l => {
         const otHrs = parseFloat((l.days * 8).toFixed(2));
-        overtimeHours += otHrs;
 
-        // Split based on startDate day of week
-        const date = new Date(l.startDate);
-        const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+        // Determine day type
+        const isNatHoliday = isHoliday(l.startDate) || isHoliday(l.endDate) || (l.reason && (l.reason.includes('國假') || l.reason.includes('國定假日')));
+        
+        let dayOfWeek = new Date(l.endDate).getDay(); 
+        if (!isNatHoliday && new Date(l.startDate).getDay() === 6) {
+          dayOfWeek = 6;
+        } else if (!isNatHoliday && new Date(l.startDate).getDay() === 0) {
+          dayOfWeek = 0;
+        }
 
-        if (dayOfWeek === 0) {
+        if (isNatHoliday) {
+          // National Holiday overtime pay logic:
+          if (currentEmp.salaryType === 'monthly') {
+            const actualHrs = Math.max(8, otHrs);
+            overtimeHours += actualHrs;
+            overtimeHours200 += 8; // Paid at 1.0x additional
+            if (actualHrs > 8) {
+              overtimeHours134 += (actualHrs - 8); // Paid at 1.334x for hours beyond 8
+            }
+          } else {
+            // Hourly employees: paid at 2.0x
+            overtimeHours += otHrs;
+            overtimeHours200 += otHrs;
+          }
+        } else if (dayOfWeek === 0) {
+          // Sunday
+          overtimeHours += otHrs;
           overtimeHours200 += otHrs;
         } else if (dayOfWeek === 6) {
+          // Saturday rest day extended overtime:
+          overtimeHours += otHrs;
           const ot134 = Math.min(2, otHrs);
           const ot167 = Math.min(6, Math.max(0, otHrs - 2));
           const ot267 = Math.max(0, otHrs - 8);
@@ -403,6 +439,8 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
           overtimeHours167 += ot167;
           overtimeHours267 += ot267;
         } else {
+          // Weekday overtime:
+          overtimeHours += otHrs;
           const ot134 = Math.min(2, otHrs);
           const ot167 = Math.max(0, otHrs - 2);
           overtimeHours134 += ot134;
@@ -543,7 +581,19 @@ router.get('/:id', validateId(), async (req, res) => {
       return res.status(404).json({ error: '找不到該筆薪資紀錄' });
     }
 
-    res.json({ data: record });
+    const startDate = `${record.year}-${String(record.month).padStart(2, '0')}-01`;
+    const lastDay = new Date(record.year, record.month, 0).getDate();
+    const endDate = `${record.year}-${String(record.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    const leaves = await req.prisma.leaveRecord.findMany({
+      where: {
+        employeeId: record.employeeId,
+        startDate: { lte: endDate },
+        endDate: { gte: startDate }
+      }
+    });
+
+    res.json({ data: { ...record, leaves } });
   } catch (error) {
     console.error('Get payroll record error:', error);
     res.status(500).json({ error: '取得薪資明細失敗' });
@@ -958,7 +1008,19 @@ router.get('/:id/pdf', validateId(), async (req, res) => {
     const settings = {};
     rawSettings.forEach(s => { settings[s.key] = s.value; });
 
-    const pdfBuffer = await generatePayrollPDF(record, record.employee, settings);
+    const startDate = `${record.year}-${String(record.month).padStart(2, '0')}-01`;
+    const lastDay = new Date(record.year, record.month, 0).getDate();
+    const endDate = `${record.year}-${String(record.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    const leaves = await req.prisma.leaveRecord.findMany({
+      where: {
+        employeeId: record.employeeId,
+        startDate: { lte: endDate },
+        endDate: { gte: startDate }
+      }
+    });
+
+    const pdfBuffer = await generatePayrollPDF(record, record.employee, settings, leaves);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=payroll_${record.year}_${record.month}_${record.employee.name}.pdf`);
@@ -994,6 +1056,18 @@ router.post('/batch-pdf', async (req, res) => {
     const settings = {};
     rawSettings.forEach(s => { settings[s.key] = s.value; });
 
+    // Fetch all leaves for these records at once to be efficient
+    const employeeIds = records.map(r => r.employeeId);
+    const years = [...new Set(records.map(r => r.year))];
+    const months = [...new Set(records.map(r => r.month))];
+    const leaves = await req.prisma.leaveRecord.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        startDate: { lte: `${Math.max(...years)}-${String(Math.max(...months)).padStart(2, '0')}-31` },
+        endDate: { gte: `${Math.min(...years)}-${String(Math.min(...months)).padStart(2, '0')}-01` }
+      }
+    });
+
     // We can generate PDFs and join them or write directly in a single document
     // Let's create a combined PDF using pdfkit directly to avoid extra libraries
     // and write custom rendering
@@ -1010,7 +1084,17 @@ router.post('/batch-pdf', async (req, res) => {
 
     records.forEach((record, index) => {
       if (index > 0) doc.addPage();
-      drawPayrollSlip(doc, record, record.employee, settings);
+      const startDate = `${record.year}-${String(record.month).padStart(2, '0')}-01`;
+      const lastDay = new Date(record.year, record.month, 0).getDate();
+      const endDate = `${record.year}-${String(record.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+      const recordLeaves = leaves.filter(l => 
+        l.employeeId === record.employeeId &&
+        l.startDate <= endDate &&
+        l.endDate >= startDate
+      );
+
+      drawPayrollSlip(doc, record, record.employee, settings, recordLeaves);
     });
 
     doc.end();
