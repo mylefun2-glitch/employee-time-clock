@@ -13,6 +13,7 @@ import leaveRoutes from './routes/leaves.js';
 import payrollRoutes from './routes/payroll.js';
 import reportRoutes from './routes/reports.js';
 import settingsRoutes from './routes/settings.js';
+import { ensureFontDownloaded } from './services/pdfGenerator.js';
 
 dotenv.config();
 
@@ -176,6 +177,7 @@ app.listen(PORT, async () => {
   console.log(`社照會薪資系統 API server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
   await ensureLeaveDeductionRules();
+  ensureFontDownloaded().catch(err => console.error('[Startup] Failed to download Chinese font:', err));
 });
 
 export default app;

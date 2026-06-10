@@ -1,6 +1,40 @@
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
+import https from 'https';
+import os from 'os';
+
+const FONT_TEMP_PATH = path.join(os.tmpdir(), 'NotoSansTC-Regular.ttf');
+const FONT_URL = 'https://fonts.gstatic.com/s/notosanstc/v39/-nFuOG829Oofr2wohFbTp9ifNAn722rq0MXz76Cy_Co.ttf';
+
+/**
+ * Downloads Noto Sans TC font from Google CDN if it does not already exist locally.
+ */
+export function ensureFontDownloaded() {
+  return new Promise((resolve, reject) => {
+    if (fs.existsSync(FONT_TEMP_PATH)) {
+      return resolve(FONT_TEMP_PATH);
+    }
+    console.log(`[Font] Downloading Chinese font to ${FONT_TEMP_PATH}...`);
+    const file = fs.createWriteStream(FONT_TEMP_PATH);
+    https.get(FONT_URL, (response) => {
+      if (response.statusCode !== 200) {
+        reject(new Error(`Failed to download font: status code ${response.statusCode}`));
+        return;
+      }
+      response.pipe(file);
+      file.on('finish', () => {
+        file.close(() => {
+          console.log('[Font] Chinese font downloaded successfully.');
+          resolve(FONT_TEMP_PATH);
+        });
+      });
+    }).on('error', (err) => {
+      fs.unlink(FONT_TEMP_PATH, () => {});
+      reject(err);
+    });
+  });
+}
 
 /**
  * Robustly apply a Chinese font for the PDF document with multiple fallbacks.
@@ -23,6 +57,8 @@ function applyChineseFont(doc) {
     // Windows
     { path: 'C:\\Windows\\Fonts\\msjh.ttc', postscript: 'MicrosoftJhengHeiRegular' },
     { path: 'C:\\Windows\\Fonts\\msjh.ttf' },
+    // Temp downloaded font (Render/Linux fallback)
+    { path: FONT_TEMP_PATH }
   ];
 
   for (const font of fontsToTry) {
@@ -339,4 +375,5 @@ export function generatePayrollPDF(payrollRecord, employee, settings = {}, leave
 export default {
   drawPayrollSlip,
   generatePayrollPDF,
+  ensureFontDownloaded,
 };
