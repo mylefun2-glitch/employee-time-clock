@@ -66,28 +66,10 @@ async function fetchActiveSchedulesForMonth(y, m) {
 }
 import PDFDocument from 'pdfkit';
 
-// Helper to calculate rolling average of M-4 to M-2 wages and automatically update insurance grades
-async function calculateRollingInsuranceGrades(prisma, emp, y, m) {
-  const pastMonths = [];
-  for (let offset of [4, 3, 2]) {
-    let curM = m - offset;
-    let curY = y;
-    while (curM <= 0) {
-      curM += 12;
-      curY -= 1;
-    }
-    pastMonths.push({ year: curY, month: curM });
-  }
-
-  const pastRecords = await prisma.payrollRecord.findMany({
-    where: {
-      employeeId: emp.id,
-      OR: pastMonths.map(pm => ({ year: pm.year, month: pm.month }))
-    }
-  });
-
+// Helper to calculate rolling average of M-4 to M-2 wages in memory
+function getRollingInsuranceGrades(emp, pastRecords) {
   let avgWage = 0;
-  if (pastRecords.length > 0) {
+  if (pastRecords && pastRecords.length > 0) {
     const sumWages = pastRecords.reduce((sum, r) => sum + (r.grossPay - r.mealAllowance), 0);
     avgWage = sumWages / pastRecords.length;
   } else {
@@ -104,15 +86,23 @@ async function calculateRollingInsuranceGrades(prisma, emp, y, m) {
   const pensionGrade = lookupHealthInsuranceGrade(avgWage);
   const occupationalGrade = lookupLaborInsuranceGrade(avgWage);
 
-  return await prisma.employee.update({
-    where: { id: emp.id },
-    data: {
-      laborInsuranceGrade: laborGrade,
-      healthInsuranceGrade: healthGrade,
-      laborPensionGrade: pensionGrade,
-      laborOccupationalGrade: occupationalGrade
-    }
-  });
+  return {
+    laborInsuranceGrade: laborGrade,
+    healthInsuranceGrade: healthGrade,
+    laborPensionGrade: pensionGrade,
+    laborOccupationalGrade: occupationalGrade
+  };
+}
+
+// Helper to run database promises in small chunks to avoid database connection pool exhaustion
+async function runInBatches(tasks, batchSize = 5) {
+  const results = [];
+  for (let i = 0; i < tasks.length; i += batchSize) {
+    const batch = tasks.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(taskFn => taskFn()));
+    results.push(...batchResults);
+  }
+  return results;
 }
 
 const router = Router();
@@ -163,16 +153,24 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
     const y = parseInt(year);
     const m = parseInt(month);
 
+    console.log(`[Calc] Starting optimized calculation for ${y}-${m}...`);
+
     // Sync attendance logs and approved leaves from Supabase first
+    console.log('[Calc] Syncing attendance and leaves...');
     await syncAttendanceAndLeaves(y, m).catch(err => console.error("Sync attendance/leaves failed:", err));
+    console.log('[Calc] Attendance and leaves synced.');
 
     // Fetch active schedules for this month from Supabase to override salary structures
+    console.log('[Calc] Fetching active schedules for month...');
     const activeSchedules = await fetchActiveSchedulesForMonth(y, m);
+    console.log('[Calc] Active schedules fetched. Count keys:', Object.keys(activeSchedules).length);
 
     // Get settings
+    console.log('[Calc] Querying system settings...');
     const rawSettings = await req.prisma.systemSetting.findMany();
     const settings = {};
     rawSettings.forEach(s => { settings[s.key] = s.value; });
+    console.log('[Calc] System settings loaded.');
 
     // Override with custom calculation settings if provided
     if (customSettings && typeof customSettings === 'object') {
@@ -182,20 +180,110 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
     // Build employee query
     const empWhere = { isActive: true };
     if (employeeIds && Array.isArray(employeeIds) && employeeIds.length > 0) {
-
       empWhere.id = { in: employeeIds.map(id => parseInt(id)) };
     }
 
+    console.log('[Calc] Fetching employees from DB...');
     const employees = await req.prisma.employee.findMany({ where: empWhere });
+    console.log(`[Calc] Found ${employees.length} active employees to process.`);
     if (employees.length === 0) {
       return res.status(404).json({ error: '找不到適用的員工資料' });
     }
 
     const monthStr = String(m).padStart(2, '0');
-    const results = [];
+    const nextMonth = m === 12 ? 1 : m + 1;
+    const nextYear = m === 12 ? y + 1 : y;
+    const lastDay = new Date(nextYear, nextMonth - 1, 0).getDate();
+    const lastDayStr = String(lastDay).padStart(2, '0');
 
+    // 1. Batch fetch past 3 months payroll records for rolling grades
+    console.log('[Calc] Batch fetching historical records...');
+    const pastMonths = [];
+    for (let offset of [4, 3, 2]) {
+      let curM = m - offset;
+      let curY = y;
+      while (curM <= 0) {
+        curM += 12;
+        curY -= 1;
+      }
+      pastMonths.push({ year: curY, month: curM });
+    }
+    const allPastRecords = await req.prisma.payrollRecord.findMany({
+      where: {
+        OR: pastMonths.map(pm => ({ year: pm.year, month: pm.month }))
+      }
+    });
+    const pastRecordsMap = {};
+    allPastRecords.forEach(r => {
+      if (!pastRecordsMap[r.employeeId]) pastRecordsMap[r.employeeId] = [];
+      pastRecordsMap[r.employeeId].push(r);
+    });
+
+    // 2. Batch fetch attendance and leave records for the calculation month
+    console.log('[Calc] Batch fetching attendance and leaves...');
+    const allAttendanceRecords = await req.prisma.attendanceRecord.findMany({
+      where: {
+        date: {
+          gte: `${y}-${monthStr}-01`,
+          lte: `${y}-${monthStr}-${lastDayStr}`
+        }
+      }
+    });
+    const allLeaves = await req.prisma.leaveRecord.findMany({
+      where: {
+        status: 'approved',
+        startDate: { lte: `${y}-${monthStr}-${lastDayStr}` },
+        endDate: { gte: `${y}-${monthStr}-01` }
+      }
+    });
+
+    const attendanceMap = {};
+    allAttendanceRecords.forEach(r => {
+      if (!attendanceMap[r.employeeId]) attendanceMap[r.employeeId] = [];
+      attendanceMap[r.employeeId].push(r);
+    });
+
+    const leavesMap = {};
+    allLeaves.forEach(l => {
+      if (!leavesMap[l.employeeId]) leavesMap[l.employeeId] = [];
+      leavesMap[l.employeeId].push(l);
+    });
+
+    // Parse leave deduction rules from settings
+    let leaveRules = [];
+    try {
+      if (settings.leave_deduction_rules) {
+        leaveRules = JSON.parse(settings.leave_deduction_rules);
+      }
+    } catch (err) {
+      console.error('Failed to parse leave deduction rules:', err);
+    }
+
+    const getLeaveRate = (leaveType) => {
+      const typeStr = (leaveType || '').trim().toLowerCase();
+      const rule = leaveRules.find(r => {
+        const ruleType = (r.leaveType || '').trim().toLowerCase();
+        const ruleLabel = (r.label || '').trim().toLowerCase();
+        return typeStr === ruleType || typeStr === ruleLabel || typeStr.includes(ruleType) || ruleType.includes(typeStr);
+      });
+      return rule ? parseFloat(rule.rate) : 1.0;
+    };
+
+    const getLeaveDeductionType = (leaveType) => {
+      const typeStr = (leaveType || '').trim().toLowerCase();
+      const rule = leaveRules.find(r => {
+        const ruleType = (r.leaveType || '').trim().toLowerCase();
+        const ruleLabel = (r.label || '').trim().toLowerCase();
+        return typeStr === ruleType || typeStr === ruleLabel || typeStr.includes(ruleType) || ruleType.includes(typeStr);
+      });
+      return rule ? rule.deductionType : 'full';
+    };
+
+    const queueEmployeeUpdate = [];
+    const queueUpsert = [];
+
+    // Loop through employees and perform calculations in memory
     for (const emp of employees) {
-      // 0. Prepare current employee object, overriding salary settings if active schedule is found in Supabase
       let currentEmp = emp;
       const activeSched = activeSchedules[emp.employeeNo];
       if (activeSched) {
@@ -209,47 +297,31 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         };
       }
 
-      // 0. Update rolling average insurance grades automatically before calculation
-      try {
-        const updatedGradeEmp = await calculateRollingInsuranceGrades(req.prisma, currentEmp, y, m);
-        // Re-apply the month-specific schedule override onto the updated employee object
-        currentEmp = {
-          ...updatedGradeEmp,
-          salaryType: currentEmp.salaryType,
-          baseSalary: currentEmp.baseSalary,
-          allowanceManager: currentEmp.allowanceManager,
-          allowanceLicense: currentEmp.allowanceLicense,
-          otherAllowance: currentEmp.otherAllowance
-        };
-      } catch (err) {
-        console.error(`自動計算投保薪資級距失敗 (員工: ${emp.name}):`, err);
+      // Check rolling grades and update only if they changed
+      const pastRecs = pastRecordsMap[emp.id] || [];
+      const grades = getRollingInsuranceGrades(currentEmp, pastRecs);
+      
+      const hasGradeChanged = 
+        grades.laborInsuranceGrade !== emp.laborInsuranceGrade ||
+        grades.healthInsuranceGrade !== emp.healthInsuranceGrade ||
+        grades.laborPensionGrade !== emp.laborPensionGrade ||
+        grades.laborOccupationalGrade !== emp.laborOccupationalGrade;
+
+      if (hasGradeChanged) {
+        queueEmployeeUpdate.push({
+          id: emp.id,
+          grades
+        });
       }
+      
+      currentEmp = {
+        ...currentEmp,
+        ...grades
+      };
 
-      const nextMonth = m === 12 ? 1 : m + 1;
-      const nextYear = m === 12 ? y + 1 : y;
-      const lastDay = new Date(nextYear, nextMonth - 1, 0).getDate();
-      const lastDayStr = String(lastDay).padStart(2, '0');
-
-      // Fetch attendance records for this month
-      const attendanceRecords = await req.prisma.attendanceRecord.findMany({
-        where: {
-          employeeId: emp.id,
-          date: {
-            gte: `${y}-${monthStr}-01`,
-            lte: `${y}-${monthStr}-${lastDayStr}`
-          }
-        }
-      });
-
-      // Fetch approved leaves in this month (overlapping with the month)
-      const leaves = await req.prisma.leaveRecord.findMany({
-        where: {
-          employeeId: emp.id,
-          status: 'approved',
-          startDate: { lte: `${y}-${monthStr}-${lastDayStr}` },
-          endDate: { gte: `${y}-${monthStr}-01` }
-        }
-      });
+      // Fetch attendance & leaves from memory map
+      const attendanceRecords = attendanceMap[emp.id] || [];
+      const leaves = leavesMap[emp.id] || [];
 
       // Split leaves into normal leaves and overtime conversion leaves, excluding official business (work)
       const normalLeaves = [];
@@ -267,7 +339,7 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
           type.includes('培訓') ||
           type === 'ob'
         ) {
-          // Skip official business - they are not leaves and shouldn't deduct pay
+          // Skip official business
         } else {
           normalLeaves.push(l);
         }
@@ -286,38 +358,6 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       let leaveDeduction = 0;
       let leaveHoursHalf = 0;
       let leaveHoursPaid = 0;
-
-      // Parse leave deduction rules from settings
-      let leaveRules = [];
-      try {
-        if (settings.leave_deduction_rules) {
-          leaveRules = JSON.parse(settings.leave_deduction_rules);
-        }
-      } catch (err) {
-        console.error('Failed to parse leave deduction rules:', err);
-      }
-
-      // Helper to find leave rule rate (default to 1.0/full if not configured)
-      const getLeaveRate = (leaveType) => {
-        const typeStr = (leaveType || '').trim().toLowerCase();
-        const rule = leaveRules.find(r => {
-          const ruleType = (r.leaveType || '').trim().toLowerCase();
-          const ruleLabel = (r.label || '').trim().toLowerCase();
-          return typeStr === ruleType || typeStr === ruleLabel || typeStr.includes(ruleType) || ruleType.includes(typeStr);
-        });
-        return rule ? parseFloat(rule.rate) : 1.0;
-      };
-
-      // Helper to find leave deduction type (default to 'full' if not configured)
-      const getLeaveDeductionType = (leaveType) => {
-        const typeStr = (leaveType || '').trim().toLowerCase();
-        const rule = leaveRules.find(r => {
-          const ruleType = (r.leaveType || '').trim().toLowerCase();
-          const ruleLabel = (r.label || '').trim().toLowerCase();
-          return typeStr === ruleType || typeStr === ruleLabel || typeStr.includes(ruleType) || ruleType.includes(typeStr);
-        });
-        return rule ? rule.deductionType : 'full';
-      };
 
       normalLeaves.forEach(l => { leaveDays += l.days; });
 
@@ -426,24 +466,43 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         leaveHoursPaid
       };
 
-      // Calculate payroll
       const payDetails = calculatePayroll(currentEmp, attendanceSummary, settings);
+      
+      // Queue the upsert operation for parallel run
+      queueUpsert.push({
+        employeeId: emp.id,
+        payDetails
+      });
+    }
 
-      // Upsert payroll record
-      const record = await req.prisma.payrollRecord.upsert({
+    // Batch update employee insurance grades in DB
+    console.log(`[Calc] Batch updating ${queueEmployeeUpdate.length} employee insurance grades...`);
+    const updateTasks = queueEmployeeUpdate.map(item => () => {
+      return req.prisma.employee.update({
+        where: { id: item.id },
+        data: item.grades
+      });
+    });
+    await runInBatches(updateTasks, 5);
+    console.log('[Calc] Employee insurance grades updated.');
+
+    // Batch upsert payroll records in DB
+    console.log(`[Calc] Batch upserting ${queueUpsert.length} payroll records...`);
+    const upsertTasks = queueUpsert.map(item => () => {
+      return req.prisma.payrollRecord.upsert({
         where: {
-          employeeId_year_month: { employeeId: emp.id, year: y, month: m }
+          employeeId_year_month: { employeeId: item.employeeId, year: y, month: m }
         },
         update: {
-          ...payDetails,
+          ...item.payDetails,
           status: 'DRAFT',
           calculatedAt: new Date().toISOString()
         },
         create: {
-          employeeId: emp.id,
+          employeeId: item.employeeId,
           year: y,
           month: m,
-          ...payDetails,
+          ...item.payDetails,
           status: 'DRAFT',
           calculatedAt: new Date().toISOString()
         },
@@ -453,10 +512,10 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
           }
         }
       });
+    });
+    const results = await runInBatches(upsertTasks, 5);
 
-      results.push(record);
-    }
-
+    console.log('[Calc] Payroll calculation completed successfully.');
     res.json({
       message: `成功計算 ${results.length} 位員工的薪資`,
       data: results
