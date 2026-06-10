@@ -565,9 +565,14 @@ export default function PayrollDetail() {
                   </div>
                 )}
                 {record.leaveDeduction > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)', color: 'var(--color-error)' }}>
-                    <span>請假扣薪:</span>
-                    <span className="font-mono">{formatCurr(record.leaveDeduction)}</span>
+                  <div style={{ borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-error)' }}>
+                      <span>請假扣薪:</span>
+                      <span className="font-mono">{formatCurr(record.leaveDeduction)}</span>
+                    </div>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-500)', marginTop: '2px', textAlign: 'right' }}>
+                      (公式：(底薪 + 固定加給) / 30 / 8 × 請假時數 {record.leaveDays * 8}H)
+                    </div>
                   </div>
                 )}
                 {record.supplementaryHealthInsurance > 0 && (
@@ -684,6 +689,15 @@ export default function PayrollDetail() {
                 <div><strong>請假扣薪天數：</strong> {record.leaveDays} 天</div>
                 <div><strong>曠職缺勤天數：</strong> {record.absentDays} 天</div>
                 <div><strong>正常工時總計：</strong> {record.regularHours} 小時</div>
+                {employee.salaryType === 'monthly' && (
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-500)', marginTop: 'var(--space-2)', borderTop: '1px dashed var(--color-neutral-200)', paddingTop: 'var(--space-2)' }}>
+                    <strong>請假扣薪計算公式：</strong><br />
+                    (底薪 + 固定加給) / 30 / 8 × 請假時數<br />
+                    <span style={{ fontSize: '10px', color: 'var(--color-neutral-400)' }}>
+                      * 固定加給包含：AA加給、專業證照、主管加給、其他津貼。
+                    </span>
+                  </div>
+                )}
               </div>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: 'var(--text-sm)', borderLeft: '1px solid var(--color-neutral-200)', paddingLeft: 'var(--space-4)' }}>

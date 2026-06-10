@@ -3,23 +3,47 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * Find a Chinese font on Mac or other systems.
+ * Robustly apply a Chinese font for the PDF document with multiple fallbacks.
  */
-function getChineseFont() {
-  const macFonts = [
-    '/System/Library/Fonts/PingFang.ttc',
-    '/System/Library/Fonts/STHeiti Light.ttc',
-    '/System/Library/Fonts/STHeiti Medium.ttc',
-    '/System/Library/Fonts/Supplemental/Songti.ttc',
-    '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
+function applyChineseFont(doc) {
+  const fontsToTry = [
+    // macOS
+    { path: '/System/Library/Fonts/Supplemental/Songti.ttc', postscript: 'STSong' },
+    { path: '/System/Library/Fonts/PingFang.ttc', postscript: 'PingFangTC-Regular' },
+    { path: '/System/Library/Fonts/STHeiti Light.ttc', postscript: 'STHeiti-Light' },
+    { path: '/System/Library/Fonts/STHeiti Medium.ttc', postscript: 'STHeiti-Medium' },
+    { path: '/System/Library/Fonts/Supplemental/Arial Unicode.ttf' },
+    { path: '/Library/Fonts/Arial Unicode.ttf' },
+    // Linux
+    { path: '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc', postscript: 'WenQuanYiMicroHei' },
+    { path: '/usr/share/fonts/truetype/wqy/wqy-microhei.ttf' },
+    { path: '/usr/share/fonts/wqy-microhei/wqy-microhei.ttc', postscript: 'WenQuanYiMicroHei' },
+    { path: '/usr/share/fonts/wqy-microhei/wqy-microhei.ttf' },
+    { path: '/usr/share/fonts/truetype/droid/DroidSansFallback.ttf' },
+    // Windows
+    { path: 'C:\\Windows\\Fonts\\msjh.ttc', postscript: 'MicrosoftJhengHeiRegular' },
+    { path: 'C:\\Windows\\Fonts\\msjh.ttf' },
   ];
 
-  for (const fontPath of macFonts) {
-    if (fs.existsSync(fontPath)) {
-      return fontPath;
+  for (const font of fontsToTry) {
+    if (fs.existsSync(font.path)) {
+      try {
+        if (font.postscript) {
+          doc.registerFont('Chinese', font.path, font.postscript);
+        } else {
+          doc.registerFont('Chinese', font.path);
+        }
+        doc.font('Chinese');
+        return true;
+      } catch (err) {
+        // Fallback to next font
+      }
     }
   }
-  return null;
+
+  // Fallback to standard Helvetica if no Chinese font can be loaded
+  doc.font('Helvetica');
+  return false;
 }
 
 /**
@@ -34,17 +58,7 @@ function formatAmount(amount) {
  * Draw a single payroll slip onto a PDFkit document instance.
  */
 export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}) {
-  const fontPath = getChineseFont();
-  if (fontPath) {
-    if (fontPath.endsWith('.ttc')) {
-      doc.registerFont('Chinese', fontPath, 'PingFangTC-Regular');
-    } else {
-      doc.registerFont('Chinese', fontPath);
-    }
-    doc.font('Chinese');
-  } else {
-    doc.font('Helvetica');
-  }
+  applyChineseFont(doc);
 
   // Title & Header
   const orgName = settings.org_name || '社團法人宜蘭縣社區照顧促進會';
@@ -215,15 +229,24 @@ export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}) {
       notesY += 14;
     }
   } else {
-    if (payrollRecord.bonus > 0) {
-      doc.text(`● 獎金：${formatAmount(payrollRecord.bonus)} <績效獎金>`, 50, notesY);
-      notesY += 14;
-    }
+    // 1. Leave Deduction Formula (請假扣薪計算公式)
+    const fixedMonthly = payrollRecord.baseSalary + payrollRecord.allowanceAA + payrollRecord.allowanceLicense + payrollRecord.allowanceManager + payrollRecord.otherAllowance;
+    doc.text(`● 請假扣薪計算公式：(底薪 + 固定加給) / 30 / 8 × 請假時數  [固定加給包含：AA加給、專業證照、主管加給、其他津貼]`, 50, notesY);
+    notesY += 14;
+    
     if (payrollRecord.leaveDeduction > 0) {
       const hours = payrollRecord.leaveDays * 8;
-      doc.text(`● 請假：${formatAmount(payrollRecord.leaveDeduction)} 元 <${formatAmount(payrollRecord.baseSalary + payrollRecord.allowanceAA + payrollRecord.allowanceLicense + payrollRecord.allowanceManager + payrollRecord.otherAllowance)}/30/8 X (請假${hours}H)>`, 50, notesY);
+      doc.text(`  實際請假扣薪：${formatAmount(payrollRecord.leaveDeduction)} 元 (${formatAmount(fixedMonthly)} / 30 / 8 × ${hours}H)`, 50, notesY);
       notesY += 14;
     }
+  }
+
+  // 2. Custom notes explaining adjustments (allowance reasons, other deductions, bonus reasons, retro pay reasons)
+  if (payrollRecord.notes) {
+    const customNotesText = `● 調整及備註說明：${payrollRecord.notes}`;
+    doc.text(customNotesText, 50, notesY, { width: 500 });
+    const textHeight = doc.heightOfString(customNotesText, { width: 500 });
+    notesY += textHeight + 6;
   }
 
   // Grades

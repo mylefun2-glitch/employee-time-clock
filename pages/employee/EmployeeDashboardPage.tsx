@@ -270,7 +270,7 @@ const EmployeeDashboardPage: React.FC = () => {
                         className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-100 text-slate-500 px-4 py-2.5 rounded-2xl text-xs font-black transition-all active:scale-95 cursor-pointer shadow-sm"
                     >
                         <span className="material-symbols-outlined text-sm">info</span>
-                        v1.3.3
+                        v1.3.4
                     </button>
                     {/* 簡化後的系統狀態呼吸燈 (僅有圖示，不須文字) */}
                     <div className="flex items-center justify-center bg-white w-11 h-11 rounded-2xl border border-slate-100 shadow-sm relative group cursor-pointer" title="系統連線正常">
@@ -545,9 +545,25 @@ const EmployeeDashboardPage: React.FC = () => {
 
                         {/* 更新歷史時間軸內容 */}
                         <div className="flex-1 overflow-y-auto py-6 pr-2 space-y-8 scrollbar-thin">
-                            {/* v1.3.3 */}
+                            {/* v1.3.4 */}
                             <div className="relative pl-6 border-l-2 border-blue-500/20 last:border-l-0">
                                 <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-blue-500 border-2 border-white ring-4 ring-blue-50"></span>
+                                <div className="space-y-2">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-sm font-black text-slate-900">v1.3.4</span>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">2026-06-10</span>
+                                    </div>
+                                    <ul className="text-xs text-slate-500 font-bold space-y-1.5 list-disc pl-4 leading-relaxed">
+                                        <li>📝 <b>薪資單明細與備註強化</b>：月薪制人員薪資條正式列出「請假扣薪計算公式」（底薪+固定加給/30/8×請假時數）及實際扣薪精算詳情。</li>
+                                        <li>💬 <b>手動調整原因完整呈現</b>：薪資條與 PDF 薪資單會自動呈現調整津貼、扣除、補發與獎金時所填寫的備註說明。</li>
+                                        <li>🎨 <b>PDF 跨平台字型加載修復</b>：優化 PDF 字型載入機制，採多重自動回退（Songti、Heiti、Arial Unicode）以避免部分環境下字型缺失導致編譯崩潰。</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* v1.3.3 */}
+                            <div className="relative pl-6 border-l-2 border-blue-500/20 last:border-l-0">
+                                <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white ring-4 ring-slate-50"></span>
                                 <div className="space-y-2">
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-sm font-black text-slate-900">v1.3.3</span>
