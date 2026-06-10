@@ -71,6 +71,8 @@ export async function syncEmployees(force = false) {
           allowanceLicense: allowanceLicenseVal,
           otherAllowance: otherAllowanceVal,
           isActive: sbEmp.is_active !== false,
+          bankName: sbEmp.bank_name || null,
+          bankAccount: sbEmp.bank_account || null,
         },
         create: {
           employeeNo,
@@ -92,6 +94,8 @@ export async function syncEmployees(force = false) {
           mealAllowance: 0,
           transportAllowance: 0,
           isActive: sbEmp.is_active !== false,
+          bankName: sbEmp.bank_name || null,
+          bankAccount: sbEmp.bank_account || null,
         }
       });
 
