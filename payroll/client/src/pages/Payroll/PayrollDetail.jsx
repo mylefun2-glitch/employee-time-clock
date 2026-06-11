@@ -150,6 +150,19 @@ export default function PayrollDetail() {
     }
   };
 
+  const handleUnlock = async () => {
+    if (window.confirm('確定要解除此筆薪資紀錄的鎖定嗎？解除鎖定後將回復為草稿狀態，可再次進行編輯。')) {
+      try {
+        await payrollService.unlockPayroll(id);
+        alert('薪資紀錄已解除鎖定');
+        loadPayrollRecord();
+      } catch (err) {
+        console.error(err);
+        alert(err.message || '解鎖失敗');
+      }
+    }
+  };
+
   const handleApprove = async () => {
     if (window.confirm('確定要核准此筆薪資紀錄嗎？核准後將正式發放，且無法再調整。')) {
       try {
@@ -241,7 +254,7 @@ export default function PayrollDetail() {
         </div>
 
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <Button variant="outline" icon="arrow_back" onClick={() => navigate('/payroll')}>
+          <Button variant="outline" icon="arrow_back" onClick={() => navigate('/payroll', { state: { year: record?.year?.toString(), month: record?.month?.toString() } })}>
             返回列表
           </Button>
           {record.status === 'DRAFT' && !isEditing && (
@@ -262,6 +275,11 @@ export default function PayrollDetail() {
           {record.status === 'DRAFT' && (
             <Button variant="outline" icon="lock" onClick={handleLock}>
               鎖定明細
+            </Button>
+          )}
+          {record.status === 'LOCKED' && (
+            <Button variant="outline" icon="lock_open" onClick={handleUnlock}>
+              解除鎖定
             </Button>
           )}
           {(record.status === 'DRAFT' || record.status === 'LOCKED') && (

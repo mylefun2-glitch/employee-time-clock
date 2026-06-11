@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import payrollService from '../../services/payrollService';
 import settingService from '../../services/settingService';
 import ImportModal from './ImportModal';
@@ -8,8 +8,9 @@ import { BASE_URL } from '../../services/api';
 
 export default function PayrollList() {
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear().toString());
-  const [month, setMonth] = useState((now.getMonth() + 1).toString());
+  const location = useLocation();
+  const [year, setYear] = useState(location.state?.year || now.getFullYear().toString());
+  const [month, setMonth] = useState(location.state?.month || (now.getMonth() + 1).toString());
   const [payrolls, setPayrolls] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');

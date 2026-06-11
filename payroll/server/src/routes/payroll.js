@@ -770,6 +770,40 @@ router.put('/:id/lock', validateId(), lockHandler);
 router.post('/:id/lock', validateId(), lockHandler);
 
 /**
+ * PUT or POST /api/payroll/:id/unlock
+ * Unlock a payroll record (status -> DRAFT).
+ */
+const unlockHandler = async (req, res) => {
+  try {
+    const existing = await req.prisma.payrollRecord.findUnique({ where: { id: req.params.id } });
+    if (!existing) {
+      return res.status(404).json({ error: '找不到該筆薪資紀錄' });
+    }
+
+    if (existing.status !== 'LOCKED') {
+      return res.status(400).json({ error: '僅能解鎖已鎖定狀態的薪資紀錄' });
+    }
+
+    const record = await req.prisma.payrollRecord.update({
+      where: { id: req.params.id },
+      data: { status: 'DRAFT' },
+      include: {
+        employee: {
+          select: { id: true, employeeNo: true, name: true, department: true, position: true }
+        }
+      }
+    });
+
+    res.json({ data: record, message: '薪資紀錄已解除鎖定，回復為草稿狀態' });
+  } catch (error) {
+    console.error('Unlock payroll error:', error);
+    res.status(500).json({ error: '解鎖薪資紀錄失敗' });
+  }
+};
+router.put('/:id/unlock', validateId(), unlockHandler);
+router.post('/:id/unlock', validateId(), unlockHandler);
+
+/**
  * PUT or POST /api/payroll/:id/approve
  * Approve a payroll record (status -> APPROVED).
  */

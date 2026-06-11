@@ -20,6 +20,10 @@ export function lockPayroll(id) {
   return post(`/payroll/${id}/lock`);
 }
 
+export function unlockPayroll(id) {
+  return post(`/payroll/${id}/unlock`);
+}
+
 export function approvePayroll(id) {
   return post(`/payroll/${id}/approve`);
 }
@@ -58,6 +62,7 @@ export default {
   calculatePayroll,
   updatePayroll,
   lockPayroll,
+  unlockPayroll,
   approvePayroll,
   batchLock,
   batchApprove,
