@@ -36,6 +36,10 @@ export function getDepartments() {
   return get('/employees/departments');
 }
 
+export function syncEmployees() {
+  return post('/employees/sync');
+}
+
 export default {
   getEmployees,
   getEmployee,
@@ -46,4 +50,5 @@ export default {
   getEmployeeAttendance,
   getEmployeeLeaves,
   getDepartments,
+  syncEmployees,
 };

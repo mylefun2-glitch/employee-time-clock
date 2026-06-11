@@ -16,8 +16,8 @@ router.use(authenticate);
  */
 router.get('/', validatePagination, async (req, res) => {
   try {
-    // 1. Sync from Supabase to keep SQLite cache updated
-    await syncEmployees().catch(err => console.error('Supabase sync error:', err));
+    // 1. Sync from Supabase to keep SQLite cache updated in background
+    syncEmployees().catch(err => console.error('Supabase sync error (background):', err));
 
     const { page, pageSize, skip } = req.pagination;
     const { search, department, isActive, salaryType, sortBy, sortOrder } = req.query;
@@ -76,6 +76,20 @@ router.get('/', validatePagination, async (req, res) => {
   } catch (error) {
     console.error('List employees error:', error);
     res.status(500).json({ error: '取得員工列表失敗' });
+  }
+});
+
+/**
+ * POST /api/employees/sync
+ * Manually trigger a full sync of employees from Supabase.
+ */
+router.post('/sync', async (req, res) => {
+  try {
+    const count = await syncEmployees(true);
+    res.json({ success: true, count, message: `成功同步 ${count} 筆員工資料` });
+  } catch (error) {
+    console.error('Manual employee sync error:', error);
+    res.status(500).json({ error: '同步員工資料失敗' });
   }
 });
 
