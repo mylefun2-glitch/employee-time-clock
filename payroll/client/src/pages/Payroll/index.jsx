@@ -75,9 +75,47 @@ export default function PayrollList() {
     }
   };
 
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [calcProgress, setCalcProgress] = useState(0);
+  const [calcStatusText, setCalcStatusText] = useState('');
+
   const handleStartCalculation = async () => {
     setIsCalcModalOpen(false);
-    setLoading(true);
+    setIsCalculating(true);
+    setCalcProgress(0);
+    setCalcStatusText('正在從系統同步出勤與請假紀錄...');
+
+    let progressTimer = null;
+    let currentProgress = 0;
+
+    // Simulate progress smoothly
+    const startProgressSimulation = () => {
+      progressTimer = setInterval(() => {
+        currentProgress += Math.random() * 8 + 3; // increment by 3% to 11%
+        if (currentProgress >= 95) {
+          currentProgress = 95; // cap it before API returns
+          clearInterval(progressTimer);
+        }
+        
+        // Update status text based on progress range
+        if (currentProgress < 25) {
+          setCalcStatusText('正在從系統同步出勤與請假紀錄...');
+        } else if (currentProgress < 50) {
+          setCalcStatusText('正在載入員工計薪排程設定...');
+        } else if (currentProgress < 75) {
+          setCalcStatusText('正在進行勞健退投保級距比對...');
+        } else if (currentProgress < 90) {
+          setCalcStatusText('正在計算加班費與各項請假扣除額...');
+        } else {
+          setCalcStatusText('正在寫入薪資明細草稿...');
+        }
+        
+        setCalcProgress(Math.round(currentProgress));
+      }, 300);
+    };
+
+    startProgressSimulation();
+
     try {
       await payrollService.calculatePayroll({
         year: parseInt(year),
@@ -93,12 +131,22 @@ export default function PayrollList() {
           labor_pension_employer_rate: calcSettings.labor_pension_employer_rate
         }
       });
-      alert('薪資計算已完成');
-      loadPayrollRecords();
+      
+      // Complete progress
+      if (progressTimer) clearInterval(progressTimer);
+      setCalcProgress(100);
+      setCalcStatusText('薪資計算已完成！');
+      
+      // Delay closing modal slightly so they can see the success state
+      setTimeout(() => {
+        setIsCalculating(false);
+        loadPayrollRecords();
+      }, 800);
     } catch (err) {
+      if (progressTimer) clearInterval(progressTimer);
+      setIsCalculating(false);
       console.error(err);
       alert(err.message || '計算失敗');
-      setLoading(false);
     }
   };
 
@@ -451,6 +499,91 @@ export default function PayrollList() {
         payrolls={payrolls}
         onImportSuccess={loadPayrollRecords}
       />
+
+      {/* Calculation Progress Modal */}
+      {isCalculating && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.4)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999
+        }}>
+          <div className="animate-scale-in" style={{
+            backgroundColor: 'var(--color-neutral-0)',
+            borderRadius: 'var(--radius-lg)',
+            boxShadow: 'var(--shadow-xl)',
+            width: '100%',
+            maxWidth: '500px',
+            padding: 'var(--space-6)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 'var(--space-4)'
+          }}>
+            {/* Header / Icon */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              width: '64px',
+              height: '64px',
+              borderRadius: 'var(--radius-full)',
+              backgroundColor: calcProgress === 100 ? 'var(--color-success-light)' : 'var(--color-primary-50)',
+              color: calcProgress === 100 ? 'var(--color-success)' : 'var(--color-primary-500)',
+              transition: 'all 0.3s ease'
+            }}>
+              <span className="material-symbols-outlined icon-lg" style={{ fontSize: '36px' }}>
+                {calcProgress === 100 ? 'check_circle' : 'sync'}
+              </span>
+            </div>
+
+            {/* Title & Info */}
+            <div style={{ textAlign: 'center' }}>
+              <h3 style={{ margin: '0 0 var(--space-1) 0', fontSize: 'var(--text-lg)' }}>
+                {calcProgress === 100 ? '計算完成' : `正在結算 ${year} 年 ${month} 月薪資...`}
+              </h3>
+              <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--color-neutral-500)' }}>
+                本作業同步出勤紀錄、核對假單與投保級距，約需耗時數秒
+              </p>
+            </div>
+
+            {/* Progress Bar Container */}
+            <div style={{
+              width: '100%',
+              height: '8px',
+              backgroundColor: 'var(--color-neutral-100)',
+              borderRadius: 'var(--radius-full)',
+              overflow: 'hidden',
+              marginTop: 'var(--space-2)'
+            }}>
+              <div style={{
+                width: `${calcProgress}%`,
+                height: '100%',
+                backgroundColor: calcProgress === 100 ? 'var(--color-success)' : 'var(--color-primary-500)',
+                borderRadius: 'var(--radius-full)',
+                transition: 'width 0.3s ease-out, background-color 0.3s ease'
+              }} />
+            </div>
+
+            {/* Progress Status and Percentage */}
+            <div style={{
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--color-neutral-600)'
+            }}>
+              <span>{calcStatusText}</span>
+              <span className="font-mono" style={{ fontWeight: '600' }}>{calcProgress}%</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

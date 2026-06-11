@@ -145,7 +145,7 @@ export default function EmployeeDetail() {
     { title: '上班時間', key: 'clockIn', render: (val) => val || '—' },
     { title: '下班時間', key: 'clockOut', render: (val) => val || '—' },
     { title: '正常工時', key: 'regularHours', render: (val) => `${val} 小時` },
-    { title: '加班工時', key: 'overtimeHours', render: (val) => val > 0 ? `${val} 小時` : '—' },
+    { title: '加班工時', key: 'overtimeHours', render: (val) => val > 0 ? `${parseFloat(parseFloat(val).toFixed(4))} 小時` : '—' },
     { 
       title: '狀態', 
       key: 'status', 

@@ -157,7 +157,7 @@ export default function Attendance() {
     { title: '上班打卡', key: 'clockIn', render: (val) => val || '—' },
     { title: '下班打卡', key: 'clockOut', render: (val) => val || '—' },
     { title: '正常工時', key: 'regularHours', render: (val) => `${parseFloat(val || 0).toFixed(2)} hr` },
-    { title: '加班工時', key: 'overtimeHours', render: (val) => val > 0 ? `${parseFloat(val).toFixed(2)} hr` : '—' },
+    { title: '加班工時', key: 'overtimeHours', render: (val) => val > 0 ? `${parseFloat(parseFloat(val).toFixed(4))} hr` : '—' },
     { 
       title: '狀態', 
       key: 'status',

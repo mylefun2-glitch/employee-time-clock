@@ -12,6 +12,13 @@ export default function PayrollDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isFormulaExpanded, setIsFormulaExpanded] = useState(false);
+
+  const formatHours = (h) => {
+    if (h === undefined || h === null) return '0';
+    const val = parseFloat(parseFloat(h).toFixed(4));
+    return val.toString();
+  };
   
   // Editable fields state
   const [editForm, setEditForm] = useState({
@@ -64,10 +71,10 @@ export default function PayrollDetail() {
           retroPay: (res.data.retroPay || 0).toString(),
           leaveDeduction: (res.data.leaveDeduction || 0).toString(),
           otherDeductions: (res.data.otherDeductions || 0).toString(),
-          overtimeHours134: (res.data.overtimeHours134 || 0).toString(),
-          overtimeHours167: (res.data.overtimeHours167 || 0).toString(),
-          overtimeHours200: (res.data.overtimeHours200 || 0).toString(),
-          overtimeHours267: (res.data.overtimeHours267 || 0).toString(),
+          overtimeHours134: formatHours(res.data.overtimeHours134),
+          overtimeHours167: formatHours(res.data.overtimeHours167),
+          overtimeHours200: formatHours(res.data.overtimeHours200),
+          overtimeHours267: formatHours(res.data.overtimeHours267),
           laborInsuranceGrade: (res.data.laborInsuranceGrade || 0).toString(),
           laborOccupationalGrade: (res.data.laborOccupationalGrade || 0).toString(),
           healthInsuranceGrade: (res.data.healthInsuranceGrade || 0).toString(),
@@ -468,345 +475,544 @@ export default function PayrollDetail() {
             </form>
           </Card>
         ) : (
-          /* Static Display columns */
-          <>
-            {/* Earnings column */}
-            <Card title="應發項目 (Earnings)">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                {employee.salaryType === 'hourly' ? (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                      <div>
-                        <span>平日時數工資:</span>
-                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-500)' }}>
-                          時數 {record.regularHours} H x 時薪 {record.baseSalary > 0 ? record.baseSalary : employee.baseSalary}
-                        </div>
-                      </div>
-                      <span className="font-mono">{formatCurr(Math.round(record.regularHours * (record.baseSalary > 0 ? record.baseSalary : employee.baseSalary)))}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                    <span>本薪/底薪:</span>
-                    <span className="font-mono">{formatCurr(record.baseSalary)}</span>
-                  </div>
-                )}
-                
-                {record.allowanceAA > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                    <span>AA 加給:</span>
-                    <span className="font-mono">{formatCurr(record.allowanceAA)}</span>
-                  </div>
-                )}
-                {record.allowanceLicense > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                    <span>專業證照加給:</span>
-                    <span className="font-mono">{formatCurr(record.allowanceLicense)}</span>
-                  </div>
-                )}
-                {record.allowanceManager > 0 && employee.salaryType === 'monthly' && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                    <span>主管加給:</span>
-                    <span className="font-mono">{formatCurr(record.allowanceManager)}</span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                  <span>加班費:</span>
-                  <span className="font-mono">{formatCurr(record.overtimePay)}</span>
+          /* Static Display Dashboard */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', gridColumn: 'span 2' }}>
+            
+            {/* 1. Summary Cards Banner */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: 'var(--space-4)',
+              width: '100%'
+            }}>
+              {/* Net Pay Card */}
+              <div style={{
+                backgroundColor: 'var(--color-primary-50)',
+                border: '1px solid var(--color-primary-200)',
+                borderRadius: 'var(--radius-lg)',
+                padding: 'var(--space-4) var(--space-5)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-4)',
+                boxShadow: 'var(--shadow-xs)'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-primary-100)',
+                  color: 'var(--color-primary-600)'
+                }}>
+                  <span className="material-symbols-outlined icon-md">payments</span>
                 </div>
-                {record.otherAllowance > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                    <span>其他津貼:</span>
-                    <span className="font-mono">{formatCurr(record.otherAllowance)}</span>
-                  </div>
-                )}
-                {record.mealAllowance > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                    <span>其他津貼（不列入平均時薪計算）:</span>
-                    <span className="font-mono">{formatCurr(record.mealAllowance)}</span>
-                  </div>
-                )}
-                {record.bonus > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                    <span>發放獎金 (績效獎金):</span>
-                    <span className="font-mono">{formatCurr(record.bonus)}</span>
-                  </div>
-                )}
-                {record.retroPay > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                    <span>補發薪資:</span>
-                    <span className="font-mono">{formatCurr(record.retroPay)}</span>
-                  </div>
-                )}
-                
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: 'var(--text-md)', color: 'var(--color-primary-700)', paddingTop: 'var(--space-1)' }}>
-                  <span>應發薪資總額:</span>
-                  <span className="font-mono">{formatCurr(record.grossPay)}</span>
+                <div>
+                  <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--color-primary-700)', fontWeight: '500' }}>實發淨額 (Net Pay)</p>
+                  <h3 style={{ margin: 0, fontSize: 'var(--text-xl)', color: 'var(--color-primary-900)', fontWeight: 'bold' }} className="font-mono">{formatCurr(record.netPay)}</h3>
                 </div>
               </div>
-            </Card>
 
-            {/* Deductions column */}
-            <Card title="應扣項目 (Deductions)">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)', color: 'var(--color-error)' }}>
-                  <span>勞保自付額:</span>
-                  <span className="font-mono">{formatCurr(record.laborInsuranceEmployee)}</span>
+              {/* Gross Pay Card */}
+              <div style={{
+                backgroundColor: 'var(--color-neutral-0)',
+                border: '1px solid var(--color-neutral-200)',
+                borderRadius: 'var(--radius-lg)',
+                padding: 'var(--space-4) var(--space-5)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-4)',
+                boxShadow: 'var(--shadow-xs)'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-success-light)',
+                  color: 'var(--color-success)'
+                }}>
+                  <span className="material-symbols-outlined icon-md">add_card</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)', color: 'var(--color-error)' }}>
-                  <span>健保自付額:</span>
-                  <span className="font-mono">{formatCurr(record.healthInsuranceEmployee)}</span>
+                <div>
+                  <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--color-neutral-500)', fontWeight: '500' }}>應發薪資總額 (Gross)</p>
+                  <h3 style={{ margin: 0, fontSize: 'var(--text-xl)', color: 'var(--color-neutral-800)', fontWeight: 'bold' }} className="font-mono">{formatCurr(record.grossPay)}</h3>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)', color: 'var(--color-error)' }}>
-                  <span>勞退自提金額 ({employee.voluntaryPensionRate}%):</span>
-                  <span className="font-mono">{formatCurr(record.laborPensionEmployee)}</span>
+              </div>
+
+              {/* Deductions Card */}
+              <div style={{
+                backgroundColor: 'var(--color-neutral-0)',
+                border: '1px solid var(--color-neutral-200)',
+                borderRadius: 'var(--radius-lg)',
+                padding: 'var(--space-4) var(--space-5)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-4)',
+                boxShadow: 'var(--shadow-xs)'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-error-light)',
+                  color: 'var(--color-error)'
+                }}>
+                  <span className="material-symbols-outlined icon-md">money_off</span>
                 </div>
-                {record.incomeTax > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)', color: 'var(--color-error)' }}>
-                    <span>所得稅預扣:</span>
-                    <span className="font-mono">{formatCurr(record.incomeTax)}</span>
+                <div>
+                  <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--color-neutral-500)', fontWeight: '500' }}>應扣項目總額 (Deductions)</p>
+                  <h3 style={{ margin: 0, fontSize: 'var(--text-xl)', color: 'var(--color-neutral-800)', fontWeight: 'bold' }} className="font-mono">{formatCurr(record.totalDeductions)}</h3>
+                </div>
+              </div>
+
+              {/* Employer Cost Card */}
+              <div style={{
+                backgroundColor: 'var(--color-neutral-0)',
+                border: '1px solid var(--color-neutral-200)',
+                borderRadius: 'var(--radius-lg)',
+                padding: 'var(--space-4) var(--space-5)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-4)',
+                boxShadow: 'var(--shadow-xs)'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-info-light)',
+                  color: 'var(--color-info)'
+                }}>
+                  <span className="material-symbols-outlined icon-md">account_balance</span>
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--color-neutral-500)', fontWeight: '500' }}>公提成本總計 (Employer Cost)</p>
+                  <h3 style={{ margin: 0, fontSize: 'var(--text-xl)', color: 'var(--color-neutral-800)', fontWeight: 'bold' }} className="font-mono">{formatCurr(record.totalEmployerCost)}</h3>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Payslip Statement (Earnings & Deductions side-by-side) */}
+            <Card title="收支項目核對清單">
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 'var(--space-8)',
+                position: 'relative'
+              }}>
+                {/* Left Column: Earnings */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                  <h4 style={{
+                    borderBottom: '2px solid var(--color-success)',
+                    paddingBottom: 'var(--space-2)',
+                    marginBottom: 'var(--space-2)',
+                    color: 'var(--color-success)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <span>應發項目 (Earnings)</span>
+                    <span className="material-symbols-outlined icon-sm">add_circle</span>
+                  </h4>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                    {employee.salaryType === 'hourly' ? (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <div>
+                          <span style={{ fontWeight: '500' }}>平日時數工資</span>
+                          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-500)', marginTop: '2px' }}>
+                            時數 {formatHours(record.regularHours)} H × 時薪 {formatCurr(record.baseSalary > 0 ? record.baseSalary : employee.baseSalary)}元
+                          </div>
+                        </div>
+                        <span className="font-mono" style={{ fontWeight: '500' }}>{formatCurr(Math.round(record.regularHours * (record.baseSalary > 0 ? record.baseSalary : employee.baseSalary)))}</span>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <span style={{ fontWeight: '500' }}>本薪/底薪</span>
+                        <span className="font-mono" style={{ fontWeight: '500' }}>{formatCurr(record.baseSalary)}</span>
+                      </div>
+                    )}
+                    
+                    {record.allowanceAA > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <span>AA 加給</span>
+                        <span className="font-mono">{formatCurr(record.allowanceAA)}</span>
+                      </div>
+                    )}
+                    {record.allowanceLicense > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <span>專業證照加給</span>
+                        <span className="font-mono">{formatCurr(record.allowanceLicense)}</span>
+                      </div>
+                    )}
+                    {record.allowanceManager > 0 && employee.salaryType === 'monthly' && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <span>主管加給</span>
+                        <span className="font-mono">{formatCurr(record.allowanceManager)}</span>
+                      </div>
+                    )}
+                    {record.overtimePay > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <span>加班費</span>
+                        <span className="font-mono">{formatCurr(record.overtimePay)}</span>
+                      </div>
+                    )}
+                    {record.otherAllowance > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <span>其他津貼</span>
+                        <span className="font-mono">{formatCurr(record.otherAllowance)}</span>
+                      </div>
+                    )}
+                    {record.mealAllowance > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <span>其他津貼 (不計入平均時薪)</span>
+                        <span className="font-mono">{formatCurr(record.mealAllowance)}</span>
+                      </div>
+                    )}
+                    {record.bonus > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <span>發放獎金 (績效獎金)</span>
+                        <span className="font-mono">{formatCurr(record.bonus)}</span>
+                      </div>
+                    )}
+                    {record.retroPay > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <span>補發薪資</span>
+                        <span className="font-mono">{formatCurr(record.retroPay)}</span>
+                      </div>
+                    )}
                   </div>
-                )}
-                {record.leaveDeduction > 0 && (
-                  <div style={{ borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-error)' }}>
-                      <span>請假扣薪:</span>
-                      <span className="font-mono">{formatCurr(record.leaveDeduction)}</span>
+
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontWeight: 'bold',
+                    fontSize: 'var(--text-base)',
+                    color: 'var(--color-success)',
+                    paddingTop: 'var(--space-2)',
+                    marginTop: 'auto',
+                    borderTop: '2px solid var(--color-neutral-200)'
+                  }}>
+                    <span>應發薪資總額</span>
+                    <span className="font-mono">{formatCurr(record.grossPay)}</span>
+                  </div>
+                </div>
+
+                {/* Right Column: Deductions */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                  <h4 style={{
+                    borderBottom: '2px solid var(--color-error)',
+                    paddingBottom: 'var(--space-2)',
+                    marginBottom: 'var(--space-2)',
+                    color: 'var(--color-error)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <span>應扣項目 (Deductions)</span>
+                    <span className="material-symbols-outlined icon-sm">remove_circle</span>
+                  </h4>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                      <span>勞保自付額</span>
+                      <span className="font-mono">{formatCurr(record.laborInsuranceEmployee)}</span>
                     </div>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-500)', marginTop: '4px', textAlign: 'right', lineHeight: '1.4' }}>
-                      {(() => {
-                        const fixedAdd = (record.allowanceAA || 0) + (record.allowanceLicense || 0) + (record.allowanceManager || 0) + (record.otherAllowance || 0);
-                        const normalLeaves = record.leaves ? record.leaves.filter(l => {
-                          const type = (l.leaveType || '').toLowerCase();
-                          const isOt = type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現') || type === 'ot' || type === '加班';
-                          const isOfficial = type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓') || type === 'ob';
-                          return !isOt && !isOfficial;
-                        }) : [];
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                      <span>健保自付額</span>
+                      <span className="font-mono">{formatCurr(record.healthInsuranceEmployee)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                      <span>勞退自提金額 ({employee.voluntaryPensionRate}%)</span>
+                      <span className="font-mono">{formatCurr(record.laborPensionEmployee)}</span>
+                    </div>
+                    {record.incomeTax > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <span>所得稅預扣</span>
+                        <span className="font-mono">{formatCurr(record.incomeTax)}</span>
+                      </div>
+                    )}
+                    {record.leaveDeduction > 0 && (
+                      <div style={{ borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>請假扣薪</span>
+                          <span className="font-mono">{formatCurr(record.leaveDeduction)}</span>
+                        </div>
                         
-                        return (
-                          <>
-                            {normalLeaves.length === 1 ? (
-                              (() => {
-                                const l = normalLeaves[0];
-                                const hours = l.days * 8;
-                                const rate = l.rate !== undefined ? l.rate : (l.leaveType.includes('病') ? 0.5 : (l.leaveType.includes('特') || l.leaveType.includes('公') || l.leaveType.includes('婚') || l.leaveType.includes('喪') ? 0.0 : 1.0));
-                                return (
-                                  <div>(公式：({formatCurr(record.baseSalary)} + {formatCurr(fixedAdd)}) / 30 / 8 × {hours}H × {Math.round(rate * 100)}% = -{formatCurr(record.leaveDeduction)})</div>
-                                );
-                              })()
-                            ) : (
-                              <div>(公式：(底薪 {formatCurr(record.baseSalary)} + 固定加給 {formatCurr(fixedAdd)}) / 30 / 8 × 請假時數 × 扣薪比例)</div>
-                            )}
-                            {normalLeaves.map((l, idx) => {
-                              const hours = l.days * 8;
-                              const rate = l.rate !== undefined ? l.rate : (l.leaveType.includes('病') ? 0.5 : (l.leaveType.includes('特') || l.leaveType.includes('公') || l.leaveType.includes('婚') || l.leaveType.includes('喪') ? 0.0 : 1.0));
-                              
-                              const hourlyLeaveRate = (record.baseSalary + fixedAdd) / 240;
-                              const ded = Math.round(hourlyLeaveRate * hours * rate);
+                        <div style={{ marginTop: 'var(--space-1)', textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsFormulaExpanded(!isFormulaExpanded);
+                            }}
+                            style={{
+                              fontSize: 'var(--text-xs)',
+                              color: 'var(--color-primary-500)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '2px',
+                              fontWeight: '500',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <span>{isFormulaExpanded ? '隱藏計算公式' : '顯示計算公式'}</span>
+                            <span className="material-symbols-outlined icon-sm">
+                              {isFormulaExpanded ? 'expand_less' : 'expand_more'}
+                            </span>
+                          </button>
+                        </div>
+
+                        {isFormulaExpanded && (
+                          <div style={{
+                            backgroundColor: 'var(--color-neutral-50)',
+                            border: '1px solid var(--color-neutral-200)',
+                            borderRadius: 'var(--radius-sm)',
+                            padding: 'var(--space-2) var(--space-3)',
+                            fontSize: 'var(--text-xs)',
+                            color: 'var(--color-neutral-600)',
+                            marginTop: 'var(--space-2)',
+                            lineHeight: '1.4',
+                            textAlign: 'left'
+                          }}>
+                            {(() => {
+                              const fixedAdd = (record.allowanceAA || 0) + (record.allowanceLicense || 0) + (record.allowanceManager || 0) + (record.otherAllowance || 0);
+                              const normalLeaves = record.leaves ? record.leaves.filter(l => {
+                                const type = (l.leaveType || '').toLowerCase();
+                                const isOt = type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現') || type === 'ot' || type === '加班';
+                                const isOfficial = type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓') || type === 'ob';
+                                return !isOt && !isOfficial;
+                              }) : [];
                               
                               return (
-                                <div key={idx} style={{ marginTop: '2px' }}>
-                                  • {l.leaveType} {hours}H (比例 {Math.round(rate * 100)}%)：({formatCurr(record.baseSalary)} + {formatCurr(fixedAdd)}) / 240 × {hours} × {rate} = -{formatCurr(ded)}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  {normalLeaves.length === 1 ? (
+                                    (() => {
+                                      const l = normalLeaves[0];
+                                      const hours = l.days * 8;
+                                      const rate = l.rate !== undefined ? l.rate : (l.leaveType.includes('病') ? 0.5 : (l.leaveType.includes('特') || l.leaveType.includes('公') || l.leaveType.includes('婚') || l.leaveType.includes('喪') ? 0.0 : 1.0));
+                                      return (
+                                        <div><strong>公式：</strong>({formatCurr(record.baseSalary)}底薪 + {formatCurr(fixedAdd)}加給) / 30 / 8 × {hours}H × 比例 {Math.round(rate * 100)}% = -{formatCurr(record.leaveDeduction)}</div>
+                                      );
+                                    })()
+                                  ) : (
+                                    <div><strong>公式：</strong>(底薪 {formatCurr(record.baseSalary)} + 固定加給 {formatCurr(fixedAdd)}) / 30 / 8 × 請假時數 × 扣薪比例</div>
+                                  )}
+                                  {normalLeaves.map((l, idx) => {
+                                    const hours = l.days * 8;
+                                    const rate = l.rate !== undefined ? l.rate : (l.leaveType.includes('病') ? 0.5 : (l.leaveType.includes('特') || l.leaveType.includes('公') || l.leaveType.includes('婚') || l.leaveType.includes('喪') ? 0.0 : 1.0));
+                                    const hourlyLeaveRate = (record.baseSalary + fixedAdd) / 240;
+                                    const ded = Math.round(hourlyLeaveRate * hours * rate);
+                                    
+                                    return (
+                                      <div key={idx} style={{ paddingLeft: '8px', borderLeft: '2px solid var(--color-neutral-300)', marginTop: '2px' }}>
+                                        • {l.leaveType} {hours}H (比例 {Math.round(rate * 100)}%)：({formatCurr(record.baseSalary)} + {formatCurr(fixedAdd)}) / 240 × {hours} × {rate} = -{formatCurr(ded)}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               );
-                            })}
-                          </>
-                        );
-                      })()}
-                    </div>
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {record.supplementaryHealthInsurance > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <span>二代健保自付額</span>
+                        <span className="font-mono">{formatCurr(record.supplementaryHealthInsurance)}</span>
+                      </div>
+                    )}
+                    {record.prevInsuranceDifference !== 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <span>前期勞健退差額</span>
+                        <span className="font-mono">{formatCurr(record.prevInsuranceDifference)}</span>
+                      </div>
+                    )}
+                    {record.otherDeductions > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <span>其他扣除額</span>
+                        <span className="font-mono">{formatCurr(record.otherDeductions)}</span>
+                      </div>
+                    )}
+                    
+                    {(record.healthDisabilityExemption > 0 || record.healthGovSubsidy > 0) && (
+                      <div style={{
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--color-neutral-500)',
+                        backgroundColor: 'var(--color-neutral-50)',
+                        border: '1px solid var(--color-neutral-100)',
+                        padding: 'var(--space-2)',
+                        borderRadius: 'var(--radius-sm)',
+                        marginTop: 'var(--space-2)'
+                      }}>
+                        健保減免/補貼：
+                        {record.healthDisabilityExemption > 0 && `身障減免 ${Math.round(record.healthDisabilityExemption * 100)}%`}
+                        {record.healthDisabilityExemption > 0 && record.healthGovSubsidy > 0 && '，'}
+                        {record.healthGovSubsidy > 0 && `政府定額補貼 ${record.healthGovSubsidy}元`}
+                      </div>
+                    )}
                   </div>
-                )}
-                {record.supplementaryHealthInsurance > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)', color: 'var(--color-error)' }}>
-                    <span>二代健保自付額:</span>
-                    <span className="font-mono">{formatCurr(record.supplementaryHealthInsurance)}</span>
-                  </div>
-                )}
-                {record.prevInsuranceDifference !== 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)', color: 'var(--color-error)' }}>
-                    <span>前期勞健退差額:</span>
-                    <span className="font-mono">{formatCurr(record.prevInsuranceDifference)}</span>
-                  </div>
-                )}
-                {record.otherDeductions > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)', color: 'var(--color-error)' }}>
-                    <span>其他扣除額:</span>
-                    <span className="font-mono">{formatCurr(record.otherDeductions)}</span>
-                  </div>
-                )}
-                
-                {(record.healthDisabilityExemption > 0 || record.healthGovSubsidy > 0) && (
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-500)', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)', paddingLeft: '4px' }}>
-                    健保減免/補貼：
-                    {record.healthDisabilityExemption > 0 && `身障減免 ${Math.round(record.healthDisabilityExemption * 100)}%`}
-                    {record.healthDisabilityExemption > 0 && record.healthGovSubsidy > 0 && '，'}
-                    {record.healthGovSubsidy > 0 && `政府定額補貼 ${record.healthGovSubsidy}元`}
-                  </div>
-                )}
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: 'var(--text-md)', color: 'var(--color-error)', paddingTop: 'var(--space-1)' }}>
-                  <span>應扣項目總額:</span>
-                  <span className="font-mono">{formatCurr(record.totalDeductions)}</span>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontWeight: 'bold',
+                    fontSize: 'var(--text-base)',
+                    color: 'var(--color-error)',
+                    paddingTop: 'var(--space-2)',
+                    marginTop: 'auto',
+                    borderTop: '2px solid var(--color-neutral-200)'
+                  }}>
+                    <span>應扣項目總額</span>
+                    <span className="font-mono">{formatCurr(record.totalDeductions)}</span>
+                  </div>
                 </div>
               </div>
             </Card>
-          </>
-        )}
-      </div>
 
-      {/* Net Pay and Costs Box (Hidden during edit) */}
-      {!isEditing && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1.5fr 1fr',
-          gap: 'var(--space-6)',
-          alignItems: 'stretch'
-        }}>
-          {/* Net pay Display */}
-          <div style={{
-            backgroundColor: 'var(--color-primary-50)',
-            border: '2px solid var(--color-primary-200)',
-            borderRadius: 'var(--radius-lg)',
-            padding: 'var(--space-6)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            gap: 'var(--space-2)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h3 style={{ margin: 0, color: 'var(--color-primary-800)', fontSize: 'var(--text-xl)' }}>實發淨額 (Net Pay)</h3>
-              </div>
-              <h2 style={{ margin: 0, color: 'var(--color-primary-700)', fontSize: 'var(--text-3xl)', fontWeight: 'bold' }} className="font-mono">
-                {formatCurr(record.netPay)}
-              </h2>
-            </div>
-            
-            {employee.salaryType === 'hourly' && (
-              <div style={{ borderTop: '1px dashed var(--color-primary-200)', paddingTop: 'var(--space-2)', marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)', color: 'var(--color-primary-700)' }}>
-                <strong>加班費時薪基準 (平均時薪)：</strong> {averageHourlyRateDisplay} / 小時 
-                <span style={{ color: 'var(--color-neutral-500)', marginLeft: '6px' }}>
-                  (計算公式：(正常薪資 {Math.round(parseFloat(record.regularHours.toFixed(2)) * (record.baseSalary > 0 ? record.baseSalary : employee.baseSalary))} + AA加給 {record.allowanceAA} + 證照加給 {record.allowanceLicense} + 獎金 {record.bonus}) / 正常工時 {record.regularHours.toFixed(2)} hr)
-                </span>
-              </div>
-            )}
-          </div>
+            {/* 3. Sub-panels: Attendance and Insurance/Employer Cost side-by-side */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1.2fr 1fr',
+              gap: 'var(--space-6)',
+              alignItems: 'start'
+            }}>
+              {/* Attendance and Overtime summary */}
+              <Card title="出勤與加班分流明細">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-6)' }}>
+                  {/* Basic attendance */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                    <h4 style={{ borderBottom: '1px solid var(--color-neutral-200)', paddingBottom: '4px', margin: 0, color: 'var(--color-neutral-700)' }}>基本出勤統計</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>實際出勤天數:</span>
+                        <strong>{record.workDays} 天</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>請假扣薪天數:</span>
+                        <strong>{record.leaveDays} 天</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>曠職缺勤天數:</span>
+                        <strong style={{ color: record.absentDays > 0 ? 'var(--color-error)' : 'inherit' }}>{record.absentDays} 天</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--color-neutral-200)', paddingTop: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
+                        <span>正常工時總計:</span>
+                        <strong>{formatHours(record.regularHours)} 小時</strong>
+                      </div>
+                    </div>
+                  </div>
 
-          {/* Employer cost Display */}
-          <Card title="雇主額外負擔成本">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>雇主勞保負擔 (70%):</span>
-                <span className="font-mono">{formatCurr(record.laborInsuranceEmployer)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>雇主職保負擔 (職災):</span>
-                <span className="font-mono">{formatCurr(record.laborOccupationalEmployer)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>雇主健保負擔 (60%):</span>
-                <span className="font-mono">{formatCurr(record.healthInsuranceEmployer)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>雇主提繳勞退 (6%):</span>
-                <span className="font-mono">{formatCurr(record.laborPensionEmployer)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', borderTop: '1px dashed var(--color-neutral-200)', paddingTop: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
-                <span>公提成本總計:</span>
-                <span className="font-mono">{formatCurr(record.totalEmployerCost)}</span>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
+                  {/* Overtime分流 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', borderLeft: '1px solid var(--color-neutral-200)', paddingLeft: 'var(--space-4)' }}>
+                    <h4 style={{ borderBottom: '1px solid var(--color-neutral-200)', paddingBottom: '4px', margin: 0, color: 'var(--color-neutral-700)' }}>加班時數分流明細</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>1.334倍加班:</span>
+                        <span className="font-mono">{formatHours(record.overtimeHours134)} 小時</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>1.667倍加班:</span>
+                        <span className="font-mono">{formatHours(record.overtimeHours167)} 小時</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>{employee?.salaryType === 'monthly' ? '加發 1 倍加班 (國定/例假)' : '2.000倍加班'}:</span>
+                        <span className="font-mono">{formatHours(record.overtimeHours200)} 小時</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>2.667倍加班:</span>
+                        <span className="font-mono">{formatHours(record.overtimeHours267)} 小時</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: 'var(--color-primary-700)', borderTop: '1px dashed var(--color-neutral-200)', paddingTop: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
+                        <span>加班總時數:</span>
+                        <span className="font-mono">{formatHours(record.overtimeHours)} 小時</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-      {/* Attendance summary details */}
-      {!isEditing && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 'var(--space-6)' }}>
-          <Card title="本月出勤與加班分流明細">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: 'var(--text-sm)' }}>
-                <div><strong>出勤天數：</strong> {record.workDays} 天</div>
-                <div><strong>請假扣薪天數：</strong> {record.leaveDays} 天</div>
-                <div><strong>曠職缺勤天數：</strong> {record.absentDays} 天</div>
-                <div><strong>正常工時總計：</strong> {record.regularHours} 小時</div>
-                {employee.salaryType === 'monthly' && (
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-500)', marginTop: 'var(--space-2)', borderTop: '1px dashed var(--color-neutral-200)', paddingTop: 'var(--space-2)' }}>
-                    <strong>請假扣薪計算公式：</strong><br />
-                    {(() => {
-                      const fixedAdd = (record.allowanceAA || 0) + (record.allowanceLicense || 0) + (record.allowanceManager || 0) + (record.otherAllowance || 0);
-                      const normalLeaves = record.leaves ? record.leaves.filter(l => {
-                        const type = (l.leaveType || '').toLowerCase();
-                        const isOt = type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現') || type === 'ot' || type === '加班';
-                        const isOfficial = type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓') || type === 'ob';
-                        return !isOt && !isOfficial;
-                      }) : [];
-                      
-                      if (normalLeaves.length === 1) {
-                        const l = normalLeaves[0];
-                        const hours = l.days * 8;
-                        const rate = l.rate !== undefined ? l.rate : (l.leaveType.includes('病') ? 0.5 : (l.leaveType.includes('特') || l.leaveType.includes('公') || l.leaveType.includes('婚') || l.leaveType.includes('喪') ? 0.0 : 1.0));
-                        return `(公式：(${formatCurr(record.baseSalary)} + ${formatCurr(fixedAdd)}) / 30 / 8 × ${hours}H × 扣薪比例 ${Math.round(rate * 100)}% = ${formatCurr(record.leaveDeduction)})`;
-                      }
-                      
-                      return `(底薪 ${formatCurr(record.baseSalary)} + 固定加給 ${formatCurr(fixedAdd)}) / 30 / 8 × 請假時數 × 扣薪比例`;
-                    })()}<br />
-                    <span style={{ fontSize: '10px', color: 'var(--color-neutral-400)' }}>
-                      * 固定加給包含：AA加給、專業證照、主管加給、其他津貼。
+                {employee.salaryType === 'hourly' && (
+                  <div style={{
+                    borderTop: '1px dashed var(--color-neutral-200)',
+                    paddingTop: 'var(--space-2)',
+                    marginTop: 'var(--space-3)',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--color-primary-700)',
+                    lineHeight: '1.4'
+                  }}>
+                    <strong>加班費時薪基準 (平均時薪)：</strong> {averageHourlyRateDisplay} 元/小時<br />
+                    <span style={{ color: 'var(--color-neutral-400)' }}>
+                      (計算公式：(正常工時工資 {Math.round(parseFloat(record.regularHours.toFixed(2)) * (record.baseSalary > 0 ? record.baseSalary : employee.baseSalary))} + AA加給 {record.allowanceAA} + 證照加給 {record.allowanceLicense} + 獎金 {record.bonus}) / 正常工時 {record.regularHours.toFixed(2)} H)
                     </span>
                   </div>
                 )}
-              </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: 'var(--text-sm)', borderLeft: '1px solid var(--color-neutral-200)', paddingLeft: 'var(--space-4)' }}>
-                <div><strong>加班總時數：</strong> {record.overtimeHours} 小時</div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-600)' }}>
-                  - 1.334倍加班：{record.overtimeHours134.toFixed(4)} 小時
-                </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-600)' }}>
-                  - 1.667倍加班：{record.overtimeHours167.toFixed(4)} 小時
-                </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-600)' }}>
-                  - {employee?.salaryType === 'monthly' ? '加發 1.000 倍加班' : '2.000倍加班'}：{record.overtimeHours200.toFixed(4)} 小時
-                </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-neutral-600)' }}>
-                  - 2.667倍加班：{record.overtimeHours267.toFixed(4)} 小時
-                </div>
-              </div>
-            </div>
-          </Card>
+              </Card>
 
-          <Card title="本期投保級距歷史紀錄">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>勞工保險投保級距：</span>
-                <span className="font-mono">{formatCurr(record.laborInsuranceGrade)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>職災保險投保級距：</span>
-                <span className="font-mono">{formatCurr(record.laborOccupationalGrade)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>全民健保投保級距：</span>
-                <span className="font-mono">{formatCurr(record.healthInsuranceGrade)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>勞工退休金提繳級距：</span>
-                <span className="font-mono">{formatCurr(record.laborPensionGrade)}</span>
-              </div>
+              {/* Insurance Grade and Employer Cost Table */}
+              <Card title="投保級距與雇主公提成本對照">
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 'var(--text-xs)' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: 'var(--color-neutral-50)', borderBottom: '1px solid var(--color-neutral-200)' }}>
+                        <th style={{ padding: 'var(--space-2) var(--space-3)', fontWeight: '600', color: 'var(--color-neutral-700)' }}>投保/提繳項目</th>
+                        <th style={{ padding: 'var(--space-2) var(--space-3)', fontWeight: '600', color: 'var(--color-neutral-700)', textAlign: 'right' }}>級距 (元)</th>
+                        <th style={{ padding: 'var(--space-2) var(--space-3)', fontWeight: '600', color: 'var(--color-neutral-700)', textAlign: 'right' }}>雇主負擔 (元)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style={{ borderBottom: '1px solid var(--color-neutral-100)' }}>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--color-neutral-800)' }}>勞工保險 (70%)</td>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatCurr(record.laborInsuranceGrade)}</td>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: '500' }}>{formatCurr(record.laborInsuranceEmployer)}</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid var(--color-neutral-100)' }}>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--color-neutral-800)' }}>職業災害保險 (職保)</td>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatCurr(record.laborOccupationalGrade)}</td>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: '500' }}>{formatCurr(record.laborOccupationalEmployer)}</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid var(--color-neutral-100)' }}>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--color-neutral-800)' }}>全民健保 (60%)</td>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatCurr(record.healthInsuranceGrade)}</td>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: '500' }}>{formatCurr(record.healthInsuranceEmployer)}</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid var(--color-neutral-100)' }}>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--color-neutral-800)' }}>勞退公提金 (6%)</td>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{formatCurr(record.laborPensionGrade)}</td>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: '500' }}>{formatCurr(record.laborPensionEmployer)}</td>
+                      </tr>
+                      <tr style={{ backgroundColor: 'var(--color-neutral-50)', fontWeight: 'bold' }}>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--color-primary-700)' }}>雇主公提成本總計</td>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)' }}></td>
+                        <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--color-primary-700)' }}>{formatCurr(record.totalEmployerCost)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
             </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Adjustment notes */}
-      {record.notes && !isEditing && (
-        <Card title="調整備註說明">
-          <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-neutral-700)', lineHeight: '1.6' }}>
-            {record.notes}
-          </p>
-        </Card>
-      )}
+            
+            {/* Notes Section */}
+            {record.notes && (
+              <Card title="調整備註說明">
+                <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-neutral-700)', lineHeight: '1.6' }}>
+                  {record.notes}
+                </p>
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
