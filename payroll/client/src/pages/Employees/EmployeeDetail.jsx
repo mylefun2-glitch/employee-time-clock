@@ -237,10 +237,40 @@ export default function EmployeeDetail() {
             {employee.allowanceManager > 0 && <div><strong style={{ color: 'var(--color-neutral-600)' }}>主管加給:</strong> {Math.round(employee.allowanceManager).toLocaleString('zh-TW')}</div>}
             {employee.otherAllowance > 0 && <div><strong style={{ color: 'var(--color-neutral-600)' }}>其他津貼:</strong> {Math.round(employee.otherAllowance).toLocaleString('zh-TW')}</div>}
             {employee.mealAllowance > 0 && <div><strong style={{ color: 'var(--color-neutral-600)' }}>其他津貼（不列入平均時薪計算）:</strong> {Math.round(employee.mealAllowance).toLocaleString('zh-TW')}</div>}
-            <div><strong style={{ color: 'var(--color-neutral-600)' }}>勞保投保薪資:</strong> {Math.round(employee.laborInsuranceGrade).toLocaleString('zh-TW')}</div>
-            <div><strong style={{ color: 'var(--color-neutral-600)' }}>職保投保薪資:</strong> {Math.round(employee.laborOccupationalGrade || employee.laborPensionGrade).toLocaleString('zh-TW')}</div>
-            <div><strong style={{ color: 'var(--color-neutral-600)' }}>健保投保薪資:</strong> {Math.round(employee.healthInsuranceGrade).toLocaleString('zh-TW')}</div>
-            <div><strong style={{ color: 'var(--color-neutral-600)' }}>勞退提繳薪資:</strong> {Math.round(employee.laborPensionGrade).toLocaleString('zh-TW')}</div>
+            <div>
+              <strong style={{ color: 'var(--color-neutral-600)' }}>勞保投保薪資:</strong>{' '}
+              {employee.laborInsuranceGrade === -1 
+                ? '不加保/免繳勞保自付額' 
+                : employee.laborInsuranceGrade === 0 
+                  ? '按薪資自動計算' 
+                  : `${Math.round(employee.laborInsuranceGrade).toLocaleString('zh-TW')} 元`}
+            </div>
+            <div>
+              <strong style={{ color: 'var(--color-neutral-600)' }}>職保投保薪資:</strong>{' '}
+              {employee.laborOccupationalGrade === -1 
+                ? '免加保/免繳職保' 
+                : employee.laborOccupationalGrade === 0 
+                  ? (employee.laborPensionGrade > 0 
+                      ? `${Math.round(employee.laborPensionGrade).toLocaleString('zh-TW')} 元 (隨勞退)` 
+                      : '按薪資自動計算')
+                  : `${Math.round(employee.laborOccupationalGrade).toLocaleString('zh-TW')} 元`}
+            </div>
+            <div>
+              <strong style={{ color: 'var(--color-neutral-600)' }}>健保投保薪資:</strong>{' '}
+              {employee.healthInsuranceGrade === -1 
+                ? '不加保（投保於其他單位）' 
+                : employee.healthInsuranceGrade === 0 
+                  ? '按薪資自動計算' 
+                  : `${Math.round(employee.healthInsuranceGrade).toLocaleString('zh-TW')} 元`}
+            </div>
+            <div>
+              <strong style={{ color: 'var(--color-neutral-600)' }}>勞退提繳薪資:</strong>{' '}
+              {employee.laborPensionGrade === -1 
+                ? '免提繳' 
+                : employee.laborPensionGrade === 0 
+                  ? '按薪資自動計算' 
+                  : `${Math.round(employee.laborPensionGrade).toLocaleString('zh-TW')} 元`}
+            </div>
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>健保扶養人數:</strong> {employee.dependents} 人</div>
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>自願提繳勞退:</strong> {employee.voluntaryPensionRate} %</div>
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>二代健保自付額:</strong> {Math.round(employee.supplementaryHealthInsurance || 0).toLocaleString('zh-TW')}</div>
@@ -409,28 +439,32 @@ export default function EmployeeDetail() {
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
             <Input
-              label="勞保投保薪資級距"
+              label="勞保投保薪資級距 (0:自動, -1:免繳)"
               type="number"
               value={formData.laborInsuranceGrade}
               onChange={e => setFormData(prev => ({ ...prev, laborInsuranceGrade: e.target.value }))}
+              placeholder="輸入0為自動計算，-1為已退休免扣自付額"
             />
             <Input
-              label="職保投保薪資級距"
+              label="職保投保薪資級距 (0:自動, -1:免繳)"
               type="number"
               value={formData.laborOccupationalGrade}
               onChange={e => setFormData(prev => ({ ...prev, laborOccupationalGrade: e.target.value }))}
+              placeholder="輸入0為自動計算，-1為免投保職保"
             />
             <Input
-              label="健保投保薪資級距"
+              label="健保投保薪資級距 (0:自動, -1:不加保)"
               type="number"
               value={formData.healthInsuranceGrade}
               onChange={e => setFormData(prev => ({ ...prev, healthInsuranceGrade: e.target.value }))}
+              placeholder="輸入0為自動計算，-1為投保於其他單位"
             />
             <Input
-              label="勞退提繳薪資級距"
+              label="勞退提繳薪資級距 (0:自動, -1:免提繳)"
               type="number"
               value={formData.laborPensionGrade}
               onChange={e => setFormData(prev => ({ ...prev, laborPensionGrade: e.target.value }))}
+              placeholder="輸入0為自動計算，-1為免提繳勞退"
             />
             <Input
               label="自願提繳比率 (%)"

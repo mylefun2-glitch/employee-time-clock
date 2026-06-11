@@ -237,21 +237,29 @@ export function calculateAllInsurance(employee, settings = {}) {
                        (employee.allowanceManager || 0) +
                        (employee.otherAllowance || 0);
   
-  const laborInsuredSalary = employee.laborInsuranceGrade > 0 
-    ? employee.laborInsuranceGrade 
-    : lookupLaborInsuranceGrade(totalMonthly);
+  const laborInsuredSalary = employee.laborInsuranceGrade === -1
+    ? 0
+    : (employee.laborInsuranceGrade > 0 
+        ? employee.laborInsuranceGrade 
+        : lookupLaborInsuranceGrade(totalMonthly));
     
-  const healthInsuredSalary = employee.healthInsuranceGrade > 0 
-    ? employee.healthInsuranceGrade 
-    : lookupHealthInsuranceGrade(totalMonthly);
+  const healthInsuredSalary = employee.healthInsuranceGrade === -1
+    ? 0
+    : (employee.healthInsuranceGrade > 0 
+        ? employee.healthInsuranceGrade 
+        : lookupHealthInsuranceGrade(totalMonthly));
     
-  const pensionGrade = employee.laborPensionGrade > 0 
-    ? employee.laborPensionGrade 
-    : totalMonthly;
+  const pensionGrade = employee.laborPensionGrade === -1
+    ? 0
+    : (employee.laborPensionGrade > 0 
+        ? employee.laborPensionGrade 
+        : totalMonthly);
 
-  const occupationalGrade = employee.laborOccupationalGrade > 0
-    ? employee.laborOccupationalGrade
-    : (employee.laborPensionGrade > 0 ? employee.laborPensionGrade : totalMonthly);
+  const occupationalGrade = employee.laborOccupationalGrade === -1
+    ? 0
+    : (employee.laborOccupationalGrade > 0
+        ? employee.laborOccupationalGrade
+        : (employee.laborPensionGrade > 0 ? employee.laborPensionGrade : totalMonthly));
 
   // Build rates from settings
   const rates = {};
