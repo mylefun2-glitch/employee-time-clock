@@ -971,7 +971,8 @@ router.post('/batch-update-adjustments', async (req, res) => {
     for (const adj of adjustments) {
       const {
         employeeNo, employeeName, bonus, allowanceAA, allowanceLicense, otherAllowance, mealAllowance, notes,
-        supplementaryHealthInsurance, prevInsuranceDifference, healthDisabilityExemption, healthGovSubsidy, leavePaySupplement
+        supplementaryHealthInsurance, prevInsuranceDifference, healthDisabilityExemption, healthGovSubsidy, leavePaySupplement,
+        otherDeductions, laborInsuranceGrade, laborOccupationalGrade, healthInsuranceGrade, laborPensionGrade
       } = adj;
 
       // Find employee
@@ -1009,6 +1010,12 @@ router.post('/batch-update-adjustments', async (req, res) => {
       const updatedSubsidy = healthGovSubsidy !== undefined ? parseFloat(healthGovSubsidy) : payrollRecord.healthGovSubsidy;
       const updatedLeaveSupp = leavePaySupplement !== undefined ? parseFloat(leavePaySupplement) : payrollRecord.leavePaySupplement;
 
+      const updatedOtherDeductions = otherDeductions !== undefined ? parseFloat(otherDeductions) : payrollRecord.otherDeductions;
+      const updatedLaborGrade = laborInsuranceGrade !== undefined ? parseFloat(laborInsuranceGrade) : payrollRecord.laborInsuranceGrade;
+      const updatedOccupationalGrade = laborOccupationalGrade !== undefined ? parseFloat(laborOccupationalGrade) : payrollRecord.laborOccupationalGrade;
+      const updatedHealthGrade = healthInsuranceGrade !== undefined ? parseFloat(healthInsuranceGrade) : payrollRecord.healthInsuranceGrade;
+      const updatedPensionGrade = laborPensionGrade !== undefined ? parseFloat(laborPensionGrade) : payrollRecord.laborPensionGrade;
+
       // Prepare attendance summary for recalculation
       const attendanceSummary = {
         workDays: payrollRecord.workDays,
@@ -1022,7 +1029,7 @@ router.post('/batch-update-adjustments', async (req, res) => {
         regularHours: payrollRecord.regularHours,
         bonus: updatedBonus,
         retroPay: payrollRecord.retroPay,
-        otherDeductions: payrollRecord.otherDeductions,
+        otherDeductions: updatedOtherDeductions,
         leaveDeduction: payrollRecord.leaveDeduction,
         supplementaryHealthInsurance: updatedSuppHealth,
         prevInsuranceDifference: updatedPrevDiff,
@@ -1043,7 +1050,11 @@ router.post('/batch-update-adjustments', async (req, res) => {
         prevInsuranceDifference: updatedPrevDiff,
         healthDisabilityExemption: updatedExemption,
         healthGovSubsidy: updatedSubsidy,
-        leavePaySupplement: updatedLeaveSupp
+        leavePaySupplement: updatedLeaveSupp,
+        laborInsuranceGrade: updatedLaborGrade,
+        laborOccupationalGrade: updatedOccupationalGrade,
+        healthInsuranceGrade: updatedHealthGrade,
+        laborPensionGrade: updatedPensionGrade
       };
 
       const payDetails = calculatePayroll(empOverride, attendanceSummary, settings);

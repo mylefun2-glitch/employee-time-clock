@@ -10,7 +10,24 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
   const fileInputRef = useRef(null);
 
   const handleDownloadTemplate = () => {
-    const headers = ['工號', '姓名', '獎金', 'AA加給', '證照加給', '其他津貼', '其他津貼(不列入平均時薪計算)', '備註'];
+    const headers = [
+      '工號',
+      '姓名',
+      '獎金',
+      'AA加給',
+      '證照加給',
+      '其他津貼',
+      '其他津貼(不列入平均時薪計算)',
+      '備註',
+      '前期勞健退差額',
+      '其他扣除額',
+      '健保減免比例',
+      '健保政府補助定額',
+      '勞保投保級距',
+      '職保投保級距',
+      '健保投保級距',
+      '勞退提繳級距'
+    ];
     
     // Pre-fill with active employees from the payrolls list if available
     const rows = (payrolls && payrolls.length > 0)
@@ -22,12 +39,20 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
           p.allowanceLicense || 0,
           p.otherAllowance || 0,
           p.mealAllowance || 0,
-          p.notes || ''
+          p.notes || '',
+          p.prevInsuranceDifference || 0,
+          p.otherDeductions || 0,
+          p.healthDisabilityExemption || 0,
+          p.healthGovSubsidy || 0,
+          p.laborInsuranceGrade || 0,
+          p.laborOccupationalGrade || 0,
+          p.healthInsuranceGrade || 0,
+          p.laborPensionGrade || 0
         ])
       : [
-          ['EMP001', '王小明', 3000, 1500, 2000, 1000, 500, '績效優異獎金與加給調整'],
-          ['EMP002', '李四', 2000, 0, 1000, 0, 0, '證照加給'],
-          ['EMP003', '張三', 1500, 1000, 0, 500, 1000, '其他津貼調整'],
+          ['EMP001', '王小明', 3000, 1500, 2000, 1000, 500, '績效優異獎金與加給調整', 0, 0, 0, 0, 27470, 27470, 27470, 27470],
+          ['EMP002', '李四', 2000, 0, 1000, 0, 0, '證照加給', 0, 0, 0, 0, 28800, 28800, 28800, 28800],
+          ['EMP003', '張三', 1500, 1000, 0, 500, 1000, '其他津貼調整', 0, 0, 0, 0, 30300, 30300, 30300, 30300],
         ];
     
     // Create worksheet
@@ -44,6 +69,14 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
       { wch: 15 }, // 其他津貼
       { wch: 28 }, // 其他津貼(不列入平均時薪計算)
       { wch: 30 }, // 備註
+      { wch: 16 }, // 前期勞健退差額
+      { wch: 14 }, // 其他扣除額
+      { wch: 14 }, // 健保減免比例
+      { wch: 18 }, // 健保政府補助定額
+      { wch: 14 }, // 勞保投保級距
+      { wch: 14 }, // 職保投保級距
+      { wch: 14 }, // 健保投保級距
+      { wch: 14 }, // 勞退提繳級距
     ];
 
     // Create workbook
@@ -90,6 +123,14 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
         let otherKey = '';
         let otherExemptKey = '';
         let notesKey = '';
+        let prevDiffKey = '';
+        let otherDeductionsKey = '';
+        let exemptionKey = '';
+        let subsidyKey = '';
+        let laborGradeKey = '';
+        let occupationalGradeKey = '';
+        let healthGradeKey = '';
+        let pensionGradeKey = '';
 
         keys.forEach(k => {
           const lk = k.toLowerCase().trim();
@@ -120,6 +161,30 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
           if (lk.includes('備註') || lk.includes('說明') || lk.includes('notes') || lk.includes('備注')) {
             notesKey = k;
           }
+          if (lk.includes('前期') || lk.includes('差額') || lk.includes('previnsurancedifference')) {
+            prevDiffKey = k;
+          }
+          if (lk.includes('扣除額') || lk.includes('扣除') || lk.includes('otherdeductions')) {
+            otherDeductionsKey = k;
+          }
+          if (lk.includes('減免') || lk.includes('healthdisabilityexemption')) {
+            exemptionKey = k;
+          }
+          if (lk.includes('補助') || lk.includes('healthgovsubsidy')) {
+            subsidyKey = k;
+          }
+          if (lk.includes('勞保') && (lk.includes('級距') || lk.includes('laborinsurancegrade'))) {
+            laborGradeKey = k;
+          }
+          if ((lk.includes('職保') || lk.includes('職災')) && (lk.includes('級距') || lk.includes('laboroccupationalgrade'))) {
+            occupationalGradeKey = k;
+          }
+          if (lk.includes('健保') && (lk.includes('級距') || lk.includes('healthinsurancegrade'))) {
+            healthGradeKey = k;
+          }
+          if ((lk.includes('勞退') || lk.includes('退休')) && (lk.includes('級距') || lk.includes('laborpensiongrade'))) {
+            pensionGradeKey = k;
+          }
         });
 
         // Map and Match rows
@@ -134,6 +199,26 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
           const otherAllowance = otherKey ? parseFloat(row[otherKey]) || 0 : undefined;
           const mealAllowance = otherExemptKey ? parseFloat(row[otherExemptKey]) || 0 : undefined;
           const notes = notesKey ? String(row[notesKey] || '').trim() : undefined;
+
+          const prevInsuranceDifference = prevDiffKey ? parseFloat(row[prevDiffKey]) || 0 : undefined;
+          const otherDeductions = otherDeductionsKey ? parseFloat(row[otherDeductionsKey]) || 0 : undefined;
+          
+          let healthDisabilityExemption = undefined;
+          if (exemptionKey && row[exemptionKey] !== undefined) {
+            const valStr = String(row[exemptionKey]).trim();
+            if (valStr.includes('%')) {
+              healthDisabilityExemption = (parseFloat(valStr) || 0) / 100;
+            } else {
+              const parsedVal = parseFloat(valStr);
+              healthDisabilityExemption = parsedVal > 1 ? parsedVal / 100 : parsedVal;
+            }
+          }
+          
+          const healthGovSubsidy = subsidyKey ? parseFloat(row[subsidyKey]) || 0 : undefined;
+          const laborInsuranceGrade = laborGradeKey ? parseFloat(row[laborGradeKey]) || 0 : undefined;
+          const laborOccupationalGrade = occupationalGradeKey ? parseFloat(row[occupationalGradeKey]) || 0 : undefined;
+          const healthInsuranceGrade = healthGradeKey ? parseFloat(row[healthGradeKey]) || 0 : undefined;
+          const laborPensionGrade = pensionGradeKey ? parseFloat(row[pensionGradeKey]) || 0 : undefined;
 
           // Match in payrolls list
           let matchedPayroll = null;
@@ -154,6 +239,14 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
             otherAllowance,
             mealAllowance,
             notes,
+            prevInsuranceDifference,
+            otherDeductions,
+            healthDisabilityExemption,
+            healthGovSubsidy,
+            laborInsuranceGrade,
+            laborOccupationalGrade,
+            healthInsuranceGrade,
+            laborPensionGrade,
             matchedName: matchedPayroll ? matchedPayroll.employee?.name : null,
             matchedDept: matchedPayroll ? matchedPayroll.employee?.department : null,
             status: matchedPayroll ? 'SUCCESS' : 'ERROR',
@@ -204,6 +297,14 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
     { title: '證照加給', key: 'allowanceLicense', align: 'right', render: (val) => val !== undefined ? val.toLocaleString('zh-TW') : '—' },
     { title: '其他津貼 (NT$)', key: 'otherAllowance', align: 'right', render: (val) => val !== undefined ? val.toLocaleString('zh-TW') : '—' },
     { title: '其他津貼(免計) (NT$)', key: 'mealAllowance', align: 'right', render: (val) => val !== undefined ? val.toLocaleString('zh-TW') : '—' },
+    { title: '前期勞健退差額 (NT$)', key: 'prevInsuranceDifference', align: 'right', render: (val) => val !== undefined ? val.toLocaleString('zh-TW') : '—' },
+    { title: '其他扣除額 (NT$)', key: 'otherDeductions', align: 'right', render: (val) => val !== undefined ? val.toLocaleString('zh-TW') : '—' },
+    { title: '健保減免比例', key: 'healthDisabilityExemption', align: 'right', render: (val) => val !== undefined ? `${Math.round(val * 100)}%` : '—' },
+    { title: '健保政府補助定額 (NT$)', key: 'healthGovSubsidy', align: 'right', render: (val) => val !== undefined ? val.toLocaleString('zh-TW') : '—' },
+    { title: '勞保級距 (NT$)', key: 'laborInsuranceGrade', align: 'right', render: (val) => val !== undefined ? val.toLocaleString('zh-TW') : '—' },
+    { title: '職保級距 (NT$)', key: 'laborOccupationalGrade', align: 'right', render: (val) => val !== undefined ? val.toLocaleString('zh-TW') : '—' },
+    { title: '健保級距 (NT$)', key: 'healthInsuranceGrade', align: 'right', render: (val) => val !== undefined ? val.toLocaleString('zh-TW') : '—' },
+    { title: '勞退級距 (NT$)', key: 'laborPensionGrade', align: 'right', render: (val) => val !== undefined ? val.toLocaleString('zh-TW') : '—' },
     { title: '備註', key: 'notes', render: (val) => val !== undefined ? val : '—' },
     { 
       title: '比對狀態', 
