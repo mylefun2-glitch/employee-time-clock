@@ -163,12 +163,15 @@ export default function PayrollDetail() {
   const handleLock = async () => {
     if (window.confirm('確定要鎖定此筆薪資紀錄嗎？鎖定後將無法再進行編輯（但仍可直接進行核准）。')) {
       try {
+        setSaving(true);
         await payrollService.lockPayroll(id);
         alert('薪資紀錄已鎖定');
         loadPayrollRecord();
       } catch (err) {
         console.error(err);
         alert(err.message || '鎖定失敗');
+      } finally {
+        setSaving(false);
       }
     }
   };
@@ -176,12 +179,15 @@ export default function PayrollDetail() {
   const handleUnlock = async () => {
     if (window.confirm('確定要解除此筆薪資紀錄的鎖定嗎？解除鎖定後將回復為草稿狀態，可再次進行編輯。')) {
       try {
+        setSaving(true);
         await payrollService.unlockPayroll(id);
         alert('薪資紀錄已解除鎖定');
         loadPayrollRecord();
       } catch (err) {
         console.error(err);
         alert(err.message || '解鎖失敗');
+      } finally {
+        setSaving(false);
       }
     }
   };
@@ -189,12 +195,15 @@ export default function PayrollDetail() {
   const handleApprove = async () => {
     if (window.confirm('確定要核准此筆薪資紀錄嗎？核准後將正式發放，且無法再調整。')) {
       try {
+        setSaving(true);
         await payrollService.approvePayroll(id);
         alert('薪資紀錄已核准');
         loadPayrollRecord();
       } catch (err) {
         console.error(err);
         alert(err.message || '核准失敗');
+      } finally {
+        setSaving(false);
       }
     }
   };
@@ -216,6 +225,7 @@ export default function PayrollDetail() {
   };
 
   const handleDownloadPDF = () => {
+    setSaving(true);
     const a = document.createElement('a');
     a.href = `${BASE_URL}/payroll/${id}/pdf?token=${localStorage.getItem('token')}`;
     fetch(`${BASE_URL}/payroll/${id}/pdf`, {
@@ -241,6 +251,9 @@ export default function PayrollDetail() {
     .catch(err => {
       console.error(err);
       alert(err.message);
+    })
+    .finally(() => {
+      setSaving(false);
     });
   };
 
@@ -264,6 +277,32 @@ export default function PayrollDetail() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+      {saving && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.4)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            backgroundColor: 'var(--color-neutral-0)',
+            padding: 'var(--space-6) var(--space-8)',
+            borderRadius: 'var(--radius-lg)',
+            boxShadow: 'var(--shadow-lg)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 'var(--space-4)'
+          }}>
+            <LoadingSpinner size="lg" />
+            <span style={{ fontWeight: '600', color: 'var(--color-neutral-800)' }}>執行中，請稍候...</span>
+          </div>
+        </div>
+      )}
       {/* Header Panel */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>

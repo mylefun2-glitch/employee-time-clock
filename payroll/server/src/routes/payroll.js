@@ -288,6 +288,15 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       pastRecordsMap[r.employeeId].push(r);
     });
 
+    // 1b. Batch fetch current month's existing payroll records to preserve manual adjustments/notes/grades
+    const existingRecordsForMonth = await req.prisma.payrollRecord.findMany({
+      where: { year: y, month: m }
+    });
+    const existingRecordsMap = {};
+    existingRecordsForMonth.forEach(r => {
+      existingRecordsMap[r.employeeId] = r;
+    });
+
     // 2. Batch fetch attendance and leave records for the calculation month
     console.log('[Calc] Batch fetching attendance and leaves...');
     const allAttendanceRecords = await req.prisma.attendanceRecord.findMany({
@@ -363,6 +372,26 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
           allowanceManager: activeSched.allowanceManager,
           allowanceLicense: activeSched.allowanceLicense,
           otherAllowance: activeSched.otherAllowance
+        };
+      }
+
+      const existingRecord = existingRecordsMap[emp.id];
+      if (existingRecord) {
+        currentEmp = {
+          ...currentEmp,
+          // Preserve manual override grades from the existing payroll record if present
+          laborInsuranceGrade: existingRecord.laborInsuranceGrade !== 0 ? existingRecord.laborInsuranceGrade : currentEmp.laborInsuranceGrade,
+          healthInsuranceGrade: existingRecord.healthInsuranceGrade !== 0 ? existingRecord.healthInsuranceGrade : currentEmp.healthInsuranceGrade,
+          laborPensionGrade: existingRecord.laborPensionGrade !== 0 ? existingRecord.laborPensionGrade : currentEmp.laborPensionGrade,
+          laborOccupationalGrade: existingRecord.laborOccupationalGrade !== 0 ? existingRecord.laborOccupationalGrade : currentEmp.laborOccupationalGrade,
+          
+          // Preserve allowances and baseSalary from existing payroll record
+          allowanceAA: existingRecord.allowanceAA,
+          allowanceLicense: existingRecord.allowanceLicense,
+          allowanceManager: existingRecord.allowanceManager,
+          otherAllowance: existingRecord.otherAllowance,
+          mealAllowance: existingRecord.mealAllowance,
+          baseSalary: existingRecord.baseSalary > 0 ? existingRecord.baseSalary : currentEmp.baseSalary,
         };
       }
 
@@ -559,9 +588,19 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         overtimeHours200,
         overtimeHours267,
         regularHours,
-        leaveDeduction,
+        leaveDeduction: existingRecord ? existingRecord.leaveDeduction : leaveDeduction,
         leaveHoursHalf,
-        leaveHoursPaid
+        leaveHoursPaid,
+        
+        // Pass existing adjustments to calculatePayroll
+        bonus: existingRecord ? existingRecord.bonus : 0,
+        retroPay: existingRecord ? existingRecord.retroPay : 0,
+        otherDeductions: existingRecord ? existingRecord.otherDeductions : 0,
+        supplementaryHealthInsurance: existingRecord ? existingRecord.supplementaryHealthInsurance : undefined,
+        prevInsuranceDifference: existingRecord ? existingRecord.prevInsuranceDifference : undefined,
+        healthDisabilityExemption: existingRecord ? existingRecord.healthDisabilityExemption : undefined,
+        healthGovSubsidy: existingRecord ? existingRecord.healthGovSubsidy : undefined,
+        leavePaySupplement: existingRecord ? existingRecord.leavePaySupplement : undefined,
       };
 
       const payDetails = calculatePayroll(currentEmp, attendanceSummary, settings);
@@ -587,12 +626,14 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
     // Batch upsert payroll records in DB
     console.log(`[Calc] Batch upserting ${queueUpsert.length} payroll records...`);
     const upsertTasks = queueUpsert.map(item => () => {
+      const existingRecord = existingRecordsMap[item.employeeId];
       return req.prisma.payrollRecord.upsert({
         where: {
           employeeId_year_month: { employeeId: item.employeeId, year: y, month: m }
         },
         update: {
           ...item.payDetails,
+          notes: (existingRecord && existingRecord.notes) ? existingRecord.notes : item.payDetails.notes,
           status: 'DRAFT',
           calculatedAt: new Date().toISOString()
         },

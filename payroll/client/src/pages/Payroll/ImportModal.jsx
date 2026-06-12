@@ -224,6 +224,7 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
     <Modal
       isOpen={isOpen}
       onClose={onClose}
+      size="xl"
       title={`${year} 年 ${month} 月 批量匯入獎金津貼`}
       footer={
         <div style={{ display: 'flex', gap: '8px' }}>
