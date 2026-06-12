@@ -45,7 +45,8 @@ export default function PayrollDetail() {
     prevInsuranceDifference: '0',
     healthDisabilityExemption: '0',
     healthGovSubsidy: '0',
-    leavePaySupplement: '0'
+    leavePaySupplement: '0',
+    incomeTax: '0'
   });
 
   useEffect(() => {
@@ -84,7 +85,8 @@ export default function PayrollDetail() {
           prevInsuranceDifference: (res.data.prevInsuranceDifference || 0).toString(),
           healthDisabilityExemption: (res.data.healthDisabilityExemption || 0).toString(),
           healthGovSubsidy: (res.data.healthGovSubsidy || 0).toString(),
-          leavePaySupplement: (res.data.leavePaySupplement || 0).toString()
+          leavePaySupplement: (res.data.leavePaySupplement || 0).toString(),
+          incomeTax: (res.data.incomeTax || 0).toString()
         });
       }
     } catch (err) {
@@ -123,7 +125,8 @@ export default function PayrollDetail() {
         prevInsuranceDifference: parseFloat(editForm.prevInsuranceDifference) || 0,
         healthDisabilityExemption: parseFloat(editForm.healthDisabilityExemption) || 0,
         healthGovSubsidy: parseFloat(editForm.healthGovSubsidy) || 0,
-        leavePaySupplement: parseFloat(editForm.leavePaySupplement) || 0
+        leavePaySupplement: parseFloat(editForm.leavePaySupplement) || 0,
+        incomeTax: parseFloat(editForm.incomeTax) || 0
       });
 
       alert('薪資調整與計算已完成');
@@ -134,6 +137,26 @@ export default function PayrollDetail() {
       alert(err.message || '儲存與重新計算失敗');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRecalculate = async () => {
+    if (window.confirm('確定要依據目前最新的員工設定與當月差勤資料，重新計算此人的薪資明細嗎？這將會覆蓋目前的草稿資料。')) {
+      try {
+        setSaving(true);
+        const res = await payrollService.calculatePayroll({
+          year: record.year.toString(),
+          month: record.month.toString(),
+          employeeIds: [employee.id]
+        });
+        alert(res.message || '重新計算成功！');
+        loadPayrollRecord();
+      } catch (err) {
+        console.error(err);
+        alert(err.message || '重新計算失敗');
+      } finally {
+        setSaving(false);
+      }
     }
   };
 
@@ -257,6 +280,11 @@ export default function PayrollDetail() {
           <Button variant="outline" icon="arrow_back" onClick={() => navigate('/payroll', { state: { year: record?.year?.toString(), month: record?.month?.toString() } })}>
             返回列表
           </Button>
+          {record.status === 'DRAFT' && !isEditing && (
+            <Button variant="outline" icon="calculate" onClick={handleRecalculate}>
+              重新計算
+            </Button>
+          )}
           {record.status === 'DRAFT' && !isEditing && (
             <Button variant="outline" icon="edit" onClick={() => setIsEditing(true)}>
               手動調整
@@ -423,6 +451,12 @@ export default function PayrollDetail() {
                     type="number"
                     value={editForm.prevInsuranceDifference}
                     onChange={e => setEditForm(prev => ({ ...prev, prevInsuranceDifference: e.target.value }))}
+                  />
+                  <Input
+                    label="所得稅預扣 (元)"
+                    type="number"
+                    value={editForm.incomeTax}
+                    onChange={e => setEditForm(prev => ({ ...prev, incomeTax: e.target.value }))}
                   />
                   <Input
                     label="其他扣除額 (元)"
@@ -754,12 +788,10 @@ export default function PayrollDetail() {
                       <span>勞退自提金額 ({employee.voluntaryPensionRate}%)</span>
                       <span className="font-mono">{formatCurr(record.laborPensionEmployee)}</span>
                     </div>
-                    {record.incomeTax > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                        <span>所得稅預扣</span>
-                        <span className="font-mono">{formatCurr(record.incomeTax)}</span>
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                      <span>所得稅預扣</span>
+                      <span className="font-mono">{formatCurr(record.incomeTax)}</span>
+                    </div>
                     {record.leaveDeduction > 0 && (
                       <div style={{ borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
