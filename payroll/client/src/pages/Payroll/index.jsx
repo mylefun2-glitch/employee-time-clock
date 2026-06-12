@@ -338,8 +338,8 @@ export default function PayrollList() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       {/* Top Filter and Actions */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
           <Input 
             label="年份" 
             type="select"
@@ -349,7 +349,7 @@ export default function PayrollList() {
               const y = (now.getFullYear() - 2 + i).toString();
               return { value: y, label: `${y} 年` };
             })}
-            style={{ marginBottom: 0, width: '120px' }}
+            style={{ marginBottom: 0, width: '100px' }}
           />
           <Input 
             label="月份" 
@@ -360,7 +360,7 @@ export default function PayrollList() {
               const m = (i + 1).toString();
               return { value: m, label: `${m} 月` };
             })}
-            style={{ marginBottom: 0, width: '100px' }}
+            style={{ marginBottom: 0, width: '85px' }}
           />
           <Input 
             label="發放狀態" 
@@ -373,7 +373,7 @@ export default function PayrollList() {
               { value: 'LOCKED', label: '已鎖定' },
               { value: 'APPROVED', label: '已核准' }
             ]}
-            style={{ marginBottom: 0, width: '130px' }}
+            style={{ marginBottom: 0, width: '110px' }}
           />
           <Input 
             label="部門" 
@@ -384,14 +384,14 @@ export default function PayrollList() {
               { value: '', label: '全部部門' },
               ...uniqueDepts.map(dept => ({ value: dept, label: dept }))
             ]}
-            style={{ marginBottom: 0, width: '130px' }}
+            style={{ marginBottom: 0, width: '110px' }}
           />
           <Input 
             label="姓名" 
             placeholder="搜尋姓名..."
             value={nameFilter}
             onChange={(e) => setNameFilter(e.target.value)}
-            style={{ marginBottom: 0, width: '130px' }}
+            style={{ marginBottom: 0, width: '110px' }}
           />
         </div>
         
