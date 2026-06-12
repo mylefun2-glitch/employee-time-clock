@@ -3,7 +3,7 @@ import { authenticate } from '../middleware/auth.js';
 import { requireFields, validateId, validateYearMonth } from '../middleware/validate.js';
 import { calculatePayroll } from '../services/payrollCalculator.js';
 import { generatePayrollPDF, drawPayrollSlip } from '../services/pdfGenerator.js';
-import { syncAttendanceAndLeaves } from '../services/supabaseSync.js';
+import { syncAttendanceAndLeaves, syncEmployees } from '../services/supabaseSync.js';
 import { lookupLaborInsuranceGrade, lookupHealthInsuranceGrade } from '../services/insuranceCalculator.js';
 import { supabase } from '../services/supabase.js';
 
@@ -165,6 +165,11 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
     const m = parseInt(month);
 
     console.log(`[Calc] Starting optimized calculation for ${y}-${m}...`);
+
+    // Sync employees from Supabase first to ensure statuses are updated
+    console.log('[Calc] Syncing employees...');
+    await syncEmployees(true).catch(err => console.error("Sync employees failed:", err));
+    console.log('[Calc] Employees synced.');
 
     // Sync attendance logs and approved leaves from Supabase first
     console.log('[Calc] Syncing attendance and leaves...');
