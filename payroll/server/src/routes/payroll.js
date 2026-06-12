@@ -92,10 +92,29 @@ function getRollingInsuranceGrades(emp, pastRecords) {
               (emp.otherAllowance || 0);
   }
 
-  const laborGrade = lookupLaborInsuranceGrade(avgWage);
-  const healthGrade = lookupHealthInsuranceGrade(avgWage);
-  const pensionGrade = lookupHealthInsuranceGrade(avgWage);
-  const occupationalGrade = lookupLaborInsuranceGrade(avgWage);
+  const laborGrade = emp.laborInsuranceGrade === -1
+    ? -1
+    : (emp.laborInsuranceGrade > 0
+        ? emp.laborInsuranceGrade
+        : lookupLaborInsuranceGrade(avgWage));
+
+  const healthGrade = emp.healthInsuranceGrade === -1
+    ? -1
+    : (emp.healthInsuranceGrade > 0
+        ? emp.healthInsuranceGrade
+        : lookupHealthInsuranceGrade(avgWage));
+
+  const pensionGrade = emp.laborPensionGrade === -1
+    ? -1
+    : (emp.laborPensionGrade > 0
+        ? emp.laborPensionGrade
+        : lookupHealthInsuranceGrade(avgWage));
+
+  const occupationalGrade = emp.laborOccupationalGrade === -1
+    ? -1
+    : (emp.laborOccupationalGrade > 0
+        ? emp.laborOccupationalGrade
+        : lookupLaborInsuranceGrade(avgWage));
 
   return {
     laborInsuranceGrade: laborGrade,
