@@ -6,6 +6,119 @@ import { calculateAllInsurance } from './insuranceCalculator.js';
 import { calculateTax } from './taxCalculator.js';
 
 /**
+ * Calculate labor insurance days for a given payroll year and month based on hire date and resignation date.
+ */
+export function calculateLaborInsuranceDays(year, month, hireDateStr, resignDateStr) {
+  const y = parseInt(year);
+  const m = parseInt(month);
+  if (isNaN(y) || isNaN(m)) return 30;
+  
+  const lastDay = new Date(y, m, 0).getDate();
+  
+  const monthStart = new Date(Date.UTC(y, m - 1, 1));
+  const monthEnd = new Date(Date.UTC(y, m - 1, lastDay));
+  
+  let joinDay = 1;
+  if (hireDateStr) {
+    const hireDate = new Date(hireDateStr);
+    if (!isNaN(hireDate.getTime())) {
+      const hY = hireDate.getFullYear();
+      const hM = hireDate.getMonth() + 1;
+      const hD = hireDate.getDate();
+      if (hY === y && hM === m) {
+        joinDay = hD;
+      } else if (hireDate > monthEnd) {
+        return 0; // Not hired yet in this month
+      }
+    }
+  }
+  
+  let resignDay = 30;
+  if (resignDateStr) {
+    const resignDate = new Date(resignDateStr);
+    if (!isNaN(resignDate.getTime())) {
+      const rY = resignDate.getFullYear();
+      const rM = resignDate.getMonth() + 1;
+      const rD = resignDate.getDate();
+      if (rY === y && rM === m) {
+        if (rD === lastDay) {
+          resignDay = 30;
+        } else {
+          resignDay = rD;
+        }
+      } else if (resignDate < monthStart) {
+        return 0; // Already resigned
+      }
+    }
+  }
+  
+  if (joinDay === 1 && resignDay === 30) {
+    return 30;
+  }
+  
+  if (resignDay === 30) {
+    return Math.max(1, 30 - joinDay + 1);
+  }
+  
+  return Math.max(1, resignDay - joinDay + 1);
+}
+
+/**
+ * Calculate pro-rata salary factor (based on 30 days Civil Law month) for partial month.
+ */
+export function calculateProRataSalaryFactor(year, month, hireDateStr, resignDateStr) {
+  const y = parseInt(year);
+  const m = parseInt(month);
+  if (isNaN(y) || isNaN(m)) return { factor: 1.0, isProRata: false, calendarDays: 30 };
+  
+  const lastDay = new Date(y, m, 0).getDate();
+  
+  const monthStart = new Date(Date.UTC(y, m - 1, 1));
+  const monthEnd = new Date(Date.UTC(y, m - 1, lastDay));
+  
+  let startDay = 1;
+  if (hireDateStr) {
+    const hireDate = new Date(hireDateStr);
+    if (!isNaN(hireDate.getTime())) {
+      const hY = hireDate.getFullYear();
+      const hM = hireDate.getMonth() + 1;
+      const hD = hireDate.getDate();
+      if (hY === y && hM === m) {
+        startDay = hD;
+      } else if (hireDate > monthEnd) {
+        return { factor: 0.0, isProRata: true, calendarDays: 0 };
+      }
+    }
+  }
+  
+  let endDay = lastDay;
+  if (resignDateStr) {
+    const resignDate = new Date(resignDateStr);
+    if (!isNaN(resignDate.getTime())) {
+      const rY = resignDate.getFullYear();
+      const rM = resignDate.getMonth() + 1;
+      const rD = resignDate.getDate();
+      if (rY === y && rM === m) {
+        endDay = rD;
+      } else if (resignDate < monthStart) {
+        return { factor: 0.0, isProRata: true, calendarDays: 0 };
+      }
+    }
+  }
+  
+  if (startDay === 1 && endDay === lastDay) {
+    return { factor: 1.0, isProRata: false, calendarDays: lastDay };
+  }
+  
+  const calendarDays = endDay - startDay + 1;
+  return {
+    factor: calendarDays / 30,
+    isProRata: true,
+    calendarDays
+  };
+}
+
+/**
  * Calculate payroll for an employee.
  * 
  * @param {object} employee - Employee DB model
@@ -46,16 +159,45 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
   };
 
   // 1. Calculate Base and Regular Pay
+  const year = attendance.year;
+  const month = attendance.month;
+  
+  let laborInsuranceDays = 30;
+  let proRataInfo = { factor: 1.0, isProRata: false, calendarDays: 30 };
+  let isMidMonthResigned = false;
+  
+  if (year && month) {
+    laborInsuranceDays = calculateLaborInsuranceDays(year, month, employee.hireDate, employee.resignDate);
+    proRataInfo = calculateProRataSalaryFactor(year, month, employee.hireDate, employee.resignDate);
+    
+    if (employee.resignDate) {
+      const resignDate = new Date(employee.resignDate);
+      if (!isNaN(resignDate.getTime())) {
+        const rY = resignDate.getFullYear();
+        const rM = resignDate.getMonth() + 1;
+        const rD = resignDate.getDate();
+        if (rY === year && rM === month) {
+          const lastDay = new Date(year, month, 0).getDate();
+          if (rD < lastDay) {
+            isMidMonthResigned = true;
+          }
+        }
+      }
+    }
+  }
+
   let baseSalary = employee.baseSalary; // monthly base salary OR hourly rate
   let regularPay = 0;
   let hourlyRate = 0;
   let averageHourlyRate = 0;
-
-  const allowanceAA = employee.allowanceAA || 0;
-  const allowanceLicense = employee.allowanceLicense || 0;
-  const allowanceManager = employee.allowanceManager || 0;
-  const otherAllowanceExempt = employee.mealAllowance || 0; // Stored in mealAllowance column, not included in average hourly wage
-  const otherAllowance = employee.otherAllowance || 0; // Original other allowance, included in average hourly wage
+ 
+  let allowanceAA = employee.allowanceAA || 0;
+  let allowanceLicense = employee.allowanceLicense || 0;
+  let allowanceManager = employee.allowanceManager || 0;
+  let otherAllowanceExempt = employee.mealAllowance || 0; // Stored in mealAllowance column, not included in average hourly wage
+  let otherAllowance = employee.otherAllowance || 0; // Original other allowance, included in average hourly wage
+  
+  let autoNotes = "";
 
   if (employee.salaryType === 'hourly') {
     hourlyRate = baseSalary; // 約定時薪
@@ -74,10 +216,23 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
     }
   } else {
     // Monthly salary
-    regularPay = baseSalary;
+    if (proRataInfo.isProRata) {
+      const f = proRataInfo.factor;
+      regularPay = Math.ceil(baseSalary * f);
+      allowanceAA = Math.ceil(allowanceAA * f);
+      allowanceLicense = Math.ceil(allowanceLicense * f);
+      allowanceManager = Math.ceil(allowanceManager * f);
+      otherAllowance = Math.ceil(otherAllowance * f);
+      otherAllowanceExempt = Math.ceil(otherAllowanceExempt * f);
+      
+      autoNotes = `本月因到/離職不足月，依民法以 30 日計算，在職天數為 ${proRataInfo.calendarDays} 日。底薪與固定加給/津貼按比例 ${proRataInfo.calendarDays}/30 折算並採無條件進位。`;
+    } else {
+      regularPay = baseSalary;
+    }
     
     // Standard hourly rate in Taiwan: (Monthly Salary + allowances) / 240
-    const fixedMonthly = baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance;
+    // Note: Standard hourly rate for leave/overtime is always calculated based on original CONTRACTED monthly fixed salary.
+    const fixedMonthly = employee.baseSalary + (employee.allowanceAA || 0) + (employee.allowanceLicense || 0) + (employee.allowanceManager || 0) + (employee.otherAllowance || 0);
     hourlyRate = fixedMonthly / 240;
     averageHourlyRate = hourlyRate;
     
@@ -115,7 +270,7 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
   }
 
   // 4. Calculate Insurance and Pension (Deductions)
-  const insuranceResult = calculateAllInsurance(empOverride, settings);
+  const insuranceResult = calculateAllInsurance(empOverride, settings, laborInsuranceDays, isMidMonthResigned);
 
   const laborInsuranceEmployee = insuranceResult.laborInsurance.employeePremium;
   const healthInsuranceEmployee = insuranceResult.healthInsurance.employeePremium;
@@ -138,7 +293,18 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
 
   const incomeTax = taxResult.withholdingTax;
 
-  const supplementaryHealthInsurance = empOverride.supplementaryHealthInsurance;
+  let supplementaryHealthInsurance = 0;
+  if (attendance.supplementaryHealthInsurance !== undefined) {
+    supplementaryHealthInsurance = parseFloat(attendance.supplementaryHealthInsurance) || 0;
+  } else {
+    const isNotHealthInsuredAtCompany = (employee.healthInsuranceGrade === -1) || isMidMonthResigned;
+    if (isNotHealthInsuredAtCompany) {
+      const minWage = parseFloat(settings.minimum_wage_monthly) || 29500;
+      if (grossPay > minWage) {
+        supplementaryHealthInsurance = Math.round(grossPay * 0.0211);
+      }
+    }
+  }
   const prevInsuranceDifference = empOverride.prevInsuranceDifference;
 
   // 6. Total Deductions (應扣項目)
@@ -155,7 +321,7 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
   );
 
   return {
-    baseSalary: employee.salaryType === 'hourly' ? 0 : baseSalary,
+    baseSalary: employee.salaryType === 'hourly' ? 0 : (proRataInfo.isProRata ? regularPay : baseSalary),
     overtimePay: finalOvertimePay,
     mealAllowance: otherAllowanceExempt,
     transportAllowance: 0, // Transport allowance removed
@@ -167,6 +333,7 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
     retroPay,
     leaveDeduction,
     leavePaySupplement,
+    notes: autoNotes || "",
     supplementaryHealthInsurance,
     prevInsuranceDifference,
     healthDisabilityExemption: empOverride.healthDisabilityExemption,

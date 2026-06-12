@@ -322,7 +322,7 @@ async function main() {
     { category: 'general', key: 'org_tax_id', value: '12345678', label: '統一編號', notes: null },
     { category: 'general', key: 'work_days_per_month', value: '22', label: '每月工作天數', notes: '預設每月工作天數' },
     { category: 'general', key: 'work_hours_per_day', value: '8', label: '每日工作時數', notes: '預設每日正常工時' },
-    { category: 'general', key: 'minimum_wage_monthly', value: '27470', label: '每月基本工資', notes: '2025年每月基本工資27,470元' },
+    { category: 'general', key: 'minimum_wage_monthly', value: '29500', label: '每月基本工資', notes: '2026年每月基本工資29,500元' },
     { category: 'general', key: 'minimum_wage_hourly', value: '183', label: '每小時基本工資', notes: '2025年每小時基本工資183元' },
 
     // Labor insurance grade table (勞保投保薪資分級表) stored as JSON

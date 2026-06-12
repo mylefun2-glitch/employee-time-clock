@@ -490,6 +490,8 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       }
 
       const attendanceSummary = {
+        year: y,
+        month: m,
         workDays,
         leaveDays,
         absentDays,

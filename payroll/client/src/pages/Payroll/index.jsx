@@ -24,7 +24,8 @@ export default function PayrollList() {
     health_insurance_employee_share: '0.30',
     health_insurance_employer_share: '0.60',
     health_insurance_avg_dependents: '0.61',
-    labor_pension_employer_rate: '0.06'
+    labor_pension_employer_rate: '0.06',
+    minimum_wage_monthly: '29500'
   });
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const navigate = useNavigate();
@@ -60,6 +61,13 @@ export default function PayrollList() {
       // Map loaded settings
       if (sData.insurance) {
         sData.insurance.forEach(s => {
+          if (initialSettings[s.key] !== undefined) {
+            initialSettings[s.key] = s.value;
+          }
+        });
+      }
+      if (sData.general) {
+        sData.general.forEach(s => {
           if (initialSettings[s.key] !== undefined) {
             initialSettings[s.key] = s.value;
           }
@@ -129,7 +137,8 @@ export default function PayrollList() {
           health_insurance_employee_share: calcSettings.health_insurance_employee_share,
           health_insurance_employer_share: calcSettings.health_insurance_employer_share,
           health_insurance_avg_dependents: calcSettings.health_insurance_avg_dependents,
-          labor_pension_employer_rate: calcSettings.labor_pension_employer_rate
+          labor_pension_employer_rate: calcSettings.labor_pension_employer_rate,
+          minimum_wage_monthly: calcSettings.minimum_wage_monthly
         }
       });
       
@@ -487,6 +496,13 @@ export default function PayrollList() {
               step="0.01"
               value={calcSettings.labor_pension_employer_rate}
               onChange={e => setCalcSettings(prev => ({ ...prev, labor_pension_employer_rate: e.target.value }))}
+            />
+            <Input
+              label="每月基本工資 (元)"
+              type="number"
+              step="1"
+              value={calcSettings.minimum_wage_monthly}
+              onChange={e => setCalcSettings(prev => ({ ...prev, minimum_wage_monthly: e.target.value }))}
             />
           </div>
         </div>

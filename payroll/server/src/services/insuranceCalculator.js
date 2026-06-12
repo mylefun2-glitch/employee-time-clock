@@ -136,14 +136,14 @@ export function lookupHealthInsuranceGrade(salary) {
  * @param {object} rates - Override rates (optional)
  * @returns {object} { employeePremium, employerPremium, insuredSalary }
  */
-export function calculateLaborInsurance(insuredSalary, rates = {}) {
+export function calculateLaborInsurance(insuredSalary, rates = {}, days = 30) {
   const r = { ...DEFAULT_RATES, ...rates };
   
   // Employee pays: insuredSalary × 12% × 20% = insuredSalary × 2.4%
-  const employeePremium = Math.round(insuredSalary * r.laborInsuranceRate * r.laborInsuranceEmployeeShare);
+  const employeePremium = Math.round(insuredSalary * r.laborInsuranceRate * r.laborInsuranceEmployeeShare * days / 30);
   
   // Employer pays: insuredSalary × 12% × 70% = insuredSalary × 8.4%
-  const employerPremium = Math.round(insuredSalary * r.laborInsuranceRate * r.laborInsuranceEmployerShare);
+  const employerPremium = Math.round(insuredSalary * r.laborInsuranceRate * r.laborInsuranceEmployerShare * days / 30);
   
   return {
     insuredSalary,
@@ -200,15 +200,15 @@ export function calculateHealthInsurance(insuredSalary, dependents = 0, rates = 
  * @param {object} rates - Override rates (optional)
  * @returns {object} { employeeContribution, employerContribution, pensionGrade }
  */
-export function calculateLaborPension(pensionGrade, voluntaryRate = 0, rates = {}) {
+export function calculateLaborPension(pensionGrade, voluntaryRate = 0, rates = {}, days = 30) {
   const r = { ...DEFAULT_RATES, ...rates };
   
   // Employer mandatory: pensionGrade × 6%
-  const employerContribution = Math.round(pensionGrade * r.laborPensionEmployerRate);
+  const employerContribution = Math.round(pensionGrade * r.laborPensionEmployerRate * days / 30);
   
   // Employee voluntary: pensionGrade × voluntaryRate%
   const clampedRate = Math.min(0.06, Math.max(0, voluntaryRate / 100));
-  const employeeContribution = Math.round(pensionGrade * clampedRate);
+  const employeeContribution = Math.round(pensionGrade * clampedRate * days / 30);
   
   return {
     pensionGrade,
@@ -227,7 +227,7 @@ export function calculateLaborPension(pensionGrade, voluntaryRate = 0, rates = {
  * @param {object} settings - System settings for rate overrides (optional)
  * @returns {object} Combined insurance calculation results
  */
-export function calculateAllInsurance(employee, settings = {}) {
+export function calculateAllInsurance(employee, settings = {}, days = 30, isMidMonthResigned = false) {
   // Determine insured salaries - use employee's preset or look up from salary
   // Hourly employees do not use baseSalary for totalMonthly calculation because baseSalary is hourly rate.
   const totalMonthly = (employee.salaryType === 'hourly' ? 0 : employee.baseSalary) +
@@ -272,7 +272,7 @@ export function calculateAllInsurance(employee, settings = {}) {
   if (settings.health_insurance_avg_dependents) rates.healthInsuranceAvgDependents = parseFloat(settings.health_insurance_avg_dependents);
   if (settings.labor_pension_employer_rate) rates.laborPensionEmployerRate = parseFloat(settings.labor_pension_employer_rate);
 
-  const laborInsurance = calculateLaborInsurance(laborInsuredSalary, rates);
+  const laborInsurance = calculateLaborInsurance(laborInsuredSalary, rates, days);
   const healthInsurance = calculateHealthInsurance(healthInsuredSalary, employee.dependents || 0, rates);
 
   // Apply disability exemption and government subsidy to employee premium
@@ -281,11 +281,16 @@ export function calculateAllInsurance(employee, settings = {}) {
   healthInsurance.basePremium = healthInsurance.employeePremium; // Save original
   healthInsurance.employeePremium = Math.max(0, Math.round(healthInsurance.employeePremium * (1 - exemption)) - subsidy);
 
-  const laborPension = calculateLaborPension(pensionGrade, employee.voluntaryPensionRate || 0, rates);
+  if (isMidMonthResigned) {
+    healthInsurance.employeePremium = 0;
+    healthInsurance.employerPremium = 0;
+  }
+
+  const laborPension = calculateLaborPension(pensionGrade, employee.voluntaryPensionRate || 0, rates, days);
 
   // Calculate Occupational Accident Insurance (職保) - completely paid by employer
   const occupationalRate = parseFloat(settings.labor_occupational_rate || 0.0015);
-  const laborOccupationalEmployer = Math.round(occupationalGrade * occupationalRate);
+  const laborOccupationalEmployer = Math.round(occupationalGrade * occupationalRate * days / 30);
 
   return {
     laborInsurance,
