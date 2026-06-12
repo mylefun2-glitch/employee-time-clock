@@ -107,7 +107,7 @@ export function Badge({ status, text }) {
 // ==========================================
 // 4. Card
 // ==========================================
-export function Card({ title, subtitle, extra, children, className = '', ...props }) {
+export function Card({ title, subtitle, extra, footer, children, className = '', ...props }) {
   return (
     <div className={`card ${className}`} {...props}>
       {(title || subtitle || extra) && (
@@ -127,6 +127,18 @@ export function Card({ title, subtitle, extra, children, className = '', ...prop
         </div>
       )}
       {children}
+      {footer && (
+        <div style={{ 
+          marginTop: 'var(--space-4)', 
+          borderTop: '1px solid var(--color-neutral-100)', 
+          paddingTop: 'var(--space-3)',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: 'var(--space-2)'
+        }}>
+          {footer}
+        </div>
+      )}
     </div>
   );
 }
