@@ -11,14 +11,27 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
 
   const handleDownloadTemplate = () => {
     const headers = ['工號', '姓名', '獎金', 'AA加給', '證照加給', '其他津貼', '其他津貼(不列入平均時薪計算)', '備註'];
-    const sampleRows = [
-      ['EMP001', '王小明', 3000, 1500, 2000, 1000, 500, '績效優異獎金與加給調整'],
-      ['EMP002', '李四', 2000, 0, 1000, 0, 0, '證照加給'],
-      ['EMP003', '張三', 1500, 1000, 0, 500, 1000, '其他津貼調整'],
-    ];
+    
+    // Pre-fill with active employees from the payrolls list if available
+    const rows = (payrolls && payrolls.length > 0)
+      ? payrolls.map(p => [
+          p.employee?.employeeNo || '',
+          p.employee?.name || '',
+          p.bonus || 0,
+          p.allowanceAA || 0,
+          p.allowanceLicense || 0,
+          p.otherAllowance || 0,
+          p.mealAllowance || 0,
+          p.notes || ''
+        ])
+      : [
+          ['EMP001', '王小明', 3000, 1500, 2000, 1000, 500, '績效優異獎金與加給調整'],
+          ['EMP002', '李四', 2000, 0, 1000, 0, 0, '證照加給'],
+          ['EMP003', '張三', 1500, 1000, 0, 500, 1000, '其他津貼調整'],
+        ];
     
     // Create worksheet
-    const worksheetData = [headers, ...sampleRows];
+    const worksheetData = [headers, ...rows];
     const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
     
     // Set column widths
