@@ -168,11 +168,11 @@ export function calculateLaborInsurance(insuredSalary, rates = {}, days = 30) {
 export function calculateHealthInsurance(insuredSalary, dependents = 0, rates = {}) {
   const r = { ...DEFAULT_RATES, ...rates };
   
-  // Employee pays: insuredSalary × 5.17% × 30% × (1 + dependents)
-  // Note: dependents here means number of dependents the employee is insuring
-  const employeePremium = Math.round(
-    insuredSalary * r.healthInsuranceRate * r.healthInsuranceEmployeeShare * (1 + dependents)
-  );
+  // Calculate single premium first (四捨五入)
+  const singlePremium = Math.round(insuredSalary * r.healthInsuranceRate * r.healthInsuranceEmployeeShare);
+  
+  // Employee pays: singlePremium × (1 + dependents)
+  const employeePremium = singlePremium * (1 + dependents);
   
   // Employer pays: insuredSalary × 5.17% × 60% × (1 + avg dependents ratio)
   const employerPremium = Math.round(
