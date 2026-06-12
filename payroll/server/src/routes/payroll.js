@@ -188,10 +188,50 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       Object.assign(settings, customSettings);
     }
 
+    const monthStr = String(m).padStart(2, '0');
+    const nextMonth = m === 12 ? 1 : m + 1;
+    const nextYear = m === 12 ? y + 1 : y;
+    const lastDay = new Date(nextYear, nextMonth - 1, 0).getDate();
+    const lastDayStr = String(lastDay).padStart(2, '0');
+    const monthStartStr = `${y}-${monthStr}-01`;
+    const monthEndStr = `${y}-${monthStr}-${lastDayStr}`;
+
     // Build employee query
-    const empWhere = { isActive: true };
+    const empWhere = {
+      isActive: true,
+      hireDate: { lte: monthEndStr },
+      OR: [
+        { resignDate: null },
+        { resignDate: { gte: monthStartStr } }
+      ]
+    };
     if (employeeIds && Array.isArray(employeeIds) && employeeIds.length > 0) {
       empWhere.id = { in: employeeIds.map(id => parseInt(id)) };
+    }
+
+    // Clean up draft records of ineligible employees for this month
+    console.log('[Calc] Cleaning up draft records for ineligible employees...');
+    const ineligibleRecords = await req.prisma.payrollRecord.findMany({
+      where: {
+        year: y,
+        month: m,
+        status: 'DRAFT',
+        OR: [
+          { employee: { hireDate: { gt: monthEndStr } } },
+          { employee: { resignDate: { lt: monthStartStr } } },
+          { employee: { isActive: false } }
+        ]
+      },
+      select: { id: true }
+    });
+    
+    if (ineligibleRecords.length > 0) {
+      await req.prisma.payrollRecord.deleteMany({
+        where: {
+          id: { in: ineligibleRecords.map(r => r.id) }
+        }
+      });
+      console.log(`[Calc] Cleaned up ${ineligibleRecords.length} ineligible draft payroll records.`);
     }
 
     console.log('[Calc] Fetching employees from DB...');
@@ -200,12 +240,6 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
     if (employees.length === 0) {
       return res.status(404).json({ error: '找不到適用的員工資料' });
     }
-
-    const monthStr = String(m).padStart(2, '0');
-    const nextMonth = m === 12 ? 1 : m + 1;
-    const nextYear = m === 12 ? y + 1 : y;
-    const lastDay = new Date(nextYear, nextMonth - 1, 0).getDate();
-    const lastDayStr = String(lastDay).padStart(2, '0');
 
     // 1. Batch fetch past 3 months payroll records for rolling grades
     console.log('[Calc] Batch fetching historical records...');
