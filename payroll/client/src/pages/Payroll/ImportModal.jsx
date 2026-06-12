@@ -18,7 +18,6 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
       '證照加給',
       '其他津貼',
       '其他津貼(不列入平均時薪計算)',
-      '備註',
       '前期勞健退差額',
       '其他扣除額',
       '健保減免比例',
@@ -26,7 +25,8 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
       '勞保投保級距',
       '職保投保級距',
       '健保投保級距',
-      '勞退提繳級距'
+      '勞退提繳級距',
+      '備註'
     ];
     
     // Pre-fill with active employees from the payrolls list if available
@@ -39,7 +39,6 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
           p.allowanceLicense || 0,
           p.otherAllowance || 0,
           p.mealAllowance || 0,
-          p.notes || '',
           p.prevInsuranceDifference || 0,
           p.otherDeductions || 0,
           p.healthDisabilityExemption || 0,
@@ -47,12 +46,13 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
           p.laborInsuranceGrade || 0,
           p.laborOccupationalGrade || 0,
           p.healthInsuranceGrade || 0,
-          p.laborPensionGrade || 0
+          p.laborPensionGrade || 0,
+          p.notes || ''
         ])
       : [
-          ['EMP001', '王小明', 3000, 1500, 2000, 1000, 500, '績效優異獎金與加給調整', 0, 0, 0, 0, 27470, 27470, 27470, 27470],
-          ['EMP002', '李四', 2000, 0, 1000, 0, 0, '證照加給', 0, 0, 0, 0, 28800, 28800, 28800, 28800],
-          ['EMP003', '張三', 1500, 1000, 0, 500, 1000, '其他津貼調整', 0, 0, 0, 0, 30300, 30300, 30300, 30300],
+          ['EMP001', '王小明', 3000, 1500, 2000, 1000, 500, 0, 0, 0, 0, 27470, 27470, 27470, 27470, '績效優異獎金與加給調整'],
+          ['EMP002', '李四', 2000, 0, 1000, 0, 0, 0, 0, 0, 0, 28800, 28800, 28800, 28800, '證照加給'],
+          ['EMP003', '張三', 1500, 1000, 0, 500, 1000, 0, 0, 0, 0, 30300, 30300, 30300, 30300, '其他津貼調整'],
         ];
     
     // Create worksheet
@@ -68,7 +68,6 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
       { wch: 12 }, // 證照加給
       { wch: 15 }, // 其他津貼
       { wch: 28 }, // 其他津貼(不列入平均時薪計算)
-      { wch: 30 }, // 備註
       { wch: 16 }, // 前期勞健退差額
       { wch: 14 }, // 其他扣除額
       { wch: 14 }, // 健保減免比例
@@ -77,6 +76,7 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
       { wch: 14 }, // 職保投保級距
       { wch: 14 }, // 健保投保級距
       { wch: 14 }, // 勞退提繳級距
+      { wch: 30 }, // 備註
     ];
 
     // Create workbook
