@@ -14,6 +14,8 @@ export default function PayrollList() {
   const [payrolls, setPayrolls] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
+  const [deptFilter, setDeptFilter] = useState('');
+  const [nameFilter, setNameFilter] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [isCalcModalOpen, setIsCalcModalOpen] = useState(false);
   const [calcSettings, setCalcSettings] = useState({
@@ -50,6 +52,13 @@ export default function PayrollList() {
       setLoading(false);
     }
   };
+
+  // Filter payroll records client-side by department and name
+  const filteredPayrolls = payrolls.filter(p => {
+    const matchesDept = !deptFilter || p.employee?.department === deptFilter;
+    const matchesName = !nameFilter || (p.employee?.name || '').toLowerCase().includes(nameFilter.toLowerCase());
+    return matchesDept && matchesName;
+  });
 
   const handleCalculateClick = async () => {
     setLoading(true);
@@ -161,16 +170,16 @@ export default function PayrollList() {
   };
 
   const handleBatchLock = async () => {
-    const draftIds = payrolls.filter(p => p.status === 'DRAFT').map(p => p.id);
+    const draftIds = filteredPayrolls.filter(p => p.status === 'DRAFT').map(p => p.id);
     if (draftIds.length === 0) {
       alert('無待鎖定的草稿薪資紀錄');
       return;
     }
 
-    if (window.confirm(`確認要批次鎖定 ${draftIds.length} 筆薪資明細嗎？`)) {
+    if (window.confirm(`確認要批次鎖定 ${draftIds.length} 筆篩選後的薪資明細嗎？`)) {
       try {
         await payrollService.batchLock(draftIds);
-        alert('薪資紀錄已批次鎖定');
+        alert('篩選後薪資紀錄已批次鎖定');
         loadPayrollRecords();
       } catch (err) {
         console.error(err);
@@ -180,16 +189,16 @@ export default function PayrollList() {
   };
 
   const handleBatchApprove = async () => {
-    const lockIds = payrolls.filter(p => p.status === 'LOCKED' || p.status === 'DRAFT').map(p => p.id);
+    const lockIds = filteredPayrolls.filter(p => p.status === 'LOCKED' || p.status === 'DRAFT').map(p => p.id);
     if (lockIds.length === 0) {
       alert('無待核准的薪資紀錄');
       return;
     }
 
-    if (window.confirm(`確認要批次核准 ${lockIds.length} 筆薪資明細嗎？`)) {
+    if (window.confirm(`確認要批次核准 ${lockIds.length} 筆篩選後的薪資明細嗎？`)) {
       try {
         await payrollService.batchApprove(lockIds);
-        alert('薪資紀錄已批次核准');
+        alert('篩選後薪資紀錄已批次核准');
         loadPayrollRecords();
       } catch (err) {
         console.error(err);
@@ -199,17 +208,17 @@ export default function PayrollList() {
   };
 
   const handleBatchDelete = async () => {
-    const draftIds = payrolls.filter(p => p.status === 'DRAFT').map(p => p.id);
+    const draftIds = filteredPayrolls.filter(p => p.status === 'DRAFT').map(p => p.id);
     if (draftIds.length === 0) {
       alert('無待刪除的草稿薪資紀錄');
       return;
     }
 
-    if (window.confirm(`確定要刪除該月份 ${draftIds.length} 筆所有草稿薪資紀錄嗎？此動作將無法復原！`)) {
+    if (window.confirm(`確定要刪除該月份 ${draftIds.length} 筆所有篩選後的草稿薪資紀錄嗎？此動作將無法復原！`)) {
       try {
         setLoading(true);
         const res = await payrollService.batchDelete(draftIds);
-        alert(res.message || '草稿已成功刪除');
+        alert(res.message || '篩選後草稿已成功刪除');
         loadPayrollRecords();
       } catch (err) {
         console.error(err);
@@ -221,13 +230,13 @@ export default function PayrollList() {
   };
 
   const handleBatchPDF = async () => {
-    if (payrolls.length === 0) {
+    if (filteredPayrolls.length === 0) {
       alert('無可下載的薪資單');
       return;
     }
     
     try {
-      const ids = payrolls.map(p => p.id);
+      const ids = filteredPayrolls.map(p => p.id);
       // Generate batch PDF call
       const response = await fetch(`${BASE_URL}/payroll/batch-pdf`, {
         method: 'POST',
@@ -318,16 +327,19 @@ export default function PayrollList() {
   ];
 
   // Calculate totals for summary bar
-  const totalGross = payrolls.reduce((sum, p) => sum + p.grossPay, 0);
-  const totalDeduction = payrolls.reduce((sum, p) => sum + p.totalDeductions, 0);
-  const totalNet = payrolls.reduce((sum, p) => sum + p.netPay, 0);
-  const totalEmployer = payrolls.reduce((sum, p) => sum + p.totalEmployerCost, 0);
+  const totalGross = filteredPayrolls.reduce((sum, p) => sum + p.grossPay, 0);
+  const totalDeduction = filteredPayrolls.reduce((sum, p) => sum + p.totalDeductions, 0);
+  const totalNet = filteredPayrolls.reduce((sum, p) => sum + p.netPay, 0);
+  const totalEmployer = filteredPayrolls.reduce((sum, p) => sum + p.totalEmployerCost, 0);
+
+  // Get unique departments present in the loaded payroll records
+  const uniqueDepts = Array.from(new Set(payrolls.map(p => p.employee?.department).filter(Boolean))).sort();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       {/* Top Filter and Actions */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', flexWrap: 'wrap' }}>
           <Input 
             label="年份" 
             type="select"
@@ -363,11 +375,29 @@ export default function PayrollList() {
             ]}
             style={{ marginBottom: 0, width: '130px' }}
           />
+          <Input 
+            label="部門" 
+            type="select"
+            value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}
+            options={[
+              { value: '', label: '全部部門' },
+              ...uniqueDepts.map(dept => ({ value: dept, label: dept }))
+            ]}
+            style={{ marginBottom: 0, width: '130px' }}
+          />
+          <Input 
+            label="姓名" 
+            placeholder="搜尋姓名..."
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+            style={{ marginBottom: 0, width: '130px' }}
+          />
         </div>
         
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <Button variant="outline" icon="calculate" onClick={handleCalculateClick} title="計算薪資" />
-          {payrolls.some(p => p.status === 'DRAFT') && (
+          {filteredPayrolls.some(p => p.status === 'DRAFT') && (
             <Button 
               variant="outline" 
               icon="delete" 
@@ -376,15 +406,15 @@ export default function PayrollList() {
               title="刪除本月草稿"
             />
           )}
-          <Button variant="outline" icon="upload" onClick={() => setIsImportModalOpen(true)} disabled={payrolls.length === 0} title="批量匯入" />
+          <Button variant="outline" icon="upload" onClick={() => setIsImportModalOpen(true)} disabled={filteredPayrolls.length === 0} title="批量匯入" />
           <Button variant="outline" icon="lock" onClick={handleBatchLock} title="批次鎖定" />
           <Button variant="outline" icon="done_all" onClick={handleBatchApprove} title="批次核准" />
-          <Button variant="primary" icon="download" onClick={handleBatchPDF} disabled={payrolls.length === 0} title="批次下載薪資單" />
+          <Button variant="primary" icon="download" onClick={handleBatchPDF} disabled={filteredPayrolls.length === 0} title="批次下載薪資單" />
         </div>
       </div>
 
       {/* Summary card banner */}
-      {payrolls.length > 0 && (
+      {filteredPayrolls.length > 0 && (
         <Card style={{ backgroundColor: 'var(--color-primary-50)', border: '1px solid var(--color-primary-200)' }}>
           <div style={{
             display: 'grid',
@@ -416,7 +446,7 @@ export default function PayrollList() {
       <Card>
         <DataTable 
           columns={columns}
-          data={payrolls}
+          data={filteredPayrolls}
           loading={loading}
           onRowClick={handleRowClick}
           emptyMessage="該月份尚未計算薪資。請點選上方「計算薪資」開始結算。"
