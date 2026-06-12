@@ -281,17 +281,8 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
   const laborPensionEmployer = insuranceResult.laborPension.employerContribution; // Employer mandatory 6%
   const laborOccupationalEmployer = insuranceResult.laborOccupationalEmployer;
 
-  // 5. Calculate Income Tax Withholding
-  const taxResult = calculateTax({
-    grossSalary: grossPay,
-    laborInsuranceEmployee,
-    healthInsuranceEmployee,
-    voluntaryPension: laborPensionEmployee,
-    mealAllowance: 0,
-    dependents: employee.dependents || 0,
-  });
-
-  const incomeTax = taxResult.withholdingTax;
+  // 5. Calculate Income Tax Withholding (Disabled per company policy - annual declaration only)
+  const incomeTax = 0;
 
   let supplementaryHealthInsurance = 0;
   if (attendance.supplementaryHealthInsurance !== undefined) {

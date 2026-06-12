@@ -452,12 +452,7 @@ export default function PayrollDetail() {
                     value={editForm.prevInsuranceDifference}
                     onChange={e => setEditForm(prev => ({ ...prev, prevInsuranceDifference: e.target.value }))}
                   />
-                  <Input
-                    label="所得稅預扣 (元)"
-                    type="number"
-                    value={editForm.incomeTax}
-                    onChange={e => setEditForm(prev => ({ ...prev, incomeTax: e.target.value }))}
-                  />
+
                   <Input
                     label="其他扣除額 (元)"
                     type="number"
@@ -788,10 +783,7 @@ export default function PayrollDetail() {
                       <span>勞退自提金額 ({employee.voluntaryPensionRate}%)</span>
                       <span className="font-mono">{formatCurr(record.laborPensionEmployee)}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                      <span>所得稅預扣</span>
-                      <span className="font-mono">{formatCurr(record.incomeTax)}</span>
-                    </div>
+
                     {record.leaveDeduction > 0 && (
                       <div style={{ borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
