@@ -31,6 +31,7 @@ export async function syncEmployees(force = false) {
     console.log(`Fetched ${sbEmployees.length} employees from Supabase.`);
 
     let syncedCount = 0;
+    const syncedEmployeeNos = [];
 
     for (const sbEmp of sbEmployees) {
       // Generate a clean employee no if not present
@@ -40,6 +41,7 @@ export async function syncEmployees(force = false) {
       } else {
         employeeNo = `EMP-${sbEmp.id.substring(0, 4).toUpperCase()}`;
       }
+      syncedEmployeeNos.push(employeeNo);
 
       const salaryType = (sbEmp.salary_type || 'MONTHLY').toLowerCase() === 'hourly' ? 'hourly' : 'monthly';
       const gender = sbEmp.gender === 'FEMALE' ? 'F' : sbEmp.gender === 'MALE' ? 'M' : 'F';
@@ -101,6 +103,16 @@ export async function syncEmployees(force = false) {
 
       syncedCount++;
     }
+
+    // Deactivate local employees that do not exist in Supabase (e.g. old seeded test data)
+    await prisma.employee.updateMany({
+      where: {
+        employeeNo: { notIn: syncedEmployeeNos }
+      },
+      data: {
+        isActive: false
+      }
+    });
 
     lastEmployeeSync = Date.now();
     console.log(`Successfully synced ${syncedCount} employees to SQLite.`);
