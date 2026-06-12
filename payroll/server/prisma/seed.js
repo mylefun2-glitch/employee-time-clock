@@ -292,7 +292,7 @@ async function main() {
   // ==========================================
   const settings = [
     // Labor Insurance (勞保)
-    { category: 'insurance', key: 'labor_insurance_rate', value: '0.12', label: '勞保費率 (普通事故+就業保險)', notes: '2025年費率: 普通事故11% + 就業保險1% = 12%' },
+    { category: 'insurance', key: 'labor_insurance_rate', value: '0.125', label: '勞保費率 (普通事故+就業保險)', notes: '2026年費率: 普通事故11.5% + 就業保險1% = 12.5%' },
     { category: 'insurance', key: 'labor_insurance_employee_share', value: '0.20', label: '勞保員工自付比例', notes: '員工自付20%' },
     { category: 'insurance', key: 'labor_insurance_employer_share', value: '0.70', label: '勞保雇主負擔比例', notes: '雇主負擔70%' },
     { category: 'insurance', key: 'labor_insurance_government_share', value: '0.10', label: '勞保政府補助比例', notes: '政府補助10%' },

@@ -81,7 +81,7 @@ const HEALTH_INSURANCE_GRADES = [
 // Default rates (2025 Taiwan)
 const DEFAULT_RATES = {
   // Labor Insurance: 12% total (普通事故 11% + 就業保險 1%)
-  laborInsuranceRate: 0.12,
+  laborInsuranceRate: 0.125,
   laborInsuranceEmployeeShare: 0.20,  // Employee pays 20%
   laborInsuranceEmployerShare: 0.70,  // Employer pays 70%
   
