@@ -459,7 +459,11 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       let leaveHoursHalf = 0;
       let leaveHoursPaid = 0;
 
-      normalLeaves.forEach(l => { leaveDays += l.days; });
+      normalLeaves.forEach(l => {
+        if (getLeaveRate(l.leaveType) > 0.0) {
+          leaveDays += l.days;
+        }
+      });
 
       // Daily rate for leave deduction (monthly employee)
       const hourlyLeaveRate = (currentEmp.baseSalary + (currentEmp.allowanceAA || 0) + (currentEmp.allowanceLicense || 0) + (currentEmp.allowanceManager || 0) + (currentEmp.otherAllowance || 0)) / 240;
