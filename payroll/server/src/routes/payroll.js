@@ -434,6 +434,11 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
 
     // Loop through employees and perform calculations in memory
     for (const emp of employees) {
+      const existingRecord = existingRecordsMap[emp.id];
+      if (existingRecord && existingRecord.status !== 'DRAFT') {
+        continue;
+      }
+
       let currentEmp = emp;
       const activeSched = activeSchedules[emp.employeeNo];
       if (activeSched) {
@@ -447,7 +452,6 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         };
       }
 
-      const existingRecord = existingRecordsMap[emp.id];
       if (existingRecord) {
         currentEmp = {
           ...currentEmp,
