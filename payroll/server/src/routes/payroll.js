@@ -18,6 +18,68 @@ function isHoliday(dateStr) {
   return HOLIDAYS_2025_2026.has(dateStr);
 }
 
+// Helper to recalculate leave deductions based on updated wages/allowances
+async function getRecalculatedLeaveDeduction(prisma, employeeId, year, month, baseSalary, allowanceAA, allowanceLicense, allowanceManager, otherAllowance, salaryType, settings) {
+  if (salaryType !== 'monthly') {
+    return 0;
+  }
+
+  const monthStr = String(month).padStart(2, '0');
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const lastDay = new Date(nextYear, nextMonth - 1, 0).getDate();
+  const lastDayStr = String(lastDay).padStart(2, '0');
+
+  // Fetch approved leaves
+  const leaves = await prisma.leaveRecord.findMany({
+    where: {
+      employeeId: employeeId,
+      status: 'approved',
+      startDate: { lte: `${year}-${monthStr}-${lastDayStr}` },
+      endDate: { gte: `${year}-${monthStr}-01` }
+    }
+  });
+
+  if (leaves.length === 0) {
+    return 0;
+  }
+
+  // Parse leave rules from settings
+  let leaveRules = [];
+  try {
+    if (settings.leave_deduction_rules) {
+      leaveRules = JSON.parse(settings.leave_deduction_rules);
+    }
+  } catch (err) {
+    console.error('Failed to parse leave deduction rules:', err);
+  }
+
+  const getLeaveRate = (leaveType) => {
+    const typeStr = (leaveType || '').trim().toLowerCase();
+    const rule = leaveRules.find(r => {
+      const ruleType = (r.leaveType || '').trim().toLowerCase();
+      const ruleLabel = (r.label || '').trim().toLowerCase();
+      return typeStr === ruleType || typeStr === ruleLabel || typeStr.includes(ruleType) || ruleType.includes(typeStr);
+    });
+    return rule ? parseFloat(rule.rate) : 1.0;
+  };
+
+  const hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance) / 240;
+  let recalculatedLeaveDeduction = 0;
+
+  leaves.forEach(l => {
+    const type = (l.leaveType || '').toLowerCase();
+    const isOfficial = type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現') || type === 'ot' || type === '加班' || type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓');
+    if (!isOfficial) {
+      const hours = l.days * 8;
+      const rate = getLeaveRate(l.leaveType);
+      recalculatedLeaveDeduction += Math.round(hourlyLeaveRate * hours * rate);
+    }
+  });
+
+  return recalculatedLeaveDeduction;
+}
+
 // Helper to fetch active schedules from Supabase for a given month and build mappings
 async function fetchActiveSchedulesForMonth(y, m) {
   try {
@@ -222,11 +284,13 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
 
     // Build employee query
     const empWhere = {
-      isActive: true,
       hireDate: { lte: monthEndStr },
       OR: [
-        { resignDate: null },
-        { resignDate: { gte: monthStartStr } }
+        { isActive: true },
+        {
+          isActive: false,
+          resignDate: { gte: monthStartStr }
+        }
       ]
     };
     if (employeeIds && Array.isArray(employeeIds) && employeeIds.length > 0) {
@@ -243,7 +307,15 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         OR: [
           { employee: { hireDate: { gt: monthEndStr } } },
           { employee: { resignDate: { lt: monthStartStr } } },
-          { employee: { isActive: false } }
+          {
+            employee: {
+              isActive: false,
+              OR: [
+                { resignDate: null },
+                { resignDate: { lt: monthStartStr } }
+              ]
+            }
+          }
         ]
       },
       select: { id: true }
@@ -592,7 +664,7 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         overtimeHours200,
         overtimeHours267,
         regularHours,
-        leaveDeduction: existingRecord ? existingRecord.leaveDeduction : leaveDeduction,
+        leaveDeduction: leaveDeduction,
         leaveHoursHalf,
         leaveHoursPaid,
         
@@ -748,6 +820,11 @@ router.put('/:id', validateId(), async (req, res) => {
       return res.status(400).json({ error: '僅能調整草稿狀態的薪資紀錄' });
     }
 
+    // Get settings
+    const rawSettings = await req.prisma.systemSetting.findMany();
+    const settings = {};
+    rawSettings.forEach(s => { settings[s.key] = s.value; });
+
     // Prepare overridden employee settings
     const empOverride = {
       ...existing.employee,
@@ -770,6 +847,34 @@ router.put('/:id', validateId(), async (req, res) => {
       leavePaySupplement: req.body.leavePaySupplement !== undefined ? parseFloat(req.body.leavePaySupplement) : existing.leavePaySupplement,
     };
 
+    let leaveDeduction = req.body.leaveDeduction !== undefined ? parseFloat(req.body.leaveDeduction) : null;
+    
+    // Check if allowances or baseSalary have changed in this request
+    const salaryOrAllowancesChanged = 
+      (req.body.baseSalary !== undefined && parseFloat(req.body.baseSalary) !== existing.baseSalary) ||
+      (req.body.allowanceAA !== undefined && parseFloat(req.body.allowanceAA) !== existing.allowanceAA) ||
+      (req.body.allowanceLicense !== undefined && parseFloat(req.body.allowanceLicense) !== existing.allowanceLicense) ||
+      (req.body.allowanceManager !== undefined && parseFloat(req.body.allowanceManager) !== existing.allowanceManager) ||
+      (req.body.otherAllowance !== undefined && parseFloat(req.body.otherAllowance) !== existing.otherAllowance);
+
+    // If leaveDeduction wasn't manually changed by the user, but salary or allowances changed,
+    // or if leaveDeduction wasn't provided at all, we recalculate it!
+    if (leaveDeduction === null || (salaryOrAllowancesChanged && leaveDeduction === existing.leaveDeduction)) {
+      leaveDeduction = await getRecalculatedLeaveDeduction(
+        req.prisma,
+        existing.employeeId,
+        existing.year,
+        existing.month,
+        empOverride.baseSalary,
+        empOverride.allowanceAA,
+        empOverride.allowanceLicense,
+        empOverride.allowanceManager,
+        empOverride.otherAllowance,
+        existing.employee.salaryType,
+        settings
+      );
+    }
+
     // Prepare overridden attendance & adjustments
     const attendanceSummary = {
       workDays: existing.workDays,
@@ -787,18 +892,13 @@ router.put('/:id', validateId(), async (req, res) => {
       bonus: req.body.bonus !== undefined ? parseFloat(req.body.bonus) : existing.bonus,
       retroPay: req.body.retroPay !== undefined ? parseFloat(req.body.retroPay) : existing.retroPay,
       otherDeductions: req.body.otherDeductions !== undefined ? parseFloat(req.body.otherDeductions) : existing.otherDeductions,
-      leaveDeduction: req.body.leaveDeduction !== undefined ? parseFloat(req.body.leaveDeduction) : existing.leaveDeduction,
+      leaveDeduction: leaveDeduction,
       supplementaryHealthInsurance: req.body.supplementaryHealthInsurance !== undefined ? parseFloat(req.body.supplementaryHealthInsurance) : existing.supplementaryHealthInsurance,
       prevInsuranceDifference: req.body.prevInsuranceDifference !== undefined ? parseFloat(req.body.prevInsuranceDifference) : existing.prevInsuranceDifference,
       healthDisabilityExemption: req.body.healthDisabilityExemption !== undefined ? parseFloat(req.body.healthDisabilityExemption) : existing.healthDisabilityExemption,
       healthGovSubsidy: req.body.healthGovSubsidy !== undefined ? parseFloat(req.body.healthGovSubsidy) : existing.healthGovSubsidy,
       leavePaySupplement: req.body.leavePaySupplement !== undefined ? parseFloat(req.body.leavePaySupplement) : existing.leavePaySupplement,
     };
-
-    // Get settings
-    const rawSettings = await req.prisma.systemSetting.findMany();
-    const settings = {};
-    rawSettings.forEach(s => { settings[s.key] = s.value; });
 
     // Recalculate
     const payDetails = calculatePayroll(empOverride, attendanceSummary, settings);
@@ -1016,6 +1116,24 @@ router.post('/batch-update-adjustments', async (req, res) => {
       const updatedHealthGrade = healthInsuranceGrade !== undefined ? parseFloat(healthInsuranceGrade) : payrollRecord.healthInsuranceGrade;
       const updatedPensionGrade = laborPensionGrade !== undefined ? parseFloat(laborPensionGrade) : payrollRecord.laborPensionGrade;
 
+      // Recalculate leave deduction if monthly employee
+      let recalculatedLeaveDeduction = payrollRecord.leaveDeduction;
+      if (emp.salaryType === 'monthly') {
+        recalculatedLeaveDeduction = await getRecalculatedLeaveDeduction(
+          req.prisma,
+          emp.id,
+          y,
+          m,
+          payrollRecord.baseSalary > 0 ? payrollRecord.baseSalary : emp.baseSalary,
+          updatedAA,
+          updatedLicense,
+          payrollRecord.allowanceManager || emp.allowanceManager || 0,
+          updatedOther,
+          emp.salaryType,
+          settings
+        );
+      }
+
       // Prepare attendance summary for recalculation
       const attendanceSummary = {
         workDays: payrollRecord.workDays,
@@ -1030,7 +1148,7 @@ router.post('/batch-update-adjustments', async (req, res) => {
         bonus: updatedBonus,
         retroPay: payrollRecord.retroPay,
         otherDeductions: updatedOtherDeductions,
-        leaveDeduction: payrollRecord.leaveDeduction,
+        leaveDeduction: recalculatedLeaveDeduction,
         supplementaryHealthInsurance: updatedSuppHealth,
         prevInsuranceDifference: updatedPrevDiff,
         healthDisabilityExemption: updatedExemption,
