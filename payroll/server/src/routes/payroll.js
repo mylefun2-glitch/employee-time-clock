@@ -19,7 +19,7 @@ function isHoliday(dateStr) {
 }
 
 // Helper to recalculate leave deductions based on updated wages/allowances
-async function getRecalculatedLeaveDeduction(prisma, employeeId, year, month, baseSalary, allowanceAA, allowanceLicense, allowanceManager, otherAllowance, salaryType, settings) {
+async function getRecalculatedLeaveDeduction(prisma, employeeId, year, month, baseSalary, allowanceAA, allowanceLicense, allowanceManager, otherAllowance, bonus, salaryType, settings) {
   if (salaryType !== 'monthly') {
     return 0;
   }
@@ -64,7 +64,7 @@ async function getRecalculatedLeaveDeduction(prisma, employeeId, year, month, ba
     return rule ? parseFloat(rule.rate) : 1.0;
   };
 
-  const hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance) / 240;
+  const hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / 240;
   let recalculatedLeaveDeduction = 0;
 
   leaves.forEach(l => {
@@ -538,7 +538,8 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       });
 
       // Daily rate for leave deduction (monthly employee)
-      const hourlyLeaveRate = (currentEmp.baseSalary + (currentEmp.allowanceAA || 0) + (currentEmp.allowanceLicense || 0) + (currentEmp.allowanceManager || 0) + (currentEmp.otherAllowance || 0)) / 240;
+      const currentBonus = existingRecord ? (existingRecord.bonus || 0) : 0;
+      const hourlyLeaveRate = (currentEmp.baseSalary + (currentEmp.allowanceAA || 0) + (currentEmp.allowanceLicense || 0) + (currentEmp.allowanceManager || 0) + (currentEmp.otherAllowance || 0) + currentBonus) / 240;
 
       // Calculate leave deductions (for monthly) and supplement hours (for hourly)
       if (currentEmp.salaryType === 'monthly') {
@@ -849,17 +850,20 @@ router.put('/:id', validateId(), async (req, res) => {
 
     let leaveDeduction = req.body.leaveDeduction !== undefined ? parseFloat(req.body.leaveDeduction) : null;
     
-    // Check if allowances or baseSalary have changed in this request
-    const salaryOrAllowancesChanged = 
+    // Check if allowances, baseSalary, or bonus have changed in this request
+    const salaryOrAllowancesOrBonusChanged = 
       (req.body.baseSalary !== undefined && parseFloat(req.body.baseSalary) !== existing.baseSalary) ||
       (req.body.allowanceAA !== undefined && parseFloat(req.body.allowanceAA) !== existing.allowanceAA) ||
       (req.body.allowanceLicense !== undefined && parseFloat(req.body.allowanceLicense) !== existing.allowanceLicense) ||
       (req.body.allowanceManager !== undefined && parseFloat(req.body.allowanceManager) !== existing.allowanceManager) ||
-      (req.body.otherAllowance !== undefined && parseFloat(req.body.otherAllowance) !== existing.otherAllowance);
+      (req.body.otherAllowance !== undefined && parseFloat(req.body.otherAllowance) !== existing.otherAllowance) ||
+      (req.body.bonus !== undefined && parseFloat(req.body.bonus) !== existing.bonus);
 
-    // If leaveDeduction wasn't manually changed by the user, but salary or allowances changed,
+    const bonusValue = req.body.bonus !== undefined ? parseFloat(req.body.bonus) : existing.bonus;
+
+    // If leaveDeduction wasn't manually changed by the user, but salary, allowances, or bonus changed,
     // or if leaveDeduction wasn't provided at all, we recalculate it!
-    if (leaveDeduction === null || (salaryOrAllowancesChanged && leaveDeduction === existing.leaveDeduction)) {
+    if (leaveDeduction === null || (salaryOrAllowancesOrBonusChanged && leaveDeduction === existing.leaveDeduction)) {
       leaveDeduction = await getRecalculatedLeaveDeduction(
         req.prisma,
         existing.employeeId,
@@ -870,6 +874,7 @@ router.put('/:id', validateId(), async (req, res) => {
         empOverride.allowanceLicense,
         empOverride.allowanceManager,
         empOverride.otherAllowance,
+        bonusValue,
         existing.employee.salaryType,
         settings
       );
@@ -1129,6 +1134,7 @@ router.post('/batch-update-adjustments', async (req, res) => {
           updatedLicense,
           payrollRecord.allowanceManager || emp.allowanceManager || 0,
           updatedOther,
+          updatedBonus,
           emp.salaryType,
           settings
         );
