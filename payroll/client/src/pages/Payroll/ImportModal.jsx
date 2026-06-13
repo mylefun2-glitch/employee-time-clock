@@ -152,7 +152,9 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
             licenseKey = k;
           }
           if (lk.includes('其他') || lk.includes('other') || lk.includes('津貼')) {
-            if (lk.includes('不列入') || lk.includes('免計') || lk.includes('exempt') || lk.includes('不計入')) {
+            if (lk.includes('扣除') || lk.includes('deduct')) {
+              // Skip to prevent collision with otherDeductions
+            } else if (lk.includes('不列入') || lk.includes('免計') || lk.includes('exempt') || lk.includes('不計入')) {
               otherExemptKey = k;
             } else {
               otherKey = k;
