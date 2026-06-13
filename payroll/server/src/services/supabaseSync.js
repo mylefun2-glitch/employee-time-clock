@@ -131,10 +131,10 @@ export async function syncEmployees(force = false) {
  */
 const activeSyncs = {};
 
-export function syncAttendanceAndLeaves(year, month, force = false) {
-  const key = `${year}_${month}`;
+export function syncAttendanceAndLeaves(year, month, force = false, targetEmployeeId = null) {
+  const key = targetEmployeeId ? `${year}_${month}_${targetEmployeeId}` : `${year}_${month}`;
   const now = Date.now();
-  if (!force && lastAttendanceSyncs[key] && (now - lastAttendanceSyncs[key] < SYNC_COOLDOWN_MS)) {
+  if (!targetEmployeeId && !force && lastAttendanceSyncs[key] && (now - lastAttendanceSyncs[key] < SYNC_COOLDOWN_MS)) {
     console.log(`[Sync] Skipping attendance and leaves sync for ${key} (cooldown active)`);
     return Promise.resolve();
   }
@@ -156,32 +156,50 @@ export function syncAttendanceAndLeaves(year, month, force = false) {
     const endDate = `${year}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
     try {
-      console.log(`Syncing attendance and leaves for ${year}-${monthStr} (${startDate} to ${endDate})...`);
-
-      // 1. Clear existing cache for this month first
-      await prisma.attendanceRecord.deleteMany({
-        where: {
-          date: {
-            gte: startDate,
-            lte: endDate
-          }
-        }
-      });
-
-      await prisma.leaveRecord.deleteMany({
-        where: {
-          startDate: {
-            lte: endDate
-          },
-          endDate: {
-            gte: startDate
-          }
-        }
-      });
+      console.log(`Syncing attendance and leaves for ${year}-${monthStr} (${startDate} to ${endDate}) targetEmployeeId=${targetEmployeeId}...`);
 
       // Get all synced local employees to map Supabase UUIDs
       const dbEmployees = await prisma.employee.findMany();
-      
+
+      let targetSbUuid = null;
+      if (targetEmployeeId) {
+        const localEmp = dbEmployees.find(e => e.id === targetEmployeeId);
+        if (localEmp) {
+          // Fetch employees from Supabase to find their UUID
+          const { data: targetSbEmp, error: targetSbEmpErr } = await supabase
+            .from('employees')
+            .select('id, username')
+            .or(`username.eq.${localEmp.email},name.eq.${localEmp.name}`);
+          
+          if (!targetSbEmpErr && targetSbEmp && targetSbEmp.length > 0) {
+            targetSbUuid = targetSbEmp[0].id;
+            console.log(`Found target employee UUID: ${targetSbUuid} for local ID: ${targetEmployeeId}`);
+          }
+        }
+      }
+
+      // 1. Clear existing cache for this month (filtered by employee if targetEmployeeId is provided)
+      const deleteAttendanceWhere = {
+        date: { gte: startDate, lte: endDate }
+      };
+      if (targetEmployeeId) {
+        deleteAttendanceWhere.employeeId = targetEmployeeId;
+      }
+      await prisma.attendanceRecord.deleteMany({
+        where: deleteAttendanceWhere
+      });
+
+      const deleteLeaveWhere = {
+        startDate: { lte: endDate },
+        endDate: { gte: startDate }
+      };
+      if (targetEmployeeId) {
+        deleteLeaveWhere.employeeId = targetEmployeeId;
+      }
+      await prisma.leaveRecord.deleteMany({
+        where: deleteLeaveWhere
+      });
+
       // Fetch all employees from Supabase to match UUID to email/employeeNo
       const { data: sbEmployees, error: sbEmpError } = await supabase
         .from('employees')
@@ -206,11 +224,16 @@ export function syncAttendanceAndLeaves(year, month, force = false) {
       });
 
       // 2. Fetch leave requests from Supabase for this period (overlapping with the month)
-      const { data: sbLeaves, error: leaveError } = await supabase
+      let leaveQuery = supabase
         .from('leave_requests')
         .select('*, leave_types(code, name)')
         .lte('start_date', `${endDate}T23:59:59`)
         .gte('end_date', `${startDate}T00:00:00`);
+      
+      if (targetSbUuid) {
+        leaveQuery = leaveQuery.eq('employee_id', targetSbUuid);
+      }
+      const { data: sbLeaves, error: leaveError } = await leaveQuery;
 
       if (leaveError) throw leaveError;
 
@@ -249,11 +272,16 @@ export function syncAttendanceAndLeaves(year, month, force = false) {
       }
 
       // 3. Fetch attendance logs from Supabase
-      const { data: logs, error: logError } = await supabase
+      let logQuery = supabase
         .from('attendance_logs')
         .select('*')
         .gte('timestamp', `${startDate}T00:00:00`)
         .lte('timestamp', `${endDate}T23:59:59`);
+      
+      if (targetSbUuid) {
+        logQuery = logQuery.eq('employee_id', targetSbUuid);
+      }
+      const { data: logs, error: logError } = await logQuery;
 
       if (logError) throw logError;
 

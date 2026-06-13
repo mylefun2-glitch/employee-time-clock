@@ -489,7 +489,8 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
 
     // Sync attendance logs and approved leaves from Supabase first
     console.log('[Calc] Syncing attendance and leaves...');
-    await syncAttendanceAndLeaves(y, m).catch(err => console.error("Sync attendance/leaves failed:", err));
+    const singleEmpId = (employeeIds && Array.isArray(employeeIds) && employeeIds.length === 1) ? employeeIds[0] : null;
+    await syncAttendanceAndLeaves(y, m, false, singleEmpId).catch(err => console.error("Sync attendance/leaves failed:", err));
     console.log('[Calc] Attendance and leaves synced.');
 
     // Fetch active schedules for this month from Supabase to override salary structures
@@ -1089,8 +1090,8 @@ router.put('/:id', validateId(), async (req, res) => {
       leavePaySupplement: req.body.leavePaySupplement !== undefined ? parseFloat(req.body.leavePaySupplement) : existing.leavePaySupplement,
     };
 
-    // Sync attendance logs and approved leaves from Supabase first
-    await syncAttendanceAndLeaves(existing.year, existing.month).catch(err => console.error("Sync attendance/leaves failed:", err));
+    // Sync attendance logs and approved leaves from Supabase first (optimized for this employee)
+    await syncAttendanceAndLeaves(existing.year, existing.month, false, existing.employeeId).catch(err => console.error("Sync attendance/leaves failed:", err));
 
     const freshAttendance = await getFreshAttendanceSummary(
       req.prisma,
