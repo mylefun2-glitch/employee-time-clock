@@ -36,6 +36,10 @@ export default function PayrollList() {
     loadPayrollRecords();
   }, [year, month, statusFilter]);
 
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [deptFilter, nameFilter]);
+
   const loadPayrollRecords = async () => {
     setLoading(true);
     setSelectedIds([]);
@@ -169,17 +173,39 @@ export default function PayrollList() {
     }
   };
 
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredPayrolls.map(p => p.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectRow = (e, id) => {
+    e.stopPropagation();
+    if (e.target.checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(item => item !== id));
+    }
+  };
+
   const handleBatchLock = async () => {
-    const draftIds = filteredPayrolls.filter(p => p.status === 'DRAFT').map(p => p.id);
+    if (selectedIds.length === 0) {
+      alert('請先勾選要鎖定的薪資明細');
+      return;
+    }
+    const draftIds = filteredPayrolls.filter(p => selectedIds.includes(p.id) && p.status === 'DRAFT').map(p => p.id);
     if (draftIds.length === 0) {
-      alert('無待鎖定的草稿薪資紀錄');
+      alert('選取的紀錄中無待鎖定的草稿薪資紀錄');
       return;
     }
 
-    if (window.confirm(`確認要批次鎖定 ${draftIds.length} 筆篩選後的薪資明細嗎？`)) {
+    if (window.confirm(`確認要鎖定已勾選的 ${draftIds.length} 筆薪資明細嗎？`)) {
       try {
         await payrollService.batchLock(draftIds);
-        alert('篩選後薪資紀錄已批次鎖定');
+        alert('已選薪資紀錄已成功鎖定');
+        setSelectedIds([]);
         loadPayrollRecords();
       } catch (err) {
         console.error(err);
@@ -189,16 +215,21 @@ export default function PayrollList() {
   };
 
   const handleBatchApprove = async () => {
-    const lockIds = filteredPayrolls.filter(p => p.status === 'LOCKED' || p.status === 'DRAFT').map(p => p.id);
+    if (selectedIds.length === 0) {
+      alert('請先勾選要核准的薪資明細');
+      return;
+    }
+    const lockIds = filteredPayrolls.filter(p => selectedIds.includes(p.id) && (p.status === 'LOCKED' || p.status === 'DRAFT')).map(p => p.id);
     if (lockIds.length === 0) {
-      alert('無待核准的薪資紀錄');
+      alert('選取的紀錄中無待核准的薪資紀錄');
       return;
     }
 
-    if (window.confirm(`確認要批次核准 ${lockIds.length} 筆篩選後的薪資明細嗎？`)) {
+    if (window.confirm(`確認要核准已勾選的 ${lockIds.length} 筆薪資明細嗎？`)) {
       try {
         await payrollService.batchApprove(lockIds);
-        alert('篩選後薪資紀錄已批次核准');
+        alert('已選薪資紀錄已成功核准');
+        setSelectedIds([]);
         loadPayrollRecords();
       } catch (err) {
         console.error(err);
@@ -208,17 +239,22 @@ export default function PayrollList() {
   };
 
   const handleBatchDelete = async () => {
-    const draftIds = filteredPayrolls.filter(p => p.status === 'DRAFT').map(p => p.id);
+    if (selectedIds.length === 0) {
+      alert('請先勾選要刪除的草稿明細');
+      return;
+    }
+    const draftIds = filteredPayrolls.filter(p => selectedIds.includes(p.id) && p.status === 'DRAFT').map(p => p.id);
     if (draftIds.length === 0) {
-      alert('無待刪除的草稿薪資紀錄');
+      alert('選取的紀錄中沒有可刪除的草稿明細');
       return;
     }
 
-    if (window.confirm(`確定要刪除該月份 ${draftIds.length} 筆所有篩選後的草稿薪資紀錄嗎？此動作將無法復原！`)) {
+    if (window.confirm(`確定要刪除已勾選的 ${draftIds.length} 筆草稿薪資紀錄嗎？此動作將無法復原！`)) {
       try {
         setLoading(true);
         const res = await payrollService.batchDelete(draftIds);
-        alert(res.message || '篩選後草稿已成功刪除');
+        alert(res.message || '已選草稿已成功刪除');
+        setSelectedIds([]);
         loadPayrollRecords();
       } catch (err) {
         console.error(err);
@@ -230,14 +266,13 @@ export default function PayrollList() {
   };
 
   const handleBatchPDF = async () => {
-    if (filteredPayrolls.length === 0) {
+    const ids = selectedIds.length > 0 ? selectedIds : filteredPayrolls.map(p => p.id);
+    if (ids.length === 0) {
       alert('無可下載的薪資單');
       return;
     }
     
     try {
-      const ids = filteredPayrolls.map(p => p.id);
-      // Generate batch PDF call
       const response = await fetch(`${BASE_URL}/payroll/batch-pdf`, {
         method: 'POST',
         headers: {
@@ -274,6 +309,28 @@ export default function PayrollList() {
   const formatCurr = (v) => `${Math.round(v).toLocaleString('zh-TW')}`;
 
   const columns = [
+    {
+      title: (
+        <input 
+          type="checkbox" 
+          checked={filteredPayrolls.length > 0 && selectedIds.length === filteredPayrolls.length}
+          onChange={handleSelectAll}
+          onClick={(e) => e.stopPropagation()}
+          style={{ cursor: 'pointer' }}
+        />
+      ),
+      key: 'select',
+      align: 'center',
+      render: (_, row) => (
+        <input 
+          type="checkbox" 
+          checked={selectedIds.includes(row.id)}
+          onChange={(e) => handleSelectRow(e, row.id)}
+          onClick={(e) => e.stopPropagation()}
+          style={{ cursor: 'pointer' }}
+        />
+      )
+    },
     { title: '部門', key: 'department', render: (_, row) => row.employee?.department },
     { title: '姓名', key: 'name', bold: true, render: (_, row) => row.employee?.name },
     { title: '應發薪資', key: 'grossPay', align: 'right', render: (val) => formatCurr(val) },
@@ -395,7 +452,20 @@ export default function PayrollList() {
           />
         </div>
         
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+          {selectedIds.length > 0 && (
+            <span style={{ 
+              fontSize: 'var(--text-xs)', 
+              color: 'var(--color-primary-600)', 
+              fontWeight: '600',
+              backgroundColor: 'var(--color-primary-50)',
+              padding: 'var(--space-1) var(--space-2)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-primary-200)'
+            }}>
+              已選擇 {selectedIds.length} 筆
+            </span>
+          )}
           <Button variant="outline" icon="calculate" onClick={handleCalculateClick} title="計算薪資" />
           {filteredPayrolls.some(p => p.status === 'DRAFT') && (
             <Button 
@@ -403,13 +473,29 @@ export default function PayrollList() {
               icon="delete" 
               style={{ color: 'var(--color-error)', borderColor: 'var(--color-error)', backgroundColor: 'rgba(220, 38, 38, 0.05)' }}
               onClick={handleBatchDelete}
-              title="刪除本月草稿"
+              title={selectedIds.length > 0 ? `刪除已選草稿 (${selectedIds.length} 筆)` : "刪除本月草稿"}
             />
           )}
           <Button variant="outline" icon="upload" onClick={() => setIsImportModalOpen(true)} disabled={filteredPayrolls.length === 0} title="批量匯入" />
-          <Button variant="outline" icon="lock" onClick={handleBatchLock} title="批次鎖定" />
-          <Button variant="outline" icon="done_all" onClick={handleBatchApprove} title="批次核准" />
-          <Button variant="primary" icon="download" onClick={handleBatchPDF} disabled={filteredPayrolls.length === 0} title="批次下載薪資單" />
+          <Button 
+            variant="outline" 
+            icon="lock" 
+            onClick={handleBatchLock} 
+            title={selectedIds.length > 0 ? `批次鎖定已選明細 (${selectedIds.length} 筆)` : "批次鎖定"} 
+          />
+          <Button 
+            variant="outline" 
+            icon="done_all" 
+            onClick={handleBatchApprove} 
+            title={selectedIds.length > 0 ? `批次核准已選明細 (${selectedIds.length} 筆)` : "批次核准"} 
+          />
+          <Button 
+            variant="primary" 
+            icon="download" 
+            onClick={handleBatchPDF} 
+            disabled={filteredPayrolls.length === 0} 
+            title={selectedIds.length > 0 ? `批次下載已選薪資單 (${selectedIds.length} 筆)` : "批次下載薪資單"} 
+          />
         </div>
       </div>
 
