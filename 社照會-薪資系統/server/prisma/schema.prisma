@@ -1,0 +1,160 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  name      String
+  role      String   @default("admin") // admin, manager, viewer
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Employee {
+  id                  Int      @id @default(autoincrement())
+  employeeNo          String   @unique // Employee number (員工編號)
+  name                String   // Full name (姓名)
+  idNumber            String?  // National ID number (身分證字號)
+  gender              String?  // M or F (性別)
+  birthDate           String?  // Date of birth (出生日期) stored as ISO string
+  phone               String?  // Phone number (電話)
+  address             String?  // Address (地址)
+  email               String?  // Email
+  department          String   // Department (部門): 照護部, 行政部, 護理部, 社工部
+  position            String?  // Position/title (職稱)
+  hireDate            String   // Hire date (到職日)
+  resignDate          String?  // Resignation date (離職日)
+  salaryType          String   @default("monthly") // monthly or hourly (薪資類型)
+  baseSalary          Float    @default(0) // Base monthly salary (底薪) or hourly rate
+  mealAllowance       Float    @default(0) // Meal allowance (伙食津貼)
+  transportAllowance  Float    @default(0) // Transportation allowance (交通津貼)
+  otherAllowance      Float    @default(0) // Other allowances (其他津貼)
+  laborInsuranceGrade Float    @default(0) // Labor insurance insured salary grade (勞保投保薪資)
+  healthInsuranceGrade Float   @default(0) // Health insurance insured salary grade (健保投保薪資)
+  laborPensionGrade   Float    @default(0) // Labor pension contribution grade (勞退提繳薪資)
+  voluntaryPensionRate Float   @default(0) // Employee voluntary pension rate 0-6% (自提比率)
+  dependents          Int      @default(0) // Number of dependents for tax/insurance (扶養人數)
+  bankAccount         String?  // Bank account number (銀行帳號)
+  bankName            String?  // Bank name (銀行名稱)
+  notes               String?  // Notes (備註)
+  isActive            Boolean  @default(true) // Soft delete flag
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  attendanceRecords AttendanceRecord[]
+  leaveRecords      LeaveRecord[]
+  payrollRecords    PayrollRecord[]
+}
+
+model AttendanceRecord {
+  id            Int      @id @default(autoincrement())
+  employeeId    Int
+  date          String   // Date (日期) stored as YYYY-MM-DD
+  clockIn       String?  // Clock in time (上班時間) HH:mm
+  clockOut      String?  // Clock out time (下班時間) HH:mm
+  regularHours  Float    @default(0) // Regular hours worked (正常工時)
+  overtimeHours Float    @default(0) // Overtime hours (加班時數)
+  overtimeType  String?  // OT type: weekday, weekend, holiday (加班類型)
+  status        String   @default("present") // present, absent, leave, holiday (出勤狀態)
+  notes         String?  // Notes (備註)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, date])
+}
+
+model LeaveRecord {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  leaveType   String   // annual, sick, personal, maternity, etc. (假別)
+  startDate   String   // Start date (起始日)
+  endDate     String   // End date (結束日)
+  days        Float    @default(1) // Number of days (天數)
+  reason      String?  // Reason (事由)
+  status      String   @default("pending") // pending, approved, rejected (狀態)
+  approvedBy  String?  // Approved by (核准人)
+  approvedAt  String?  // Approved date (核准日期)
+  notes       String?  // Notes (備註)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+}
+
+model PayrollRecord {
+  id                    Int      @id @default(autoincrement())
+  employeeId            Int
+  year                  Int      // Year (年)
+  month                 Int      // Month (月)
+  
+  // Earnings (薪資項目)
+  baseSalary            Float    @default(0) // Base salary (底薪)
+  overtimePay           Float    @default(0) // Overtime pay (加班費)
+  mealAllowance         Float    @default(0) // Meal allowance (伙食津貼)
+  transportAllowance    Float    @default(0) // Transportation allowance (交通津貼)
+  otherAllowance        Float    @default(0) // Other allowances (其他津貼)
+  bonus                 Float    @default(0) // Bonus (獎金)
+  retroPay              Float    @default(0) // Retroactive pay (補發薪資)
+  grossPay              Float    @default(0) // Gross pay total (應發薪資總額)
+  
+  // Attendance summary (出勤概況)
+  workDays              Float    @default(0) // Days worked (出勤天數)
+  leaveDays             Float    @default(0) // Leave days (請假天數)
+  absentDays            Float    @default(0) // Absent days (曠職天數)
+  overtimeHours         Float    @default(0) // Total overtime hours (加班總時數)
+  regularHours          Float    @default(0) // Total regular hours (正常工時總計)
+  
+  // Employee deductions (員工自付)
+  laborInsuranceEmployee  Float  @default(0) // Labor insurance - employee (勞保自付)
+  healthInsuranceEmployee Float  @default(0) // Health insurance - employee (健保自付)
+  laborPensionEmployee    Float  @default(0) // Labor pension - employee voluntary (勞退自提)
+  incomeTax               Float  @default(0) // Income tax withholding (所得稅預扣)
+  otherDeductions         Float  @default(0) // Other deductions (其他扣除)
+  totalDeductions         Float  @default(0) // Total deductions (扣除總額)
+  
+  // Employer costs (雇主負擔)
+  laborInsuranceEmployer  Float  @default(0) // Labor insurance - employer (勞保雇主負擔)
+  healthInsuranceEmployer Float  @default(0) // Health insurance - employer (健保雇主負擔)
+  laborPensionEmployer    Float  @default(0) // Labor pension - employer 6% (勞退雇主提繳)
+  totalEmployerCost       Float  @default(0) // Total employer cost (雇主負擔總額)
+  
+  // Net pay (實發薪資)
+  netPay                  Float  @default(0) // Net pay (實發薪資)
+  
+  // Status and metadata
+  status                  String @default("DRAFT") // DRAFT, LOCKED, APPROVED (狀態)
+  notes                   String? // Notes (備註)
+  calculatedAt            String? // Calculation timestamp (計算時間)
+  approvedBy              String? // Approved by (核准人)
+  approvedAt              String? // Approved timestamp (核准時間)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, year, month])
+}
+
+model SystemSetting {
+  id        Int      @id @default(autoincrement())
+  category  String   // Category (類別): insurance, tax, general
+  key       String   @unique // Setting key (設定鍵)
+  value     String   // Setting value (設定值)
+  label     String   // Display label (顯示標籤)
+  notes     String?  // Notes (備註)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
