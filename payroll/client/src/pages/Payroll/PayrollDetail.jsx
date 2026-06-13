@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import payrollService from '../../services/payrollService';
 import { Button, Card, LoadingSpinner, Badge, Input } from '../../components/common';
 import { BASE_URL } from '../../services/api';
@@ -7,6 +7,7 @@ import { BASE_URL } from '../../services/api';
 export default function PayrollDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [record, setRecord] = useState(null);
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -214,7 +215,15 @@ export default function PayrollDetail() {
         setSaving(true);
         await payrollService.deletePayroll(id);
         alert('薪資紀錄已刪除');
-        navigate('/payroll');
+        navigate('/payroll', {
+          state: {
+            year: record?.year?.toString() || location.state?.year,
+            month: record?.month?.toString() || location.state?.month,
+            statusFilter: location.state?.statusFilter || '',
+            deptFilter: location.state?.deptFilter || '',
+            nameFilter: location.state?.nameFilter || ''
+          }
+        });
       } catch (err) {
         console.error(err);
         alert(err.message || '刪除失敗');
@@ -316,7 +325,15 @@ export default function PayrollDetail() {
         </div>
 
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <Button variant="outline" icon="arrow_back" onClick={() => navigate('/payroll', { state: { year: record?.year?.toString(), month: record?.month?.toString() } })}>
+          <Button variant="outline" icon="arrow_back" onClick={() => navigate('/payroll', {
+            state: {
+              year: record?.year?.toString() || location.state?.year,
+              month: record?.month?.toString() || location.state?.month,
+              statusFilter: location.state?.statusFilter || '',
+              deptFilter: location.state?.deptFilter || '',
+              nameFilter: location.state?.nameFilter || ''
+            }
+          })}>
             返回列表
           </Button>
           {record.status === 'DRAFT' && !isEditing && (

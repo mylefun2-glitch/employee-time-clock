@@ -13,9 +13,9 @@ export default function PayrollList() {
   const [month, setMonth] = useState(location.state?.month || (now.getMonth() + 1).toString());
   const [payrolls, setPayrolls] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [deptFilter, setDeptFilter] = useState('');
-  const [nameFilter, setNameFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(location.state?.statusFilter || '');
+  const [deptFilter, setDeptFilter] = useState(location.state?.deptFilter || '');
+  const [nameFilter, setNameFilter] = useState(location.state?.nameFilter || '');
   const [selectedIds, setSelectedIds] = useState([]);
   const [isCalcModalOpen, setIsCalcModalOpen] = useState(false);
   const [calcSettings, setCalcSettings] = useState({
@@ -302,7 +302,15 @@ export default function PayrollList() {
   };
 
   const handleRowClick = (row) => {
-    navigate(`/payroll/${row.id}`);
+    navigate(`/payroll/${row.id}`, {
+      state: {
+        year,
+        month,
+        statusFilter,
+        deptFilter,
+        nameFilter
+      }
+    });
   };
 
   // Format currency helper
@@ -349,7 +357,15 @@ export default function PayrollList() {
             icon="visibility"
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/payroll/${row.id}`);
+              navigate(`/payroll/${row.id}`, {
+                state: {
+                  year,
+                  month,
+                  statusFilter,
+                  deptFilter,
+                  nameFilter
+                }
+              });
             }}
             title="明細"
           />
