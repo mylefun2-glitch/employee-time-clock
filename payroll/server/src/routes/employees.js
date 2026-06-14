@@ -89,7 +89,7 @@ router.post('/sync', async (req, res) => {
     res.json({ success: true, count, message: `成功同步 ${count} 筆員工資料` });
   } catch (error) {
     console.error('Manual employee sync error:', error);
-    res.status(500).json({ error: '同步員工資料失敗' });
+    res.status(500).json({ error: '同步員工資料失敗', message: error.message, stack: error.stack });
   }
 });
 
