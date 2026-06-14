@@ -689,7 +689,7 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         };
       }
 
-      if (existingRecord) {
+      if (existingRecord && !req.body.resetSettings) {
         currentEmp = {
           ...currentEmp,
           // Preserve manual override grades from the existing payroll record if present

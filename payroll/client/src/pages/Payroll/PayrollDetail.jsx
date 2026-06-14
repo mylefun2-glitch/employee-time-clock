@@ -148,7 +148,8 @@ export default function PayrollDetail() {
         const res = await payrollService.calculatePayroll({
           year: record.year.toString(),
           month: record.month.toString(),
-          employeeIds: [employee.id]
+          employeeIds: [employee.id],
+          resetSettings: true
         });
         alert(res.message || '重新計算成功！');
         loadPayrollRecord();
