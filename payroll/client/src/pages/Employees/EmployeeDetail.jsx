@@ -278,8 +278,8 @@ export default function EmployeeDetail() {
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>自願提繳勞退:</strong> {employee.voluntaryPensionRate} %</div>
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>二代健保自付額:</strong> {Math.round(employee.supplementaryHealthInsurance || 0).toLocaleString('zh-TW')}</div>
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>前期勞健退差額:</strong> {Math.round(employee.prevInsuranceDifference || 0).toLocaleString('zh-TW')}</div>
-            <div><strong style={{ color: 'var(--color-neutral-600)' }}>健保身障減免:</strong> {Math.round((employee.healthDisabilityExemption || 0) * 100)} %</div>
-            <div><strong style={{ color: 'var(--color-neutral-600)' }}>勞保身障減免:</strong> {Math.round((employee.laborDisabilityExemption || 0) * 100)} %</div>
+            <div><strong style={{ color: 'var(--color-neutral-600)' }}>健保保費減免:</strong> {Math.round((employee.healthDisabilityExemption || 0) * 100)} %</div>
+            <div><strong style={{ color: 'var(--color-neutral-600)' }}>勞保保費減免:</strong> {Math.round((employee.laborDisabilityExemption || 0) * 100)} %</div>
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>健保政府補貼定額:</strong> {Math.round(employee.healthGovSubsidy || 0).toLocaleString('zh-TW')}</div>
             {employee.salaryType === 'hourly' && <div><strong style={{ color: 'var(--color-neutral-600)' }}>請假補貼薪資:</strong> {Math.round(employee.leavePaySupplement || 0).toLocaleString('zh-TW')}</div>}
           </div>
@@ -499,7 +499,7 @@ export default function EmployeeDetail() {
               onChange={e => setFormData(prev => ({ ...prev, prevInsuranceDifference: e.target.value }))}
             />
             <Input
-              label="健保身障減免比例 (0-1.0)"
+              label="健保保費減免比例 (0-1.0)"
               type="number"
               min="0"
               max="1"
@@ -508,7 +508,7 @@ export default function EmployeeDetail() {
               onChange={e => setFormData(prev => ({ ...prev, healthDisabilityExemption: e.target.value }))}
             />
             <Input
-              label="勞保身障減免比例 (0-1.0)"
+              label="勞保保費減免比例 (0-1.0)"
               type="number"
               min="0"
               max="1"

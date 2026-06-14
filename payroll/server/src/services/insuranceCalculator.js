@@ -171,8 +171,9 @@ export function calculateHealthInsurance(insuredSalary, dependents = 0, rates = 
   // Calculate single premium first (四捨五入)
   const singlePremium = Math.round(insuredSalary * r.healthInsuranceRate * r.healthInsuranceEmployeeShare);
   
-  // Employee pays: singlePremium × (1 + dependents)
-  const employeePremium = singlePremium * (1 + dependents);
+  // Employee pays: singlePremium × (1 + dependents), capped at 3 dependents
+  const chargedDependents = Math.min(3, dependents);
+  const employeePremium = singlePremium * (1 + chargedDependents);
   
   // Employer pays: insuredSalary × 5.17% × 60% × (1 + avg dependents ratio)
   const employerPremium = Math.round(
@@ -182,6 +183,8 @@ export function calculateHealthInsurance(insuredSalary, dependents = 0, rates = 
   return {
     insuredSalary,
     dependents,
+    chargedDependents,
+    singlePremium,
     employeePremium,
     employerPremium,
     rate: r.healthInsuranceRate,
@@ -275,13 +278,18 @@ export function calculateAllInsurance(employee, settings = {}, days = 30, isMidM
   const laborInsurance = calculateLaborInsurance(laborInsuredSalary, rates, days);
   const healthInsurance = calculateHealthInsurance(healthInsuredSalary, employee.dependents || 0, rates);
 
-  // Apply disability exemption and government subsidy to employee premium (Health)
+  // Apply exemption and government subsidy to employee premium (Health)
+  // The exemption and subsidy ONLY apply to the employee's personal premium.
+  // Dependents do not receive exemption or subsidy.
   const healthExemption = parseFloat(employee.healthDisabilityExemption) || 0;
   const healthSubsidy = parseFloat(employee.healthGovSubsidy) || 0;
-  healthInsurance.basePremium = healthInsurance.employeePremium; // Save original
-  healthInsurance.employeePremium = Math.max(0, Math.round(healthInsurance.employeePremium * (1 - healthExemption)) - healthSubsidy);
+  healthInsurance.basePremium = healthInsurance.employeePremium; // Save original (which includes dependents)
+  
+  const employeePersonalPremium = Math.max(0, Math.round(healthInsurance.singlePremium * (1 - healthExemption)) - healthSubsidy);
+  const dependentsPremium = healthInsurance.singlePremium * healthInsurance.chargedDependents;
+  healthInsurance.employeePremium = employeePersonalPremium + dependentsPremium;
 
-  // Apply disability exemption to employee premium (Labor)
+  // Apply exemption to employee premium (Labor)
   const laborExemption = parseFloat(employee.laborDisabilityExemption) || 0;
   laborInsurance.basePremium = laborInsurance.employeePremium; // Save original
   laborInsurance.employeePremium = Math.max(0, Math.round(laborInsurance.employeePremium * (1 - laborExemption)));

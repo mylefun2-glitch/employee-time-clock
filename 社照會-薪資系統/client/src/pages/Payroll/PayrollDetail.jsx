@@ -523,7 +523,7 @@ export default function PayrollDetail() {
                   <h4 style={{ borderBottom: '1px solid var(--color-neutral-200)', paddingBottom: '4px', margin: '12px 0 4px 0', color: 'var(--color-neutral-700)' }}>勞健保減免與政府補貼</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
                     <Input
-                      label="勞保身障減免比例 (0-1.0)"
+                      label="勞保保費減免比例 (0-1.0)"
                       type="number"
                       min="0"
                       max="1"
@@ -532,7 +532,7 @@ export default function PayrollDetail() {
                       onChange={e => setEditForm(prev => ({ ...prev, laborDisabilityExemption: e.target.value }))}
                     />
                     <Input
-                      label="健保身障減免比例 (0-1.0)"
+                      label="健保保費減免比例 (0-1.0)"
                       type="number"
                       min="0"
                       max="1"
@@ -970,7 +970,7 @@ export default function PayrollDetail() {
                         borderRadius: 'var(--radius-sm)',
                         marginTop: 'var(--space-2)'
                       }}>
-                        勞保減免：身障減免 {Math.round(record.laborDisabilityExemption * 100)}%
+                        勞保減免：保費減免 {Math.round(record.laborDisabilityExemption * 100)}%
                       </div>
                     )}
                     {(record.healthDisabilityExemption > 0 || record.healthGovSubsidy > 0) && (
@@ -984,7 +984,7 @@ export default function PayrollDetail() {
                         marginTop: 'var(--space-2)'
                       }}>
                         健保減免/補貼：
-                        {record.healthDisabilityExemption > 0 && `身障減免 ${Math.round(record.healthDisabilityExemption * 100)}%`}
+                        {record.healthDisabilityExemption > 0 && `保費減免 ${Math.round(record.healthDisabilityExemption * 100)}%`}
                         {record.healthDisabilityExemption > 0 && record.healthGovSubsidy > 0 && '，'}
                         {record.healthGovSubsidy > 0 && `政府定額補貼 ${record.healthGovSubsidy}元`}
                       </div>
