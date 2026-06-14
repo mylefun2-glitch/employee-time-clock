@@ -1,0 +1,2 @@
+import { createClient } from '@supabase/supabase-js';
+const supabase = createClient("https://dqnaeesdovovmblsyuma.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxbmFlZXNkb3Zvdm1ibHN5dW1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDQyMDc5NDgsImV4cCI6MjAyNTc4Mzk0OH0.XmS2x6qD6eN_6R_9D_T3P9dE0O3sX_DkQ4Ww"); // Note: I don't have the real anon key but I can read it from .env

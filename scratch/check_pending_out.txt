@@ -1,0 +1,158 @@
+--- Checking Pending Requests ---
+
+Leave Requests PENDING: 16
+- ID: 9088f017-88d7-4fa2-bede-17fb260808b2, Employee: 李玉鳳, ManagerID: null, Status: PENDING
+- ID: 1ce9bc40-0623-4ed2-bed7-e85de5902826, Employee: 林秋君, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad, Status: PENDING
+- ID: a0715f53-20af-455e-a64e-4f4ea39fc558, Employee: 林秋君, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad, Status: PENDING
+- ID: a7f4db00-0e8d-45fa-8b61-0e990b752c3b, Employee: 林秋君, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad, Status: PENDING
+- ID: e9bf9fe5-f85e-4689-9566-c0a2a11ea535, Employee: 林秋君, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad, Status: PENDING
+- ID: 639427e7-003e-4590-a6f2-2fdc7520e750, Employee: 林秋君, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad, Status: PENDING
+- ID: afba8526-7613-45cf-80f8-65c01711f27d, Employee: 李玉鳳, ManagerID: null, Status: PENDING
+- ID: 698272b6-dd59-4c9b-9e65-2344cb547972, Employee: 沈雪芬, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2, Status: PENDING
+- ID: 3016b8a1-bee6-41f0-8d74-1a5c14c1aa3c, Employee: 江沂靜, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d, Status: PENDING
+- ID: 1fea09b1-fd14-4ac1-9ee4-2c7460ea24b1, Employee: 方巧吟, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d, Status: PENDING
+- ID: fe42b6d1-b265-445b-85ca-7cac3362e9f4, Employee: 魏以辰, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2, Status: PENDING
+- ID: edd1682b-de63-4658-b8c9-b35d49a06825, Employee: 林萁祥, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad, Status: PENDING
+- ID: 7b065fa0-4622-4fe6-815e-a6c8ffc1352d, Employee: 鍾雅偵, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2, Status: PENDING
+- ID: 626ed10a-0669-43de-a525-a347f3ba3aef, Employee: 黃玉金, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d, Status: PENDING
+- ID: db5a158d-1a5d-4b41-a16b-319c1d257e74, Employee: 陳姵錡, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2, Status: PENDING
+- ID: 3171b2e8-a0f2-4120-a0a8-4a636e21d494, Employee: 凃宜汝, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2, Status: PENDING
+
+Makeup Requests PENDING: 3
+- ID: 9d94446f-8902-46fd-b0ba-ed419a342628, Employee: 林秋君, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad, Status: PENDING
+- ID: eba37c9f-3cba-4e34-80a8-78d5938872e1, Employee: 林秋君, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad, Status: PENDING
+- ID: 00fa97b4-34f0-4055-b1ce-55d8fb76564e, Employee: 林秋君, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad, Status: PENDING
+
+Shift Requests PENDING: 0
+
+Car Requests PENDING: 1
+- ID: 55ca758d-66d1-49c2-a875-0cde8c37d40f, Employee: 凃宜汝, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2, Status: PENDING
+
+Resource Requests PENDING: 0
+
+All Employees:
+- ID: edf026bb-0127-4720-8f8c-d4cb7448ffaa, Name: 林雅雯, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: f2972c71-95ea-4c6e-8b1c-b26a3eb90596, Name: 林文欽, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: f9777aba-69a3-4262-9d90-c95588562397, Name: 陳姵錡, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 585d3e12-8036-48e8-8792-cb0e7a22ec68, Name: 陳玉麵, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: aa135255-633c-48a7-bf67-e330099b1969, Name: 黃怡菁, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad, Name: 林文明, Supervisor: true, Chairman: true, ManagerID: null
+- ID: b0d79f8e-0581-459a-81c1-0d2967a2fbea, Name: 陳佩伶, Supervisor: false, Chairman: false, ManagerID: d64c9baa-233e-4da1-a5d4-104c3a9ab216
+- ID: 3a6b269d-f68e-4d0c-869b-591d0e0cb405, Name: 林麗珠, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: e8861c2b-1978-481a-bdf8-27a2a78ba3e5, Name: 邱靖捷, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 427ae2c4-939d-4b05-a954-c329a955438f, Name: 黃嵩賢, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: ac766176-d8d2-479e-b74e-3822dc0b4ff4, Name: 林靜怡, Supervisor: false, Chairman: false, ManagerID: d64c9baa-233e-4da1-a5d4-104c3a9ab216
+- ID: 4bbbdd3a-b90d-49e5-8132-f17c7a20d92a, Name: 羅懷璿, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: b3d74cf9-6590-44e1-b6b9-3bcb94e24101, Name: 潘玉梅, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 0998c603-0da2-444d-ba3f-cab7b16e3149, Name: 陳靜, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: a0b95b6a-428f-49f2-a079-3a614d164696, Name: 林文龍, Supervisor: false, Chairman: false, ManagerID: d64c9baa-233e-4da1-a5d4-104c3a9ab216
+- ID: 645649db-1dff-4c7e-a923-1513e6605e99, Name: 游倩婷, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 4ee628d6-c87b-4f5a-aff3-5db66a624d8e, Name: 游寶蓮, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: db729c26-c860-4e28-903f-fe57f80bb14a, Name: 游健辰, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 30f66646-1273-47e6-9a50-21b4f001562c, Name: 張銘興, Supervisor: false, Chairman: false, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad
+- ID: d3cf5329-20be-43ad-912d-59a36771acaf, Name: 林家燕, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: 12073f85-fa23-4c38-9100-240202ce60a0, Name: 郭臺龍, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: e2a0b387-294d-4a07-ad78-94bcaebb447e, Name: 楊呈清, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 7eba04a5-61dd-4bbf-b18a-26c799856078, Name: 吳孟秋, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 9c5c2330-09fb-4410-be2c-d37b733fbb55, Name: 林立心, Supervisor: false, Chairman: false, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad
+- ID: f059013a-a6bf-493b-97d3-6c74ccadf97f, Name: 那玉娟, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 23f98a4c-7ed3-45dd-804b-76db85eb51b7, Name: 賴美央, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: d7da86d1-5123-45f7-b1fe-3de79ea031d7, Name: 林燕筠, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: f7bbbe76-f468-4c8a-a18a-363a5a696d36, Name: 温偉竣, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 20d1157c-0b67-4e17-be5f-a57f3d4f9dba, Name: 邱阿蔭, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: c29e9588-6658-4f83-828e-941f2335a9e5, Name: 陳美玲, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 00772188-b77e-45d4-bca0-f857e69f0b83, Name: 魏以辰, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 52e6c186-2f65-442c-9f3f-570b3c8736d0, Name: 黃佳馨, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 2d42e07f-515b-4973-a7ee-12d84a5c0dcd, Name: 黃陳麗英, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 6d3527e3-1a08-4aa0-adbd-bfe62cd2e76b, Name: 俞嘉明, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: f63c9d9c-d678-44e4-8569-37686d0475c0, Name: 俞靜芬, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 316ef306-e102-4b1c-a9b1-d746fdc210e6, Name: 阮紅福, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 988a1550-8047-4f15-8b1e-6fabaa98af16, Name: 陳秀玲, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 120dfab6-1b44-4f76-96b7-ee0fa01f5778, Name: 史帝華, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 7ebb1253-be92-4cd5-b6b9-4f6a51b2d694, Name: 廖志明, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: e663aa13-b916-4c7d-91d1-6775ec4c01fd, Name: 陳瑋苓, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 90f6903a-3357-4315-be92-d3e851f37b28, Name: 方巧吟, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: 80bea1dd-c1cb-40ed-b900-db42b1ca6aa1, Name: 薛秀娥, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 42d859ec-08bc-432a-8467-7ee34ccfc2d8, Name: 洪淑樺, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 1be121dc-8b03-4ecc-a852-089f87ab160e, Name: 簡辰玲, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 13d400cb-7726-4dd4-b5b4-de996fbcb6c2, Name: 賴秀芸, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: c18d13d4-0ab8-4e02-be7b-720ab7a632eb, Name: 柳羅燕, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 659a8367-e932-4cf4-968d-5a8d7eaa9930, Name: 游千霈, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 2e9f8216-9faa-447a-96d9-7560a7b9185b, Name: 楊月女, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 0f2eaf54-2170-4ff6-9c57-98b0194a591f, Name: 王鳳珠, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: b2a078d2-a153-4804-9c4e-fcefeca33201, Name: 阮氏進功, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 3e8b2efb-28d0-49b2-beb6-056c2e7fe68c, Name: 林芳竹, Supervisor: false, Chairman: false, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad
+- ID: 55df105a-fbf2-4d7b-92bf-a75d072747de, Name: 陳家儀, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 2ab0597f-03ab-4eea-82ae-5781c23a5aa8, Name: 陳素貞, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 0b3ddf91-22bf-4d89-92a9-3469cdbf4d67, Name: 黃寶祥, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: c331ddb2-854c-42f7-b278-5533188d620e, Name: 黃心怡, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: b788120f-b9c8-45ed-bf24-3ec952df6aa4, Name: 陳其鴻, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: c3c5b004-478e-451b-b9b1-a509173d4efb, Name: 黃翔任, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: c1413695-1bdf-41ef-ab0c-dceb8fb615ca, Name: 凃宜汝, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: e112855b-fd0b-4a5e-a66d-9be1c1783d2f, Name: 劉蕙珍, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: cf20cfbe-aebd-4337-b150-ed25f2a46f82, Name: 常恕華, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: e241d96f-1191-4431-88fa-8da4ba314896, Name: 張嘉文, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 638d4bd2-ef98-4e60-9b09-b8dc52e49628, Name: 張玉玫, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 7bdaa7b6-1d12-4468-8a4d-325e8f9783b3, Name: 黃玉金, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2, Name: 林懇, Supervisor: true, Chairman: false, ManagerID: null
+- ID: 92d6bbdb-07de-4abb-8fd5-f51bf9a92d8d, Name: 陳諒, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 6adb7886-bf21-4b2c-aef8-837c18c47293, Name: 賴鳳慈, Supervisor: false, Chairman: false, ManagerID: d64c9baa-233e-4da1-a5d4-104c3a9ab216
+- ID: c0d05b93-fa4b-4bc7-9f5c-4936ca78551b, Name: 簡慈珊, Supervisor: false, Chairman: false, ManagerID: d64c9baa-233e-4da1-a5d4-104c3a9ab216
+- ID: a13fcd8b-0b94-4ef9-9fad-f12556ec994d, Name: 李文, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 25af6c3d-b5f1-4181-a73b-a2eefa79377e, Name: 林宥辰, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 4fdb07c2-6fa6-4128-903d-a65f967fbb00, Name: 林珈瑋, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 00d1d080-2a15-4a25-8bea-0f5d4eac6dad, Name: 莊耀中, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 9e262103-1e72-4738-bb79-8915c91a08af, Name: 林慶裕, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: af0b6119-8f4e-44fc-9e2c-27786e05a492, Name: 簡嘉瑩, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: 083d6a5c-b3bd-43ef-9369-46255018b55f, Name: Tester1, Supervisor: false, Chairman: false, ManagerID: null
+- ID: c34025e4-e4d1-4626-967f-0138e41ae29f, Name: 簡美珠, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: f8cca095-93c5-4e03-a893-3ad02ce60f17, Name: 葉青菁, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 8b801ef1-1f87-4f68-8648-f9c326e3a2e5, Name: 游佳穎, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: c831c316-46eb-4fff-8eaa-381f8b3a0f92, Name: 洪程寬, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 2a4a7827-04cf-4b15-b5e4-f53e5a030b47, Name: 呂慧芳, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 6d4c0be0-c55b-4b6e-bc87-6f0b4b02cf33, Name: 張祺君, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: a64a2f7f-937b-4ae3-8b98-1664517d6e41, Name: 陳淑貞, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 567ab907-b9fe-4da0-a2df-d29ca59b92c6, Name: 吳惠如, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 0c7c6a62-3d76-4dae-928f-69892439877b, Name: 張過, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: ac643978-0873-48f0-bcc8-f50ca360384d, Name: 林宜靜, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: b8735901-a3f4-432d-b059-3206583208a8, Name: 黃志明, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 489327f7-63be-48ee-af9c-de9a1c8dddab, Name: 鄭敏惠, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 988e3004-8666-4229-a237-9763f7f86b00, Name: 吳淑育, Supervisor: false, Chairman: false, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad
+- ID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d, Name: 李玉鳳, Supervisor: false, Chairman: false, ManagerID: null
+- ID: fb29a769-a046-456b-a3a1-c8eaa3ad0875, Name: 周鈺軒, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 9188a7ee-0a20-41e2-9381-ab36817980b1, Name: 李湘儒, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 24904c16-1d04-4eec-933e-63cd9cc83d4a, Name: 張雅鈞, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 83839842-6517-4b6e-ad74-5ceff2a584bc, Name: 張玉雯, Supervisor: false, Chairman: false, ManagerID: d64c9baa-233e-4da1-a5d4-104c3a9ab216
+- ID: 6228617f-e2a2-4b68-acb5-93ba9c85b7e2, Name: 朱美媛, Supervisor: false, Chairman: false, ManagerID: d64c9baa-233e-4da1-a5d4-104c3a9ab216
+- ID: eda1c7e8-2b5d-4542-b96e-0a6bb3173e17, Name: 林秋君, Supervisor: false, Chairman: false, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad
+- ID: 700ac21b-0442-4947-97a2-0ae1806ea2ec, Name: 林旻潓, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: b2959bb0-3642-461d-bf5f-851e44982c1a, Name: 沈雪芬, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: c049f07c-9a0b-4b4c-8e35-b79f07723af7, Name: 羅翊娟, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 6105c538-709d-4430-8f43-a1233ef2a186, Name: 賴乙嘉, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 479ce46a-a1b9-453e-ac8d-91bad131ccd6, Name: 王秀珍, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: a7b86a44-779d-4cdc-88d4-ed35f180cf60, Name: 王章芳, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: e349c916-260a-48a1-8b4d-72d3a8c6097d, Name: 鄭瑄, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: e6003d32-fb32-4466-a446-6d19e0f03972, Name: 朱加瑩, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: 68859d31-7981-4b86-b15d-0971b1965791, Name: 黃永鈺, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: f9ff0685-8199-4373-8b7d-8a08596a0385, Name: 張秀卿, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 1a8261a3-4859-45e5-9311-e547b1b179f9, Name: 李佳蕙, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: d8dc7444-8544-443f-a82e-9cdc138dd8f2, Name: 林子翔, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 61416623-7d38-4a43-84bc-4e362b03b85b, Name: 蘇秀華, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: febc87de-f365-4aff-a5de-f8da413a6892, Name: 林巧韻, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: 1db5d4f0-3d5b-47aa-babd-80974142016e, Name: 林延達, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 3a9b9256-bb49-433a-aa86-fcd6e43aa5da, Name: 江沂靜, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: 9980cfaf-b375-4db6-8338-91a98ad5b6e8, Name: 黃筱柔, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: 640c63d4-bf9b-404c-bf8c-04ca0b31da87, Name: 鄭淑娟, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: a61d4e6a-c732-4b1c-8400-cede859241fe, Name: 林萁祥, Supervisor: false, Chairman: false, ManagerID: 153bf58a-bba6-4ba2-bd81-77f52299b0ad
+- ID: fcf6f102-6620-4fd1-bfa2-248c24987544, Name: 林淑禎, Supervisor: false, Chairman: false, ManagerID: d64c9baa-233e-4da1-a5d4-104c3a9ab216
+- ID: 3eed27ce-69c8-4d49-ab1a-4914a757af77, Name: 陳美玉, Supervisor: false, Chairman: false, ManagerID: d64c9baa-233e-4da1-a5d4-104c3a9ab216
+- ID: d64c9baa-233e-4da1-a5d4-104c3a9ab216, Name: 林明珠, Supervisor: false, Chairman: false, ManagerID: null
+- ID: 85d7f835-7405-4213-8f7f-870fdb2dc4c1, Name: 楊家怡, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: f90ad6ac-1952-40d7-a6b9-b17f0aec5c43, Name: 陳靜慧, Supervisor: false, Chairman: false, ManagerID: d64c9baa-233e-4da1-a5d4-104c3a9ab216
+- ID: e5e61f4b-43e0-4bf5-842b-0697db05cc2a, Name: 鍾雅偵, Supervisor: false, Chairman: false, ManagerID: 80ce2560-b8b5-4fa2-b5de-0e4399eec0e2
+- ID: c82b9373-4d33-4a9d-a685-3f9a6ae6dc23, Name: 吳旻娟, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: 9bdc89dc-35bf-4bc9-a372-85ee13565093, Name: 何伶真, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: 13c213ca-028c-4b8c-928e-148b4d611350, Name: 林沛旻, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: 3170c360-350c-42c9-bdd9-4e5a7d0520c5, Name: 曾澤瑜, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: 9d9a08be-1e74-44ee-8eb9-08b90b0f71bf, Name: 江岳玲, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d
+- ID: 6a98fc2d-97a6-412e-a347-5863269b4a3a, Name: 張心妍, Supervisor: false, Chairman: false, ManagerID: 90d9feb8-5da8-4de7-81b9-1f1e99187d1d

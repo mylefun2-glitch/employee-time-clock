@@ -80,8 +80,44 @@ async function getRecalculatedLeaveDeduction(prisma, employeeId, year, month, ba
   return Math.round(hourlyLeaveRate * totalWeightedHours);
 }
 
+// Helper to fetch versioned standard daily hours from Supabase employee_schedules or employees
+async function getStandardHoursForEmployee(employeeName, year, month) {
+  try {
+    const y = parseInt(year);
+    const m = parseInt(month);
+    const monthStr = String(m).padStart(2, '0');
+    const nextMonth = m === 12 ? 1 : m + 1;
+    const nextYear = m === 12 ? y + 1 : y;
+    const lastDay = new Date(nextYear, nextMonth - 1, 0).getDate();
+    const endDate = `${y}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
+
+    const { data: sbEmp } = await supabase
+      .from('employees')
+      .select('id, standard_daily_hours')
+      .eq('name', employeeName)
+      .single();
+    
+    if (sbEmp) {
+      const { data: sbSched } = await supabase
+        .from('employee_schedules')
+        .select('standard_daily_hours')
+        .eq('employee_id', sbEmp.id)
+        .lte('effective_date', endDate)
+        .order('effective_date', { ascending: false })
+        .limit(1);
+      if (sbSched && sbSched.length > 0 && sbSched[0].standard_daily_hours !== null) {
+        return parseFloat(sbSched[0].standard_daily_hours) || 8;
+      }
+      return parseFloat(sbEmp.standard_daily_hours) || 8;
+    }
+  } catch (err) {
+    console.error('Failed to get standard hours for', employeeName, err);
+  }
+  return 8;
+}
+
 // Helper to compute fresh attendance summary for a given employee and month
-async function getFreshAttendanceSummary(prisma, employee, year, month, overrides = {}, settings) {
+async function getFreshAttendanceSummary(prisma, employee, year, month, overrides = {}, settings, standardHoursOverride = null) {
   const y = parseInt(year);
   const m = parseInt(month);
   const monthStr = String(m).padStart(2, '0');
@@ -89,6 +125,11 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
   const nextYear = m === 12 ? y + 1 : y;
   const lastDay = new Date(nextYear, nextMonth - 1, 0).getDate();
   const lastDayStr = String(lastDay).padStart(2, '0');
+
+  let standardHours = standardHoursOverride;
+  if (!standardHours) {
+    standardHours = await getStandardHoursForEmployee(employee.name, y, m);
+  }
 
   // Fetch attendance records from local DB
   const attendanceRecords = await prisma.attendanceRecord.findMany({
@@ -200,7 +241,7 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
       if (day !== 0 && day !== 6) weekdays++;
     }
     workDays = weekdays;
-    regularHours = weekdays * 8;
+    regularHours = weekdays * standardHours;
     
     attendanceRecords.forEach(att => {
       if (att.status === 'absent') {
@@ -229,11 +270,11 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
 
     if (isNatHoliday) {
       if (employee.salaryType === 'monthly') {
-        const actualHrs = Math.max(8, otHrs);
+        const actualHrs = Math.max(standardHours, otHrs);
         overtimeHours += actualHrs;
-        overtimeHours200 += 8;
-        if (actualHrs > 8) {
-          overtimeHours134 += (actualHrs - 8);
+        overtimeHours200 += standardHours;
+        if (actualHrs > standardHours) {
+          overtimeHours134 += (actualHrs - standardHours);
         }
       } else {
         overtimeHours += otHrs;
@@ -246,7 +287,7 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
       overtimeHours += otHrs;
       const ot134 = Math.min(2, otHrs);
       const ot167 = Math.min(6, Math.max(0, otHrs - 2));
-      const ot267 = Math.max(0, otHrs - 8);
+      const ot267 = Math.max(0, otHrs - standardHours);
       overtimeHours134 += ot134;
       overtimeHours167 += ot167;
       overtimeHours267 += ot267;
@@ -290,7 +331,7 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
     const otherAllowance = overrides.otherAllowance !== undefined ? overrides.otherAllowance : (employee.otherAllowance || 0);
     const bonus = overrides.bonus !== undefined ? overrides.bonus : 0;
 
-    const hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / 240;
+    const hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / (30 * standardHours);
     let totalWeightedHours = 0;
     normalLeaves.forEach(l => {
       const hours = l.days * 8;
@@ -362,7 +403,8 @@ async function fetchActiveSchedulesForMonth(y, m) {
             : (parseFloat(sched.base_salary) || 0),
           allowanceManager: parseFloat(sched.allowance_manager) || 0,
           allowanceLicense: parseFloat(sched.allowance_license) || 0,
-          otherAllowance: parseFloat(sched.other_allowance) || 0
+          otherAllowance: parseFloat(sched.other_allowance) || 0,
+          standardDailyHours: parseFloat(sched.standard_daily_hours) || 8
         };
       }
     });
@@ -498,6 +540,16 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
     console.log('[Calc] Fetching active schedules for month...');
     const activeSchedules = await fetchActiveSchedulesForMonth(y, m);
     console.log('[Calc] Active schedules fetched. Count keys:', Object.keys(activeSchedules).length);
+
+    // Fetch all employees' standard_daily_hours from Supabase for fallback
+    console.log('[Calc] Fetching employees standard daily hours from Supabase...');
+    const { data: sbEmps } = await supabase.from('employees').select('name, standard_daily_hours');
+    const empHoursMap = {};
+    if (sbEmps) {
+      sbEmps.forEach(e => {
+        empHoursMap[e.name] = parseFloat(e.standard_daily_hours) || 8;
+      });
+    }
 
     // Get settings
     console.log('[Calc] Querying system settings...');
@@ -678,6 +730,14 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
 
       let currentEmp = emp;
       const activeSched = activeSchedules[emp.employeeNo];
+      let standardHours = 8;
+      if (activeSched && activeSched.standardDailyHours !== undefined) {
+        standardHours = activeSched.standardDailyHours;
+      } else {
+        standardHours = empHoursMap[emp.name] || 8;
+      }
+      currentEmp.standardDailyHours = standardHours;
+
       if (activeSched) {
         currentEmp = {
           ...emp,
@@ -781,7 +841,7 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
 
       // Daily rate for leave deduction (monthly employee)
       const currentBonus = existingRecord ? (existingRecord.bonus || 0) : 0;
-      const hourlyLeaveRate = (currentEmp.baseSalary + (currentEmp.allowanceAA || 0) + (currentEmp.allowanceLicense || 0) + (currentEmp.allowanceManager || 0) + (currentEmp.otherAllowance || 0) + currentBonus) / 240;
+      const hourlyLeaveRate = (currentEmp.baseSalary + (currentEmp.allowanceAA || 0) + (currentEmp.allowanceLicense || 0) + (currentEmp.allowanceManager || 0) + (currentEmp.otherAllowance || 0) + currentBonus) / (30 * standardHours);
 
       // Calculate leave deductions (for monthly) and supplement hours (for hourly)
       if (currentEmp.salaryType === 'monthly') {
@@ -822,11 +882,11 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         if (isNatHoliday) {
           // National Holiday overtime pay logic:
           if (currentEmp.salaryType === 'monthly') {
-            const actualHrs = Math.max(8, otHrs);
+            const actualHrs = Math.max(standardHours, otHrs);
             overtimeHours += actualHrs;
-            overtimeHours200 += 8; // Paid at 1.0x additional
-            if (actualHrs > 8) {
-              overtimeHours134 += (actualHrs - 8); // Paid at 1.334x for hours beyond 8
+            overtimeHours200 += standardHours; // Paid at 1.0x additional
+            if (actualHrs > standardHours) {
+              overtimeHours134 += (actualHrs - standardHours); // Paid at 1.334x for hours beyond standardHours
             }
           } else {
             // Hourly employees: paid at 2.0x
@@ -842,7 +902,7 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
           overtimeHours += otHrs;
           const ot134 = Math.min(2, otHrs);
           const ot167 = Math.min(6, Math.max(0, otHrs - 2));
-          const ot267 = Math.max(0, otHrs - 8);
+          const ot267 = Math.max(0, otHrs - standardHours);
           overtimeHours134 += ot134;
           overtimeHours167 += ot167;
           overtimeHours267 += ot267;
@@ -887,7 +947,7 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
           if (day !== 0 && day !== 6) weekdays++;
         }
         workDays = weekdays;
-        regularHours = weekdays * 8;
+        regularHours = weekdays * standardHours;
         
         // Count absent days if any (status is absent)
         attendanceRecords.forEach(att => {
@@ -1588,6 +1648,7 @@ router.get('/:id/pdf', validateId(), async (req, res) => {
       }
     });
 
+    record.employee.standardDailyHours = await getStandardHoursForEmployee(record.employee.name, record.year, record.month);
     const pdfBuffer = await generatePayrollPDF(record, record.employee, settings, leaves);
 
     const filename = `payroll_${record.year}_${record.month}_${record.employee.name}.pdf`;
@@ -1653,6 +1714,16 @@ router.post('/batch-pdf', async (req, res) => {
       res.setHeader('Content-Disposition', `attachment; filename=payroll_slips_batch.pdf`);
       res.send(combinedBuffer);
     });
+
+    // Fetch and cache standard daily hours for batch records
+    const standardHoursCache = {};
+    for (const record of records) {
+      const cacheKey = `${record.employee.name}_${record.year}_${record.month}`;
+      if (standardHoursCache[cacheKey] === undefined) {
+        standardHoursCache[cacheKey] = await getStandardHoursForEmployee(record.employee.name, record.year, record.month);
+      }
+      record.employee.standardDailyHours = standardHoursCache[cacheKey];
+    }
 
     records.forEach((record, index) => {
       if (index > 0) doc.addPage();

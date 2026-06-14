@@ -180,7 +180,7 @@ export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}, lea
     averageHourlyRate = parseFloat(averageHourlyRate.toFixed(2));
   } else if (employee.salaryType === 'monthly') {
     const fixedMonthly = payrollRecord.baseSalary + payrollRecord.allowanceAA + payrollRecord.allowanceLicense + payrollRecord.allowanceManager + payrollRecord.otherAllowance;
-    averageHourlyRate = parseFloat((fixedMonthly / 240).toFixed(2));
+    averageHourlyRate = parseFloat((fixedMonthly / (30 * (employee.standardDailyHours || 8))).toFixed(2));
   }
 
   const otList = [
@@ -304,15 +304,16 @@ export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}, lea
     });
 
     if (payrollRecord.leaveDeduction > 0 && normalLeaves.length > 0) {
+      const standardHours = employee.standardDailyHours || 8;
       const totalWeightedHours = normalLeaves.reduce((sum, l) => sum + (l.days * 8 * getLeaveRate(l.leaveType)), 0);
-      const formulaText = `● 請假扣薪計算公式：round( 薪資總額 ${formatAmount(fixedAdd)} / 30 / 8 × Sum(時數 × 扣薪比例) )`;
+      const formulaText = `● 請假扣薪計算公式：round( 薪資總額 ${formatAmount(fixedAdd)} / 30 / ${standardHours} × Sum(時數 × 扣薪比例) )`;
       doc.text(formulaText, 50, notesY);
       notesY += 14;
 
       const detailParts = normalLeaves.map(l => `${l.leaveType} ${l.days * 8}H × ${Math.round(getLeaveRate(l.leaveType) * 100)}%`);
-      doc.text(`  計算方式：round( ${formatAmount(fixedAdd)} / 240 × (${detailParts.join(' + ')}) )`, 50, notesY);
+      doc.text(`  計算方式：round( ${formatAmount(fixedAdd)} / ${30 * standardHours} × (${detailParts.join(' + ')}) )`, 50, notesY);
       notesY += 14;
-      doc.text(`  = round( ${formatAmount(fixedAdd)} / 240 × ${totalWeightedHours}H ) = -${formatAmount(payrollRecord.leaveDeduction)} 元`, 50, notesY);
+      doc.text(`  = round( ${formatAmount(fixedAdd)} / ${30 * standardHours} × ${totalWeightedHours}H ) = -${formatAmount(payrollRecord.leaveDeduction)} 元`, 50, notesY);
       notesY += 14;
     } else if (payrollRecord.leaveDeduction > 0) {
       const hours = payrollRecord.leaveDays * 8;
