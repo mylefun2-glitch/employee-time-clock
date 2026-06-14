@@ -17,6 +17,13 @@ import { ensureFontDownloaded } from './services/pdfGenerator.js';
 
 dotenv.config();
 
+// Ensure DATABASE_URL specifies schema=payroll for PostgreSQL if not already present
+if (process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('postgres:') || process.env.DATABASE_URL.startsWith('postgresql:')) && !process.env.DATABASE_URL.includes('schema=')) {
+  const separator = process.env.DATABASE_URL.includes('?') ? '&' : '?';
+  process.env.DATABASE_URL = `${process.env.DATABASE_URL}${separator}schema=payroll`;
+  console.log('[Prisma] Appended schema=payroll to DATABASE_URL');
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
