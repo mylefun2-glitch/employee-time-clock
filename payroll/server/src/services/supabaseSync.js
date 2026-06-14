@@ -8,7 +8,15 @@ const lastAttendanceSyncs = {};
 const SYNC_COOLDOWN_MS = 30 * 1000; // 30 seconds cooldown
 
 /**
- * Sync employees from Supabase to SQLite.
+ * Sync employees from Supabase to local DB (PostgreSQL via Prisma).
+ *
+ * Protection logic:
+ *   - The `update` branch only writes Supabase-authoritative fields (name, dept, salary, etc.)
+ *     and deliberately does NOT touch payroll-only fields (dependents, exemptions, grades, etc.)
+ *     so manual settings are never overwritten by a sync.
+ *   - The `create` branch (triggered when employeeNo changes, e.g. username update in Supabase)
+ *     attempts to inherit payroll parameters from the best-matching existing employee record
+ *     (matched by email → name) to prevent them from being reset to 0.
  */
 export async function syncEmployees(force = false) {
   const now = Date.now();
@@ -30,11 +38,70 @@ export async function syncEmployees(force = false) {
 
     console.log(`Fetched ${sbEmployees.length} employees from Supabase.`);
 
+    // Pre-load ALL local employees (including inactive) to enable parameter inheritance.
+    // This protects against username changes that generate a new employeeNo and would otherwise
+    // create a new record with all payroll fields reset to 0.
+    const allLocalEmployees = await prisma.employee.findMany();
+
+    // Build lookup maps for fast matching
+    const localByEmployeeNo = {};
+    const localByEmail = {};
+    const localByName = {};
+    for (const emp of allLocalEmployees) {
+      localByEmployeeNo[emp.employeeNo] = emp;
+      if (emp.email) {
+        localByEmail[emp.email.toLowerCase()] = emp;
+      }
+      if (emp.name) {
+        if (!localByName[emp.name]) localByName[emp.name] = [];
+        localByName[emp.name].push(emp);
+      }
+    }
+
+    // Payroll-only fields that must be inherited and never reset to 0 by sync
+    const PAYROLL_FIELDS = [
+      'dependents',
+      'healthDisabilityExemption',
+      'laborDisabilityExemption',
+      'healthGovSubsidy',
+      'laborInsuranceGrade',
+      'laborOccupationalGrade',
+      'healthInsuranceGrade',
+      'laborPensionGrade',
+      'voluntaryPensionRate',
+      'supplementaryHealthInsurance',
+      'prevInsuranceDifference',
+      'leavePaySupplement',
+      'allowanceAA',
+      'mealAllowance',
+      'transportAllowance',
+    ];
+
+    /**
+     * Find the best local employee record to inherit payroll parameters from.
+     * Priority: exact employeeNo match → email match → name match (active preferred).
+     */
+    function findInheritSource(sbEmp, targetEmployeeNo) {
+      if (localByEmployeeNo[targetEmployeeNo]) {
+        return localByEmployeeNo[targetEmployeeNo];
+      }
+      const email = (sbEmp.gmail || sbEmp.username || '').toLowerCase();
+      if (email && localByEmail[email]) {
+        return localByEmail[email];
+      }
+      const nameCandidates = localByName[sbEmp.name] || [];
+      if (nameCandidates.length > 0) {
+        const active = nameCandidates.find(e => e.isActive);
+        return active || nameCandidates[0];
+      }
+      return null;
+    }
+
     let syncedCount = 0;
     const syncedEmployeeNos = [];
 
     for (const sbEmp of sbEmployees) {
-      // Generate a clean employee no if not present
+      // Generate a clean employee no from username
       let employeeNo = '';
       if (sbEmp.username && sbEmp.username.includes('@')) {
         employeeNo = sbEmp.username.split('@')[0].toUpperCase();
@@ -53,7 +120,29 @@ export async function syncEmployees(force = false) {
       const allowanceLicenseVal = parseFloat(sbEmp.allowance_license) || 0;
       const otherAllowanceVal = parseFloat(sbEmp.other_allowance) || 0;
 
-      // Upsert into local SQLite Employee table
+      // Find a local record to inherit payroll parameters from (used only for `create` path)
+      const inheritSource = findInheritSource(sbEmp, employeeNo);
+
+      // Build inherited payroll params
+      const inheritedParams = {};
+      if (inheritSource) {
+        for (const field of PAYROLL_FIELDS) {
+          const val = inheritSource[field];
+          if (val !== undefined && val !== null) {
+            inheritedParams[field] = val;
+          }
+        }
+        if (inheritSource.notes) inheritedParams.notes = inheritSource.notes;
+      }
+
+      // Supabase-side bank info is authoritative, fall back to inherited values
+      const bankName = sbEmp.bank_name || (inheritSource && inheritSource.bankName) || null;
+      const bankAccount = sbEmp.bank_account || (inheritSource && inheritSource.bankAccount) || null;
+
+      // Upsert into local Employee table
+      // IMPORTANT: The `update` block deliberately omits all payroll-only fields so
+      // that manually configured values (dependents, exemptions, grades, etc.) are
+      // never overwritten by a routine sync from Supabase.
       await prisma.employee.upsert({
         where: { employeeNo },
         update: {
@@ -66,7 +155,7 @@ export async function syncEmployees(force = false) {
           email: sbEmp.gmail || sbEmp.username || null,
           department: sbEmp.department || '未核定',
           position: sbEmp.position || '員工',
-           hireDate: sbEmp.join_date || new Date().toISOString().split('T')[0],
+          hireDate: sbEmp.join_date || new Date().toISOString().split('T')[0],
           resignDate: sbEmp.insurance_end_date || null,
           salaryType,
           baseSalary: baseSalaryVal,
@@ -74,8 +163,10 @@ export async function syncEmployees(force = false) {
           allowanceLicense: allowanceLicenseVal,
           otherAllowance: otherAllowanceVal,
           isActive: sbEmp.is_active !== false,
-          bankName: sbEmp.bank_name || null,
-          bankAccount: sbEmp.bank_account || null,
+          bankName,
+          bankAccount,
+          // Payroll-only fields (dependents, exemptions, insurance grades, etc.) are
+          // intentionally NOT listed here – they are preserved as-is on every sync.
         },
         create: {
           employeeNo,
@@ -95,13 +186,41 @@ export async function syncEmployees(force = false) {
           allowanceManager: allowanceManagerVal,
           allowanceLicense: allowanceLicenseVal,
           otherAllowance: otherAllowanceVal,
-          mealAllowance: 0,
-          transportAllowance: 0,
+          // These salary component fields fall back to inherited values (not 0)
+          mealAllowance: inheritedParams.mealAllowance ?? 0,
+          transportAllowance: inheritedParams.transportAllowance ?? 0,
+          allowanceAA: inheritedParams.allowanceAA ?? 0,
           isActive: sbEmp.is_active !== false,
-          bankName: sbEmp.bank_name || null,
-          bankAccount: sbEmp.bank_account || null,
+          bankName,
+          bankAccount,
+          // Inherit payroll-only fields from previous matching record
+          // This prevents dependents/exemptions from being reset when username changes
+          dependents: inheritedParams.dependents ?? 0,
+          healthDisabilityExemption: inheritedParams.healthDisabilityExemption ?? 0,
+          laborDisabilityExemption: inheritedParams.laborDisabilityExemption ?? 0,
+          healthGovSubsidy: inheritedParams.healthGovSubsidy ?? 0,
+          laborInsuranceGrade: inheritedParams.laborInsuranceGrade ?? 0,
+          laborOccupationalGrade: inheritedParams.laborOccupationalGrade ?? 0,
+          healthInsuranceGrade: inheritedParams.healthInsuranceGrade ?? 0,
+          laborPensionGrade: inheritedParams.laborPensionGrade ?? 0,
+          voluntaryPensionRate: inheritedParams.voluntaryPensionRate ?? 0,
+          supplementaryHealthInsurance: inheritedParams.supplementaryHealthInsurance ?? 0,
+          prevInsuranceDifference: inheritedParams.prevInsuranceDifference ?? 0,
+          leavePaySupplement: inheritedParams.leavePaySupplement ?? 0,
+          notes: inheritedParams.notes ?? null,
         }
       });
+
+      // Log inheritance event for traceability
+      if (inheritSource && inheritSource.employeeNo !== employeeNo) {
+        console.log(
+          `[Sync] ⚠️  Inherited payroll params for ${sbEmp.name}` +
+          ` (old employeeNo: ${inheritSource.employeeNo} → new: ${employeeNo})` +
+          ` | dependents=${inheritedParams.dependents ?? 0}` +
+          ` | healthExemption=${inheritedParams.healthDisabilityExemption ?? 0}` +
+          ` | laborExemption=${inheritedParams.laborDisabilityExemption ?? 0}`
+        );
+      }
 
       syncedCount++;
     }
@@ -117,7 +236,7 @@ export async function syncEmployees(force = false) {
     });
 
     lastEmployeeSync = Date.now();
-    console.log(`Successfully synced ${syncedCount} employees to SQLite.`);
+    console.log(`Successfully synced ${syncedCount} employees to local DB.`);
     return syncedCount;
   } catch (err) {
     console.error('Error syncing employees:', err);
