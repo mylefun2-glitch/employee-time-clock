@@ -343,11 +343,16 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
       });
 
       // 2. Fetch leave requests from Supabase for this period (overlapping with the month)
+      //    IMPORTANT: Filter out `is_modified = true` records.
+      //    When a leave request is modified, Supabase keeps the original with is_modified=true
+      //    and creates a new replacement record with is_modified=false.
+      //    Only the replacement (is_modified=false) should be counted for payroll purposes.
       let leaveQuery = supabase
         .from('leave_requests')
         .select('*, leave_types(code, name)')
         .lte('start_date', `${endDate}T23:59:59`)
-        .gte('end_date', `${startDate}T00:00:00`);
+        .gte('end_date', `${startDate}T00:00:00`)
+        .or('is_modified.eq.false,is_modified.is.null');  // Exclude superseded originals
       
       if (targetSbUuid) {
         leaveQuery = leaveQuery.eq('employee_id', targetSbUuid);
