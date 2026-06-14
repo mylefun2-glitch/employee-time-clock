@@ -52,8 +52,8 @@ export function getPayrollSummary(params = {}) {
   return get('/payroll/summary', params);
 }
 
-export function batchUpdateAdjustments(year, month, adjustments) {
-  return post('/payroll/batch-update-adjustments', { year, month, adjustments });
+export function batchUpdateAdjustments(year, month, adjustments, skipSync = false) {
+  return post('/payroll/batch-update-adjustments', { year, month, adjustments, skipSync });
 }
 
 export default {

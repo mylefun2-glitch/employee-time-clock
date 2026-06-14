@@ -1,4 +1,4 @@
-import { get, post, put } from './api';
+import { get, post, put, del } from './api';
 
 export function getPayrolls(params = {}) {
   return get('/payroll', params);
@@ -20,6 +20,10 @@ export function lockPayroll(id) {
   return post(`/payroll/${id}/lock`);
 }
 
+export function unlockPayroll(id) {
+  return post(`/payroll/${id}/unlock`);
+}
+
 export function approvePayroll(id) {
   return post(`/payroll/${id}/approve`);
 }
@@ -32,6 +36,14 @@ export function batchApprove(ids) {
   return post('/payroll/batch-approve', { ids });
 }
 
+export function deletePayroll(id) {
+  return del(`/payroll/${id}`);
+}
+
+export function batchDelete(ids) {
+  return post('/payroll/batch-delete', { ids });
+}
+
 export function downloadPayrollPDF(id) {
   return get(`/payroll/${id}/pdf`);
 }
@@ -40,15 +52,23 @@ export function getPayrollSummary(params = {}) {
   return get('/payroll/summary', params);
 }
 
+export function batchUpdateAdjustments(year, month, adjustments, skipSync = false) {
+  return post('/payroll/batch-update-adjustments', { year, month, adjustments, skipSync });
+}
+
 export default {
   getPayrolls,
   getPayroll,
   calculatePayroll,
   updatePayroll,
   lockPayroll,
+  unlockPayroll,
   approvePayroll,
   batchLock,
   batchApprove,
+  deletePayroll,
+  batchDelete,
   downloadPayrollPDF,
   getPayrollSummary,
+  batchUpdateAdjustments,
 };

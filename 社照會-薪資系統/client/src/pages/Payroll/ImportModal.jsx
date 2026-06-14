@@ -7,6 +7,8 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
   const [file, setFile] = useState(null);
   const [previewData, setPreviewData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importStatusText, setImportStatusText] = useState('');
   const fileInputRef = useRef(null);
 
   const handleDownloadTemplate = () => {
@@ -273,19 +275,42 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
     }
 
     setLoading(true);
+    setImportProgress(0);
+    setImportStatusText('開始匯入與重新計算...');
+    
+    let processed = 0;
     try {
-      await payrollService.batchUpdateAdjustments(year, month, validAdjustments);
-      alert(`成功匯入 ${validAdjustments.length} 筆獎金與津貼調整！`);
-      setFile(null);
-      setPreviewData([]);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      onImportSuccess();
-      onClose();
+      const chunkSize = 10;
+      const total = validAdjustments.length;
+
+      for (let i = 0; i < total; i += chunkSize) {
+        const chunk = validAdjustments.slice(i, i + chunkSize);
+        setImportStatusText(`正在處理與重新計算第 ${processed + 1} 到 ${Math.min(processed + chunkSize, total)} 筆資料...`);
+        
+        // Only trigger Supabase sync on the first chunk to optimize performance
+        const skipSync = i > 0;
+        await payrollService.batchUpdateAdjustments(year, month, chunk, skipSync);
+        
+        processed += chunk.length;
+        setImportProgress(Math.round((processed / total) * 100));
+      }
+
+      setImportStatusText('匯入與計算完成！');
+      setTimeout(() => {
+        alert(`成功匯入 ${validAdjustments.length} 筆獎金與津貼調整！`);
+        setFile(null);
+        setPreviewData([]);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        onImportSuccess();
+        onClose();
+      }, 500);
     } catch (err) {
       console.error(err);
-      alert(err.message || '匯入失敗');
+      alert((err.message || '匯入失敗') + ` (已成功處理 ${processed} 筆)`);
     } finally {
       setLoading(false);
+      setImportProgress(0);
+      setImportStatusText('');
     }
   };
 
@@ -345,6 +370,24 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        {loading && (
+          <div style={{ 
+            padding: 'var(--space-4)', 
+            backgroundColor: 'var(--color-neutral-50)', 
+            borderRadius: 'var(--radius-lg)', 
+            border: '1px solid var(--color-neutral-200)',
+            boxShadow: 'var(--shadow-sm)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-2)' }}>
+              <span style={{ fontWeight: '600', color: 'var(--color-neutral-700)' }}>{importStatusText}</span>
+              <span style={{ fontWeight: 'bold', color: 'var(--color-primary-600, #2563eb)' }}>{importProgress}%</span>
+            </div>
+            <div style={{ width: '100%', height: '8px', backgroundColor: 'var(--color-neutral-200)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: `${importProgress}%`, height: '100%', backgroundColor: 'var(--color-primary-600, #2563eb)', transition: 'width 0.3s ease-out' }}></div>
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-4)' }}>
           <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-neutral-600)', flex: 1 }}>
             說明：請上傳包含工號、姓名、獎金 (如績效獎金)、AA加給、證照加給、其他津貼等欄位的 Excel 試算表。系統將自動比對本月已生成的薪資明細草稿並填入，並進行重新計算。
@@ -355,6 +398,7 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
             icon="download" 
             onClick={handleDownloadTemplate}
             title="下載範例檔案"
+            disabled={loading}
           />
         </div>
 
@@ -364,9 +408,10 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
           padding: 'var(--space-6)', 
           textAlign: 'center', 
           backgroundColor: 'var(--color-neutral-50)',
-          cursor: 'pointer'
+          cursor: loading ? 'not-allowed' : 'pointer',
+          opacity: loading ? 0.6 : 1
         }}
-        onClick={() => fileInputRef.current && fileInputRef.current.click()}
+        onClick={() => !loading && fileInputRef.current && fileInputRef.current.click()}
         >
           <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--color-neutral-400)' }}>
             description
@@ -380,6 +425,7 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
             onChange={handleFileChange} 
             accept=".xlsx, .xls" 
             style={{ display: 'none' }} 
+            disabled={loading}
           />
         </div>
 

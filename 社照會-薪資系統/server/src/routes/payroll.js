@@ -1295,7 +1295,7 @@ router.post('/:id/approve', validateId(), approveHandler);
  */
 router.post('/batch-update-adjustments', async (req, res) => {
   try {
-    const { year, month, adjustments } = req.body;
+    const { year, month, adjustments, skipSync } = req.body;
     if (!year || !month || !Array.isArray(adjustments)) {
       return res.status(400).json({ error: '請提供年份、月份與調整陣列' });
     }
@@ -1304,7 +1304,9 @@ router.post('/batch-update-adjustments', async (req, res) => {
     const m = parseInt(month);
 
     // Sync attendance logs and approved leaves from Supabase first
-    await syncAttendanceAndLeaves(y, m).catch(err => console.error("Sync attendance/leaves failed:", err));
+    if (!skipSync) {
+      await syncAttendanceAndLeaves(y, m).catch(err => console.error("Sync attendance/leaves failed:", err));
+    }
 
     // Get settings
     const rawSettings = await req.prisma.systemSetting.findMany();
