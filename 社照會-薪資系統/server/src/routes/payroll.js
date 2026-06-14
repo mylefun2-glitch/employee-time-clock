@@ -917,12 +917,12 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         bonus: existingRecord ? existingRecord.bonus : 0,
         retroPay: existingRecord ? existingRecord.retroPay : 0,
         otherDeductions: existingRecord ? existingRecord.otherDeductions : 0,
-        supplementaryHealthInsurance: existingRecord ? existingRecord.supplementaryHealthInsurance : undefined,
-        prevInsuranceDifference: existingRecord ? existingRecord.prevInsuranceDifference : undefined,
-        healthDisabilityExemption: existingRecord ? existingRecord.healthDisabilityExemption : undefined,
-        laborDisabilityExemption: existingRecord ? existingRecord.laborDisabilityExemption : undefined,
-        healthGovSubsidy: existingRecord ? existingRecord.healthGovSubsidy : undefined,
-        leavePaySupplement: existingRecord ? existingRecord.leavePaySupplement : undefined,
+        supplementaryHealthInsurance: (existingRecord && existingRecord.supplementaryHealthInsurance !== 0) ? existingRecord.supplementaryHealthInsurance : undefined,
+        prevInsuranceDifference: (existingRecord && existingRecord.prevInsuranceDifference !== 0) ? existingRecord.prevInsuranceDifference : undefined,
+        healthDisabilityExemption: (existingRecord && existingRecord.healthDisabilityExemption !== 0) ? existingRecord.healthDisabilityExemption : undefined,
+        laborDisabilityExemption: (existingRecord && existingRecord.laborDisabilityExemption !== 0) ? existingRecord.laborDisabilityExemption : undefined,
+        healthGovSubsidy: (existingRecord && existingRecord.healthGovSubsidy !== 0) ? existingRecord.healthGovSubsidy : undefined,
+        leavePaySupplement: (existingRecord && existingRecord.leavePaySupplement !== 0) ? existingRecord.leavePaySupplement : undefined,
       };
 
       const payDetails = calculatePayroll(currentEmp, attendanceSummary, settings);
@@ -1349,18 +1349,18 @@ router.post('/batch-update-adjustments', async (req, res) => {
       const updatedMeal = mealAllowance !== undefined ? parseFloat(mealAllowance) : payrollRecord.mealAllowance;
       const updatedNotes = notes !== undefined ? notes : payrollRecord.notes;
 
-      const updatedSuppHealth = supplementaryHealthInsurance !== undefined ? parseFloat(supplementaryHealthInsurance) : payrollRecord.supplementaryHealthInsurance;
-      const updatedPrevDiff = prevInsuranceDifference !== undefined ? parseFloat(prevInsuranceDifference) : payrollRecord.prevInsuranceDifference;
-      const updatedExemption = healthDisabilityExemption !== undefined ? parseFloat(healthDisabilityExemption) : payrollRecord.healthDisabilityExemption;
-      const updatedLaborExemption = laborDisabilityExemption !== undefined ? parseFloat(laborDisabilityExemption) : payrollRecord.laborDisabilityExemption;
-      const updatedSubsidy = healthGovSubsidy !== undefined ? parseFloat(healthGovSubsidy) : payrollRecord.healthGovSubsidy;
-      const updatedLeaveSupp = leavePaySupplement !== undefined ? parseFloat(leavePaySupplement) : payrollRecord.leavePaySupplement;
+      const updatedSuppHealth = supplementaryHealthInsurance !== undefined ? parseFloat(supplementaryHealthInsurance) : (payrollRecord.supplementaryHealthInsurance !== 0 ? payrollRecord.supplementaryHealthInsurance : emp.supplementaryHealthInsurance);
+      const updatedPrevDiff = prevInsuranceDifference !== undefined ? parseFloat(prevInsuranceDifference) : (payrollRecord.prevInsuranceDifference !== 0 ? payrollRecord.prevInsuranceDifference : emp.prevInsuranceDifference);
+      const updatedExemption = healthDisabilityExemption !== undefined ? parseFloat(healthDisabilityExemption) : (payrollRecord.healthDisabilityExemption !== 0 ? payrollRecord.healthDisabilityExemption : emp.healthDisabilityExemption);
+      const updatedLaborExemption = laborDisabilityExemption !== undefined ? parseFloat(laborDisabilityExemption) : (payrollRecord.laborDisabilityExemption !== 0 ? payrollRecord.laborDisabilityExemption : emp.laborDisabilityExemption);
+      const updatedSubsidy = healthGovSubsidy !== undefined ? parseFloat(healthGovSubsidy) : (payrollRecord.healthGovSubsidy !== 0 ? payrollRecord.healthGovSubsidy : emp.healthGovSubsidy);
+      const updatedLeaveSupp = leavePaySupplement !== undefined ? parseFloat(leavePaySupplement) : (payrollRecord.leavePaySupplement !== 0 ? payrollRecord.leavePaySupplement : emp.leavePaySupplement);
 
       const updatedOtherDeductions = otherDeductions !== undefined ? parseFloat(otherDeductions) : payrollRecord.otherDeductions;
-      const updatedLaborGrade = laborInsuranceGrade !== undefined ? parseFloat(laborInsuranceGrade) : payrollRecord.laborInsuranceGrade;
-      const updatedOccupationalGrade = laborOccupationalGrade !== undefined ? parseFloat(laborOccupationalGrade) : payrollRecord.laborOccupationalGrade;
-      const updatedHealthGrade = healthInsuranceGrade !== undefined ? parseFloat(healthInsuranceGrade) : payrollRecord.healthInsuranceGrade;
-      const updatedPensionGrade = laborPensionGrade !== undefined ? parseFloat(laborPensionGrade) : payrollRecord.laborPensionGrade;
+      const updatedLaborGrade = laborInsuranceGrade !== undefined ? parseFloat(laborInsuranceGrade) : (payrollRecord.laborInsuranceGrade !== 0 ? payrollRecord.laborInsuranceGrade : emp.laborInsuranceGrade);
+      const updatedOccupationalGrade = laborOccupationalGrade !== undefined ? parseFloat(laborOccupationalGrade) : (payrollRecord.laborOccupationalGrade !== 0 ? payrollRecord.laborOccupationalGrade : emp.laborOccupationalGrade);
+      const updatedHealthGrade = healthInsuranceGrade !== undefined ? parseFloat(healthInsuranceGrade) : (payrollRecord.healthInsuranceGrade !== 0 ? payrollRecord.healthInsuranceGrade : emp.healthInsuranceGrade);
+      const updatedPensionGrade = laborPensionGrade !== undefined ? parseFloat(laborPensionGrade) : (payrollRecord.laborPensionGrade !== 0 ? payrollRecord.laborPensionGrade : emp.laborPensionGrade);
 
       const freshAttendance = await getFreshAttendanceSummary(
         req.prisma,
