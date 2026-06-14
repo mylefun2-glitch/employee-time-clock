@@ -91,6 +91,8 @@ router.post('/', sanitizeBody, requireFields('employeeNo', 'name', 'department',
       mealAllowance, transportAllowance, otherAllowance,
       laborInsuranceGrade, healthInsuranceGrade, laborPensionGrade,
       voluntaryPensionRate, dependents, bankAccount, bankName, notes,
+      supplementaryHealthInsurance, prevInsuranceDifference,
+      healthDisabilityExemption, laborDisabilityExemption, healthGovSubsidy, leavePaySupplement
     } = req.body;
 
     // Check for duplicate employee number locally
@@ -163,6 +165,12 @@ router.post('/', sanitizeBody, requireFields('employeeNo', 'name', 'department',
         bankAccount: bankAccount || null,
         bankName: bankName || null,
         notes: notes || null,
+        supplementaryHealthInsurance: parseFloat(supplementaryHealthInsurance) || 0,
+        prevInsuranceDifference: parseFloat(prevInsuranceDifference) || 0,
+        healthDisabilityExemption: parseFloat(healthDisabilityExemption) || 0,
+        laborDisabilityExemption: parseFloat(laborDisabilityExemption) || 0,
+        healthGovSubsidy: parseFloat(healthGovSubsidy) || 0,
+        leavePaySupplement: parseFloat(leavePaySupplement) || 0,
       }
     });
 
@@ -292,7 +300,9 @@ router.put('/:id', validateId(), sanitizeBody, async (req, res) => {
       department, position, hireDate, salaryType, baseSalary,
       mealAllowance, transportAllowance, otherAllowance,
       laborInsuranceGrade, healthInsuranceGrade, laborPensionGrade,
-      voluntaryPensionRate, dependents, bankAccount, bankName, notes, isActive
+      voluntaryPensionRate, dependents, bankAccount, bankName, notes, isActive,
+      supplementaryHealthInsurance, prevInsuranceDifference,
+      healthDisabilityExemption, laborDisabilityExemption, healthGovSubsidy, leavePaySupplement
     } = req.body;
 
     // 1. Update in Supabase (key off their email/username)
@@ -344,7 +354,8 @@ router.put('/:id', validateId(), sanitizeBody, async (req, res) => {
     const numericFields = [
       'baseSalary', 'mealAllowance', 'transportAllowance', 'otherAllowance',
       'laborInsuranceGrade', 'healthInsuranceGrade', 'laborPensionGrade',
-      'voluntaryPensionRate',
+      'voluntaryPensionRate', 'supplementaryHealthInsurance', 'prevInsuranceDifference',
+      'healthDisabilityExemption', 'laborDisabilityExemption', 'healthGovSubsidy', 'leavePaySupplement'
     ];
     const intFields = ['dependents'];
 

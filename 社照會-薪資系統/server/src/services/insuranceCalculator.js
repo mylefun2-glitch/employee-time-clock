@@ -275,11 +275,16 @@ export function calculateAllInsurance(employee, settings = {}, days = 30, isMidM
   const laborInsurance = calculateLaborInsurance(laborInsuredSalary, rates, days);
   const healthInsurance = calculateHealthInsurance(healthInsuredSalary, employee.dependents || 0, rates);
 
-  // Apply disability exemption and government subsidy to employee premium
-  const exemption = parseFloat(employee.healthDisabilityExemption) || 0;
-  const subsidy = parseFloat(employee.healthGovSubsidy) || 0;
+  // Apply disability exemption and government subsidy to employee premium (Health)
+  const healthExemption = parseFloat(employee.healthDisabilityExemption) || 0;
+  const healthSubsidy = parseFloat(employee.healthGovSubsidy) || 0;
   healthInsurance.basePremium = healthInsurance.employeePremium; // Save original
-  healthInsurance.employeePremium = Math.max(0, Math.round(healthInsurance.employeePremium * (1 - exemption)) - subsidy);
+  healthInsurance.employeePremium = Math.max(0, Math.round(healthInsurance.employeePremium * (1 - healthExemption)) - healthSubsidy);
+
+  // Apply disability exemption to employee premium (Labor)
+  const laborExemption = parseFloat(employee.laborDisabilityExemption) || 0;
+  laborInsurance.basePremium = laborInsurance.employeePremium; // Save original
+  laborInsurance.employeePremium = Math.max(0, Math.round(laborInsurance.employeePremium * (1 - laborExemption)));
 
   if (isMidMonthResigned) {
     healthInsurance.employeePremium = 0;

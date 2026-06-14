@@ -44,6 +44,8 @@ model Employee {
   healthInsuranceGrade Float   @default(0) // Health insurance insured salary grade (健保投保薪資)
   laborPensionGrade   Float    @default(0) // Labor pension contribution grade (勞退提繳薪資)
   voluntaryPensionRate Float   @default(0) // Employee voluntary pension rate 0-6% (自提比率)
+  healthDisabilityExemption    Float    @default(0) // Health insurance disability exemption ratio 0-1.0 (身障減免)
+  laborDisabilityExemption     Float    @default(0) // Labor insurance disability exemption ratio 0-1.0 (勞保身障減免)
   dependents          Int      @default(0) // Number of dependents for tax/insurance (扶養人數)
   bankAccount         String?  // Bank account number (銀行帳號)
   bankName            String?  // Bank name (銀行名稱)
@@ -108,6 +110,8 @@ model PayrollRecord {
   otherAllowance        Float    @default(0) // Other allowances (其他津貼)
   bonus                 Float    @default(0) // Bonus (獎金)
   retroPay              Float    @default(0) // Retroactive pay (補發薪資)
+  healthDisabilityExemption    Float @default(0) // Health insurance disability exemption ratio 0-1.0 (身障減免)
+  laborDisabilityExemption     Float @default(0) // Labor insurance disability exemption ratio 0-1.0 (勞保身障減免)
   grossPay              Float    @default(0) // Gross pay total (應發薪資總額)
   
   // Attendance summary (出勤概況)

@@ -51,6 +51,7 @@ model Employee {
   supplementaryHealthInsurance Float @default(0) // Supplementary health insurance premium (二代健保)
   prevInsuranceDifference      Float @default(0) // Insurance premium differences from past months (前期勞健退差額)
   healthDisabilityExemption    Float @default(0) // Health insurance disability exemption ratio 0-1.0 (身障減免)
+  laborDisabilityExemption     Float @default(0) // Labor insurance disability exemption ratio 0-1.0 (勞保身障減免)
   healthGovSubsidy             Float @default(0) // Health insurance government flat-rate subsidy (政府補貼定額)
   leavePaySupplement           Float @default(0) // Leave pay supplement for hourly employees (請假補貼薪資)
   dependents          Int      @default(0) // Number of dependents for tax/insurance (扶養人數)
@@ -125,6 +126,7 @@ model PayrollRecord {
   supplementaryHealthInsurance Float @default(0) // Supplementary health insurance premium (二代健保)
   prevInsuranceDifference      Float @default(0) // Insurance premium differences from past months (前期勞健退差額)
   healthDisabilityExemption    Float @default(0) // Health insurance disability exemption ratio 0-1.0 (身障減免)
+  laborDisabilityExemption     Float @default(0) // Labor insurance disability exemption ratio 0-1.0 (勞保身障減免)
   healthGovSubsidy             Float @default(0) // Health insurance government flat-rate subsidy (政府補貼定額)
   grossPay              Float    @default(0) // Gross pay total (應發薪資總額)
   

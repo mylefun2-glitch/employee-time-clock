@@ -45,6 +45,7 @@ export default function PayrollDetail() {
     supplementaryHealthInsurance: '0',
     prevInsuranceDifference: '0',
     healthDisabilityExemption: '0',
+    laborDisabilityExemption: '0',
     healthGovSubsidy: '0',
     leavePaySupplement: '0',
     incomeTax: '0'
@@ -85,6 +86,7 @@ export default function PayrollDetail() {
           supplementaryHealthInsurance: (res.data.supplementaryHealthInsurance || 0).toString(),
           prevInsuranceDifference: (res.data.prevInsuranceDifference || 0).toString(),
           healthDisabilityExemption: (res.data.healthDisabilityExemption || 0).toString(),
+          laborDisabilityExemption: (res.data.laborDisabilityExemption || 0).toString(),
           healthGovSubsidy: (res.data.healthGovSubsidy || 0).toString(),
           leavePaySupplement: (res.data.leavePaySupplement || 0).toString(),
           incomeTax: (res.data.incomeTax || 0).toString()
@@ -125,6 +127,7 @@ export default function PayrollDetail() {
         supplementaryHealthInsurance: parseFloat(editForm.supplementaryHealthInsurance) || 0,
         prevInsuranceDifference: parseFloat(editForm.prevInsuranceDifference) || 0,
         healthDisabilityExemption: parseFloat(editForm.healthDisabilityExemption) || 0,
+        laborDisabilityExemption: parseFloat(editForm.laborDisabilityExemption) || 0,
         healthGovSubsidy: parseFloat(editForm.healthGovSubsidy) || 0,
         leavePaySupplement: parseFloat(editForm.leavePaySupplement) || 0,
         incomeTax: parseFloat(editForm.incomeTax) || 0
@@ -517,16 +520,27 @@ export default function PayrollDetail() {
                     onChange={e => setEditForm(prev => ({ ...prev, otherDeductions: e.target.value }))}
                   />
 
-                  <h4 style={{ borderBottom: '1px solid var(--color-neutral-200)', paddingBottom: '4px', margin: '12px 0 4px 0', color: 'var(--color-neutral-700)' }}>健保減免與政府補貼</h4>
-                  <Input
-                    label="健保身障減免比例 (0-1.0)"
-                    type="number"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={editForm.healthDisabilityExemption}
-                    onChange={e => setEditForm(prev => ({ ...prev, healthDisabilityExemption: e.target.value }))}
-                  />
+                  <h4 style={{ borderBottom: '1px solid var(--color-neutral-200)', paddingBottom: '4px', margin: '12px 0 4px 0', color: 'var(--color-neutral-700)' }}>勞健保減免與政府補貼</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                    <Input
+                      label="勞保身障減免比例 (0-1.0)"
+                      type="number"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={editForm.laborDisabilityExemption}
+                      onChange={e => setEditForm(prev => ({ ...prev, laborDisabilityExemption: e.target.value }))}
+                    />
+                    <Input
+                      label="健保身障減免比例 (0-1.0)"
+                      type="number"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={editForm.healthDisabilityExemption}
+                      onChange={e => setEditForm(prev => ({ ...prev, healthDisabilityExemption: e.target.value }))}
+                    />
+                  </div>
                   <Input
                     label="健保政府補貼定額 (元)"
                     type="number"
@@ -946,6 +960,19 @@ export default function PayrollDetail() {
                       </div>
                     )}
                     
+                    {record.laborDisabilityExemption > 0 && (
+                      <div style={{
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--color-neutral-500)',
+                        backgroundColor: 'var(--color-neutral-50)',
+                        border: '1px solid var(--color-neutral-100)',
+                        padding: 'var(--space-2)',
+                        borderRadius: 'var(--radius-sm)',
+                        marginTop: 'var(--space-2)'
+                      }}>
+                        勞保減免：身障減免 {Math.round(record.laborDisabilityExemption * 100)}%
+                      </div>
+                    )}
                     {(record.healthDisabilityExemption > 0 || record.healthGovSubsidy > 0) && (
                       <div style={{
                         fontSize: 'var(--text-xs)',

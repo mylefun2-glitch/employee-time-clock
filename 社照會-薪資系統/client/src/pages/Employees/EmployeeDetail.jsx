@@ -167,8 +167,9 @@ export default function EmployeeDetail() {
               NT$ {Math.round(employee.baseSalary).toLocaleString('zh-TW')}
             </div>
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>勞保投保薪資:</strong> NT$ {Math.round(employee.laborInsuranceGrade).toLocaleString('zh-TW')}</div>
-            <div><strong style={{ color: 'var(--color-neutral-600)' }}>健保投保薪資:</strong> NT$ {Math.round(employee.healthInsuranceGrade).toLocaleString('zh-TW')}</div>
-            <div><strong style={{ color: 'var(--color-neutral-600)' }}>勞退提繳薪資:</strong> NT$ {Math.round(employee.laborPensionGrade).toLocaleString('zh-TW')}</div>
+            <div><strong style={{ color: 'var(--color-neutral-600)' }}>健保身障減免:</strong> {Math.round((employee.healthDisabilityExemption || 0) * 100)} %</div>
+            <div><strong style={{ color: 'var(--color-neutral-600)' }}>勞保身障減免:</strong> {Math.round((employee.laborDisabilityExemption || 0) * 100)} %</div>
+            <div><strong style={{ color: 'var(--color-neutral-600)' }}>健保政府補貼定額:</strong> {Math.round(employee.healthGovSubsidy || 0).toLocaleString('zh-TW')}</div>
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>健保扶養人數:</strong> {employee.dependents} 人</div>
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>自願提繳勞退:</strong> {employee.voluntaryPensionRate} %</div>
           </div>

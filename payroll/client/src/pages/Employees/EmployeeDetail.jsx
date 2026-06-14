@@ -33,6 +33,7 @@ export default function EmployeeDetail() {
     supplementaryHealthInsurance: '0',
     prevInsuranceDifference: '0',
     healthDisabilityExemption: '0',
+    laborDisabilityExemption: '0',
     healthGovSubsidy: '0',
     leavePaySupplement: '0'
   });
@@ -67,6 +68,7 @@ export default function EmployeeDetail() {
           supplementaryHealthInsurance: (res.data.supplementaryHealthInsurance || 0).toString(),
           prevInsuranceDifference: (res.data.prevInsuranceDifference || 0).toString(),
           healthDisabilityExemption: (res.data.healthDisabilityExemption || 0).toString(),
+          laborDisabilityExemption: (res.data.laborDisabilityExemption || 0).toString(),
           healthGovSubsidy: (res.data.healthGovSubsidy || 0).toString(),
           leavePaySupplement: (res.data.leavePaySupplement || 0).toString()
         });
@@ -103,6 +105,7 @@ export default function EmployeeDetail() {
         supplementaryHealthInsurance: parseFloat(formData.supplementaryHealthInsurance) || 0,
         prevInsuranceDifference: parseFloat(formData.prevInsuranceDifference) || 0,
         healthDisabilityExemption: parseFloat(formData.healthDisabilityExemption) || 0,
+        laborDisabilityExemption: parseFloat(formData.laborDisabilityExemption) || 0,
         healthGovSubsidy: parseFloat(formData.healthGovSubsidy) || 0,
         leavePaySupplement: parseFloat(formData.leavePaySupplement) || 0
       });
@@ -276,6 +279,7 @@ export default function EmployeeDetail() {
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>二代健保自付額:</strong> {Math.round(employee.supplementaryHealthInsurance || 0).toLocaleString('zh-TW')}</div>
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>前期勞健退差額:</strong> {Math.round(employee.prevInsuranceDifference || 0).toLocaleString('zh-TW')}</div>
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>健保身障減免:</strong> {Math.round((employee.healthDisabilityExemption || 0) * 100)} %</div>
+            <div><strong style={{ color: 'var(--color-neutral-600)' }}>勞保身障減免:</strong> {Math.round((employee.laborDisabilityExemption || 0) * 100)} %</div>
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>健保政府補貼定額:</strong> {Math.round(employee.healthGovSubsidy || 0).toLocaleString('zh-TW')}</div>
             {employee.salaryType === 'hourly' && <div><strong style={{ color: 'var(--color-neutral-600)' }}>請假補貼薪資:</strong> {Math.round(employee.leavePaySupplement || 0).toLocaleString('zh-TW')}</div>}
           </div>
@@ -502,6 +506,15 @@ export default function EmployeeDetail() {
               step="0.01"
               value={formData.healthDisabilityExemption}
               onChange={e => setFormData(prev => ({ ...prev, healthDisabilityExemption: e.target.value }))}
+            />
+            <Input
+              label="勞保身障減免比例 (0-1.0)"
+              type="number"
+              min="0"
+              max="1"
+              step="0.01"
+              value={formData.laborDisabilityExemption}
+              onChange={e => setFormData(prev => ({ ...prev, laborDisabilityExemption: e.target.value }))}
             />
             <Input
               label="健保政府補貼定額 (元)"

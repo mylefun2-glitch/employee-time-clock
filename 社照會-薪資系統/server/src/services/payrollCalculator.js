@@ -155,6 +155,7 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
     supplementaryHealthInsurance: attendance.supplementaryHealthInsurance !== undefined ? parseFloat(attendance.supplementaryHealthInsurance) : (employee.supplementaryHealthInsurance || 0),
     prevInsuranceDifference: attendance.prevInsuranceDifference !== undefined ? parseFloat(attendance.prevInsuranceDifference) : (employee.prevInsuranceDifference || 0),
     healthDisabilityExemption: attendance.healthDisabilityExemption !== undefined ? parseFloat(attendance.healthDisabilityExemption) : (employee.healthDisabilityExemption || 0),
+    laborDisabilityExemption: attendance.laborDisabilityExemption !== undefined ? parseFloat(attendance.laborDisabilityExemption) : (employee.laborDisabilityExemption || 0),
     healthGovSubsidy: attendance.healthGovSubsidy !== undefined ? parseFloat(attendance.healthGovSubsidy) : (employee.healthGovSubsidy || 0),
   };
 
@@ -328,6 +329,7 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
     supplementaryHealthInsurance,
     prevInsuranceDifference,
     healthDisabilityExemption: empOverride.healthDisabilityExemption,
+    laborDisabilityExemption: empOverride.laborDisabilityExemption,
     healthGovSubsidy: empOverride.healthGovSubsidy,
     grossPay,
     
