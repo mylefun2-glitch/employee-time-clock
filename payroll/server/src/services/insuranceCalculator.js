@@ -139,8 +139,15 @@ export function lookupHealthInsuranceGrade(salary) {
 export function calculateLaborInsurance(insuredSalary, rates = {}, days = 30) {
   const r = { ...DEFAULT_RATES, ...rates };
   
-  // Employee pays: insuredSalary × 12% × 20% = insuredSalary × 2.4%
-  const employeePremium = Math.round(insuredSalary * r.laborInsuranceRate * r.laborInsuranceEmployeeShare * days / 30);
+  // Ordinary accident rate is total rate minus 1% employment insurance rate
+  const ordinaryRate = r.laborInsuranceRate - 0.01;
+  const employmentRate = 0.01;
+
+  const ordinaryPremium = Math.round(insuredSalary * ordinaryRate * r.laborInsuranceEmployeeShare * days / 30);
+  const employmentPremium = Math.round(insuredSalary * employmentRate * r.laborInsuranceEmployeeShare * days / 30);
+  
+  // Employee pays: round(insuredSalary * ordinaryRate * 20%) + round(insuredSalary * employmentRate * 20%)
+  const employeePremium = ordinaryPremium + employmentPremium;
   
   // Employer pays: insuredSalary × 12% × 70% = insuredSalary × 8.4%
   const employerPremium = Math.round(insuredSalary * r.laborInsuranceRate * r.laborInsuranceEmployerShare * days / 30);
