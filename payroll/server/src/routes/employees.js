@@ -6,6 +6,16 @@ import { syncEmployees } from '../services/supabaseSync.js';
 
 const router = Router();
 
+router.get('/debug-db', async (req, res) => {
+  const dbUrl = process.env.DATABASE_URL || 'not set';
+  const maskedUrl = dbUrl.replace(/:([^@:]+)@/, ':*****@');
+  res.json({
+    databaseUrl: maskedUrl,
+    env: process.env.NODE_ENV,
+    port: process.env.PORT,
+  });
+});
+
 // All employee routes require authentication
 router.use(authenticate);
 
