@@ -69,7 +69,7 @@ async function getRecalculatedLeaveDeduction(prisma, employeeId, year, month, ba
 
   leaves.forEach(l => {
     const type = (l.leaveType || '').toLowerCase();
-    const isOfficial = type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現') || type === 'ot' || type === '加班' || type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓');
+    const isOfficial = type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現') || type === 'ot' || type === '加班' || type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓') || type.includes('挪移');
     if (!isOfficial) {
       const hours = l.days * 8;
       const rate = getLeaveRate(l.leaveType);
@@ -157,6 +157,7 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
       type.includes('會議') ||
       type.includes('訓練') ||
       type.includes('培訓') ||
+      type.includes('挪移') ||
       type === 'ob'
     ) {
       // Skip official
@@ -749,6 +750,7 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
           type.includes('會議') ||
           type.includes('訓練') ||
           type.includes('培訓') ||
+          type.includes('挪移') ||
           type === 'ob'
         ) {
           // Skip official business
@@ -1008,6 +1010,7 @@ router.get('/:id', validateId(), async (req, res) => {
     const leaves = await req.prisma.leaveRecord.findMany({
       where: {
         employeeId: record.employeeId,
+        status: 'approved',
         startDate: { lte: endDate },
         endDate: { gte: startDate }
       }
@@ -1551,6 +1554,7 @@ router.get('/:id/pdf', validateId(), async (req, res) => {
     const leaves = await req.prisma.leaveRecord.findMany({
       where: {
         employeeId: record.employeeId,
+        status: 'approved',
         startDate: { lte: endDate },
         endDate: { gte: startDate }
       }
@@ -1602,6 +1606,7 @@ router.post('/batch-pdf', async (req, res) => {
     const leaves = await req.prisma.leaveRecord.findMany({
       where: {
         employeeId: { in: employeeIds },
+        status: 'approved',
         startDate: { lte: `${Math.max(...years)}-${String(Math.max(...months)).padStart(2, '0')}-31` },
         endDate: { gte: `${Math.min(...years)}-${String(Math.min(...months)).padStart(2, '0')}-01` }
       }

@@ -298,7 +298,7 @@ export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}, lea
     const normalLeaves = leaves.filter(l => {
       const type = (l.leaveType || '').toLowerCase();
       const isOt = type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現') || type === 'ot' || type === '加班';
-      const isOfficial = type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓') || type === 'ob';
+      const isOfficial = type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓') || type === 'ob' || type.includes('挪移');
       if (isOt || isOfficial) return false;
       return getLeaveRate(l.leaveType) > 0.0;
     });
