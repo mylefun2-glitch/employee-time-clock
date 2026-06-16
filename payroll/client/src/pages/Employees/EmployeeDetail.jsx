@@ -281,7 +281,6 @@ export default function EmployeeDetail() {
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>健保保費減免:</strong> {Math.round((employee.healthDisabilityExemption || 0) * 100)} %</div>
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>勞保保費減免:</strong> {Math.round((employee.laborDisabilityExemption || 0) * 100)} %</div>
             <div><strong style={{ color: 'var(--color-neutral-600)' }}>健保政府補貼定額:</strong> {Math.round(employee.healthGovSubsidy || 0).toLocaleString('zh-TW')}</div>
-            {employee.salaryType === 'hourly' && <div><strong style={{ color: 'var(--color-neutral-600)' }}>請假補貼薪資:</strong> {Math.round(employee.leavePaySupplement || 0).toLocaleString('zh-TW')}</div>}
           </div>
         </Card>
 
@@ -522,14 +521,6 @@ export default function EmployeeDetail() {
               min="0"
               value={formData.healthGovSubsidy}
               onChange={e => setFormData(prev => ({ ...prev, healthGovSubsidy: e.target.value }))}
-            />
-            <Input
-              label="請假補貼薪資 (時薪) (元)"
-              type="number"
-              min="0"
-              value={formData.leavePaySupplement}
-              onChange={e => setFormData(prev => ({ ...prev, leavePaySupplement: e.target.value }))}
-              disabled={formData.salaryType === 'monthly'}
             />
           </div>
 

@@ -1416,14 +1416,6 @@ export default function PayrollDetail() {
               value={settingsForm.healthGovSubsidy}
               onChange={e => setSettingsForm(prev => ({ ...prev, healthGovSubsidy: e.target.value }))}
             />
-            <Input
-              label="請假補貼薪資 (時薪) (元)"
-              type="number"
-              min="0"
-              value={settingsForm.leavePaySupplement}
-              onChange={e => setSettingsForm(prev => ({ ...prev, leavePaySupplement: e.target.value }))}
-              disabled={settingsForm.salaryType === 'monthly'}
-            />
           </div>
 
           <h4 style={{ margin: 'var(--space-2) 0 0 0', borderBottom: '1px solid var(--color-neutral-200)', paddingBottom: '4px', color: 'var(--color-primary-700)' }}>撥款資訊</h4>

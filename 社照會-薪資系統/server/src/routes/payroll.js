@@ -182,29 +182,12 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
     return rule ? rule.deductionType : 'full';
   };
 
-  // Split leaves into normal leaves, overtime conversion leaves, and special leave cashouts
+  // Split leaves into normal leaves and overtime conversion leaves
   const normalLeaves = [];
   const otLeaves = [];
-  let specialLeavePay = 0;
-
-  // Compute hourly rate for special leave cash-out
-  const baseSalary = overrides.baseSalary !== undefined ? overrides.baseSalary : employee.baseSalary;
-  const allowanceAA = overrides.allowanceAA !== undefined ? overrides.allowanceAA : (employee.allowanceAA || 0);
-  const allowanceLicense = overrides.allowanceLicense !== undefined ? overrides.allowanceLicense : (employee.allowanceLicense || 0);
-  const allowanceManager = overrides.allowanceManager !== undefined ? overrides.allowanceManager : (employee.allowanceManager || 0);
-  const otherAllowance = overrides.otherAllowance !== undefined ? overrides.otherAllowance : (employee.otherAllowance || 0);
-  
-  const fixedMonthly = baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance;
-  const hrRate = employee.salaryType === 'hourly'
-    ? baseSalary
-    : fixedMonthly / (30 * standardHours);
-
   leaves.forEach(l => {
     const type = (l.leaveType || '').toLowerCase();
-    if (type.includes('特休') && (type.includes('折算') || type.includes('折現') || type.includes('不休假'))) {
-      const otHrs = parseFloat((l.days * 8).toFixed(2));
-      specialLeavePay += Math.round(otHrs * hrRate);
-    } else if ((type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現')) && !type.includes('特休')) {
+    if (type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現')) {
       otLeaves.push(l);
     } else if (type === 'ot' || type === '加班') {
       // Skip
@@ -216,9 +199,7 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
       type.includes('訓練') ||
       type.includes('培訓') ||
       type.includes('挪移') ||
-      type === 'ob' ||
-      type.includes('個督') ||
-      type.includes('派案')
+      type === 'ob'
     ) {
       // Skip official
     } else {
@@ -372,8 +353,7 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
     overtimeHours267,
     leaveHoursHalf,
     leaveHoursPaid,
-    leaveDeduction,
-    specialLeavePay
+    leaveDeduction
   };
 }
 
@@ -814,28 +794,12 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       const attendanceRecords = attendanceMap[emp.id] || [];
       const leaves = leavesMap[emp.id] || [];
 
-      // Split leaves into normal leaves, overtime conversion leaves, and special leave cashouts
+      // Split leaves into normal leaves and overtime conversion leaves, excluding official business (work)
       const normalLeaves = [];
       const otLeaves = [];
-      let specialLeavePay = 0;
-
-      // Compute hourly rate for special leave cash-out
-      const baseSalary = currentEmp.baseSalary;
-      const allowanceAA = currentEmp.allowanceAA || 0;
-      const allowanceLicense = currentEmp.allowanceLicense || 0;
-      const allowanceManager = currentEmp.allowanceManager || 0;
-      const otherAllowance = currentEmp.otherAllowance || 0;
-      const fixedMonthly = baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance;
-      const hrRate = currentEmp.salaryType === 'hourly'
-        ? baseSalary
-        : fixedMonthly / (30 * standardHours);
-
       leaves.forEach(l => {
         const type = (l.leaveType || '').toLowerCase();
-        if (type.includes('特休') && (type.includes('折算') || type.includes('折現') || type.includes('不休假'))) {
-          const otHrs = parseFloat((l.days * 8).toFixed(2));
-          specialLeavePay += Math.round(otHrs * hrRate);
-        } else if ((type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現')) && !type.includes('特休')) {
+        if (type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現')) {
           otLeaves.push(l);
         } else if (type === 'ot' || type === '加班') {
           // Skip: overtime to be compensated as compensatory leave (補休), not cash payout
@@ -847,9 +811,7 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
           type.includes('訓練') ||
           type.includes('培訓') ||
           type.includes('挪移') ||
-          type === 'ob' ||
-          type.includes('個督') ||
-          type.includes('派案')
+          type === 'ob'
         ) {
           // Skip official business
         } else {
@@ -1024,12 +986,6 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       };
 
       const payDetails = calculatePayroll(currentEmp, attendanceSummary, settings);
-
-      if (specialLeavePay > 0) {
-        payDetails.overtimePay += specialLeavePay;
-        payDetails.grossPay += specialLeavePay;
-        payDetails.netPay = Math.max(0, payDetails.grossPay - payDetails.totalDeductions);
-      }
       
       // Queue the upsert operation for parallel run
       queueUpsert.push({
@@ -1250,12 +1206,6 @@ router.put('/:id', validateId(), async (req, res) => {
 
     // Recalculate
     const payDetails = calculatePayroll(empOverride, attendanceSummary, settings);
-
-    if (freshAttendance.specialLeavePay > 0) {
-      payDetails.overtimePay += freshAttendance.specialLeavePay;
-      payDetails.grossPay += freshAttendance.specialLeavePay;
-      payDetails.netPay = Math.max(0, payDetails.grossPay - payDetails.totalDeductions);
-    }
 
     // Capture manual overrides for calculated results if explicitly provided
     const updateData = {
@@ -1558,12 +1508,6 @@ router.post('/batch-update-adjustments', async (req, res) => {
       };
 
       const payDetails = calculatePayroll(empOverride, attendanceSummary, settings);
-
-      if (freshAttendance.specialLeavePay > 0) {
-        payDetails.overtimePay += freshAttendance.specialLeavePay;
-        payDetails.grossPay += freshAttendance.specialLeavePay;
-        payDetails.netPay = Math.max(0, payDetails.grossPay - payDetails.totalDeductions);
-      }
 
       const updatedRecord = await req.prisma.payrollRecord.update({
         where: { id: payrollRecord.id },
