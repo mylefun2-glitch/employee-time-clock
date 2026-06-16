@@ -1016,7 +1016,9 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         },
         update: {
           ...item.payDetails,
-          notes: (existingRecord && existingRecord.notes) ? existingRecord.notes : item.payDetails.notes,
+          notes: (existingRecord && existingRecord.notes && !existingRecord.notes.startsWith('本月因到/離職不足月') && !req.body.resetSettings)
+            ? existingRecord.notes
+            : item.payDetails.notes,
           status: 'DRAFT',
           calculatedAt: new Date().toISOString()
         },
