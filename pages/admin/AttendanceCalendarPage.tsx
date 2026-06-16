@@ -393,7 +393,7 @@ const AttendanceCalendarPage: React.FC = () => {
             rawDayLeaves.forEach(leave => {
                 if (leave.status?.toUpperCase() !== 'APPROVED') return;
                 const typeName = leave.leave_type?.name || '';
-                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|Official|Business|Visit|Meeting|Training|OT/i;
+                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|派案|個督|Official|Business|Visit|Meeting|Training|OT/i;
                 const leaveKeywords = /請假|特休|事假|病假|補休|Holiday|Annual|Leave|Sick|Personal/i;
                 const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
 
@@ -585,7 +585,7 @@ const AttendanceCalendarPage: React.FC = () => {
                 if (leave.status?.toUpperCase() !== 'APPROVED') return;
                 
                 const typeName = leave.leave_type?.name || '';
-                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|Official|Business|Visit|Meeting|Training|OT/i;
+                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|派案|個督|Official|Business|Visit|Meeting|Training|OT/i;
                 const leaveKeywords = /請假|特休|事假|病假|補休|Holiday|Annual|Leave|Sick|Personal/i;
                 const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
 

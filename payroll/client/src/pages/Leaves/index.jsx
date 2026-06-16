@@ -77,6 +77,8 @@ export default function Leaves() {
           type.includes('培訓') || 
           type.includes('折算') || 
           type.includes('折現') || 
+          type.includes('派案') || 
+          type.includes('個督') || 
           type === 'co' || 
           type === 'alc' || 
           type === 'ob' || 

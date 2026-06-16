@@ -1017,7 +1017,7 @@ export default function PayrollDetail() {
                               const normalLeaves = record.leaves ? record.leaves.filter(l => {
                                 const type = (l.leaveType || '').toLowerCase();
                                 const isOt = type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現') || type === 'ot' || type === '加班';
-                                const isOfficial = type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓') || type === 'ob' || type.includes('挪移');
+                                const isOfficial = type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓') || type === 'ob' || type.includes('挪移') || type.includes('派案') || type.includes('個督');
                                 if (isOt || isOfficial) return false;
                                 return getRate(l) > 0.0;
                               }) : [];

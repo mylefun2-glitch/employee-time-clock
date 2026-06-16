@@ -69,7 +69,7 @@ async function getRecalculatedLeaveDeduction(prisma, employeeId, year, month, ba
 
   leaves.forEach(l => {
     const type = (l.leaveType || '').toLowerCase();
-    const isOfficial = type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現') || type === 'ot' || type === '加班' || type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓') || type.includes('挪移');
+    const isOfficial = type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現') || type === 'ot' || type === '加班' || type.includes('公出') || type.includes('家訪') || type.includes('出差') || type.includes('會議') || type.includes('訓練') || type.includes('培訓') || type.includes('挪移') || type.includes('派案') || type.includes('個督');
     if (!isOfficial) {
       const hours = l.days * 8;
       const rate = getLeaveRate(l.leaveType);
@@ -187,7 +187,9 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
   const otLeaves = [];
   leaves.forEach(l => {
     const type = (l.leaveType || '').toLowerCase();
-    if (type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現')) {
+    if (type.includes('特休') && (type.includes('折現') || type.includes('折算') || type.includes('不休假'))) {
+      // Skip special leave cashout as requested
+    } else if (type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現')) {
       otLeaves.push(l);
     } else if (type === 'ot' || type === '加班') {
       // Skip
@@ -199,6 +201,8 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
       type.includes('訓練') ||
       type.includes('培訓') ||
       type.includes('挪移') ||
+      type.includes('派案') ||
+      type.includes('個督') ||
       type === 'ob'
     ) {
       // Skip official
@@ -799,7 +803,9 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       const otLeaves = [];
       leaves.forEach(l => {
         const type = (l.leaveType || '').toLowerCase();
-        if (type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現')) {
+        if (type.includes('特休') && (type.includes('折現') || type.includes('折算') || type.includes('不休假'))) {
+          // Skip special leave cashout as requested
+        } else if (type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現')) {
           otLeaves.push(l);
         } else if (type === 'ot' || type === '加班') {
           // Skip: overtime to be compensated as compensatory leave (補休), not cash payout
@@ -811,6 +817,8 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
           type.includes('訓練') ||
           type.includes('培訓') ||
           type.includes('挪移') ||
+          type.includes('派案') ||
+          type.includes('個督') ||
           type === 'ob'
         ) {
           // Skip official business
