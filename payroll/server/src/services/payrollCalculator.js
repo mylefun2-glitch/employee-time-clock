@@ -232,11 +232,14 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
     }
     
     // Standard hourly rate in Taiwan: (Monthly Salary + allowances) / (30 * standardHours)
-    // Note: Standard hourly rate for leave/overtime is always calculated based on original CONTRACTED monthly fixed salary.
     const standardHours = employee.standardDailyHours || employee.standard_daily_hours || 8;
     const fixedMonthly = employee.baseSalary + (employee.allowanceAA || 0) + (employee.allowanceLicense || 0) + (employee.allowanceManager || 0) + (employee.otherAllowance || 0);
+    
+    // Average hourly rate for overtime/leave includes bonus
+    const totalForAverage = fixedMonthly + bonus;
+    
     hourlyRate = fixedMonthly / (30 * standardHours);
-    averageHourlyRate = hourlyRate;
+    averageHourlyRate = totalForAverage / (30 * standardHours);
     
     // Deductions for absent days (Taiwan: baseSalary / 30 per absent day)
     if (absentDays > 0) {
@@ -255,7 +258,7 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
   }
 
   // 2. Calculate Overtime Pay
-  const otBase = employee.salaryType === 'hourly' ? averageHourlyRate : hourlyRate;
+  const otBase = averageHourlyRate;
   const overtimePay134 = Math.round(overtimeHours134 * otBase * 1.334);
   const overtimePay167 = Math.round(overtimeHours167 * otBase * 1.667);
   const overtimePay200 = Math.round(overtimeHours200 * otBase * (employee.salaryType === 'monthly' ? 1.00 : 2.00));
