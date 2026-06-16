@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import payrollService from '../../services/payrollService';
-import { Button, Card, LoadingSpinner, Badge, Input } from '../../components/common';
+import employeeService from '../../services/employeeService';
+import { Button, Card, LoadingSpinner, Badge, Input, Modal } from '../../components/common';
 import { BASE_URL } from '../../services/api';
 
 export default function PayrollDetail() {
@@ -14,6 +15,31 @@ export default function PayrollDetail() {
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isFormulaExpanded, setIsFormulaExpanded] = useState(false);
+  const [isEditSettingsOpen, setIsEditSettingsOpen] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
+    salaryType: 'monthly',
+    baseSalary: '0',
+    allowanceAA: '0',
+    allowanceLicense: '0',
+    allowanceManager: '0',
+    otherAllowance: '0',
+    mealAllowance: '0',
+    laborInsuranceGrade: '0',
+    laborOccupationalGrade: '0',
+    healthInsuranceGrade: '0',
+    laborPensionGrade: '0',
+    voluntaryPensionRate: '0',
+    dependents: '0',
+    bankName: '',
+    bankAccount: '',
+    notes: '',
+    supplementaryHealthInsurance: '0',
+    prevInsuranceDifference: '0',
+    healthDisabilityExemption: '0',
+    laborDisabilityExemption: '0',
+    healthGovSubsidy: '0',
+    leavePaySupplement: '0'
+  });
 
   const formatHours = (h) => {
     if (h === undefined || h === null) return '0';
@@ -92,6 +118,33 @@ export default function PayrollDetail() {
           incomeTax: (res.data.incomeTax || 0).toString()
         });
       }
+      if (res.data && res.data.employee) {
+        const emp = res.data.employee;
+        setSettingsForm({
+          salaryType: emp.salaryType || 'monthly',
+          baseSalary: (emp.baseSalary || 0).toString(),
+          allowanceAA: (emp.allowanceAA || 0).toString(),
+          allowanceLicense: (emp.allowanceLicense || 0).toString(),
+          allowanceManager: (emp.allowanceManager || 0).toString(),
+          otherAllowance: (emp.otherAllowance || 0).toString(),
+          mealAllowance: (emp.mealAllowance || 0).toString(),
+          laborInsuranceGrade: (emp.laborInsuranceGrade || 0).toString(),
+          laborOccupationalGrade: (emp.laborOccupationalGrade || 0).toString(),
+          healthInsuranceGrade: (emp.healthInsuranceGrade || 0).toString(),
+          laborPensionGrade: (emp.laborPensionGrade || 0).toString(),
+          voluntaryPensionRate: (emp.voluntaryPensionRate || 0).toString(),
+          dependents: (emp.dependents || 0).toString(),
+          bankName: emp.bankName || '',
+          bankAccount: emp.bankAccount || '',
+          notes: emp.notes || '',
+          supplementaryHealthInsurance: (emp.supplementaryHealthInsurance || 0).toString(),
+          prevInsuranceDifference: (emp.prevInsuranceDifference || 0).toString(),
+          healthDisabilityExemption: (emp.healthDisabilityExemption || 0).toString(),
+          laborDisabilityExemption: (emp.laborDisabilityExemption || 0).toString(),
+          healthGovSubsidy: (emp.healthGovSubsidy || 0).toString(),
+          leavePaySupplement: (emp.leavePaySupplement || 0).toString()
+        });
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -139,6 +192,58 @@ export default function PayrollDetail() {
     } catch (err) {
       console.error(err);
       alert(err.message || '儲存與重新計算失敗');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveSettings = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await employeeService.updateEmployee(employee.id, {
+        salaryType: settingsForm.salaryType,
+        baseSalary: parseFloat(settingsForm.baseSalary) || 0,
+        mealAllowance: parseFloat(settingsForm.mealAllowance) || 0,
+        transportAllowance: 0,
+        allowanceAA: parseFloat(settingsForm.allowanceAA) || 0,
+        allowanceLicense: parseFloat(settingsForm.allowanceLicense) || 0,
+        allowanceManager: parseFloat(settingsForm.allowanceManager) || 0,
+        otherAllowance: parseFloat(settingsForm.otherAllowance) || 0,
+        laborInsuranceGrade: parseFloat(settingsForm.laborInsuranceGrade) || 0,
+        laborOccupationalGrade: parseFloat(settingsForm.laborOccupationalGrade) || 0,
+        healthInsuranceGrade: parseFloat(settingsForm.healthInsuranceGrade) || 0,
+        laborPensionGrade: parseFloat(settingsForm.laborPensionGrade) || 0,
+        voluntaryPensionRate: parseFloat(settingsForm.voluntaryPensionRate) || 0,
+        dependents: parseInt(settingsForm.dependents) || 0,
+        bankName: settingsForm.bankName,
+        bankAccount: settingsForm.bankAccount,
+        notes: settingsForm.notes,
+        supplementaryHealthInsurance: parseFloat(settingsForm.supplementaryHealthInsurance) || 0,
+        prevInsuranceDifference: parseFloat(settingsForm.prevInsuranceDifference) || 0,
+        healthDisabilityExemption: parseFloat(settingsForm.healthDisabilityExemption) || 0,
+        laborDisabilityExemption: parseFloat(settingsForm.laborDisabilityExemption) || 0,
+        healthGovSubsidy: parseFloat(settingsForm.healthGovSubsidy) || 0,
+        leavePaySupplement: parseFloat(settingsForm.leavePaySupplement) || 0
+      });
+
+      if (record.status === 'DRAFT') {
+        await payrollService.calculatePayroll({
+          year: record.year.toString(),
+          month: record.month.toString(),
+          employeeIds: [employee.id],
+          resetSettings: true
+        });
+        alert('員工薪資與保險參數已更新，且此月薪資明細已重新計算完成！');
+      } else {
+        alert('員工薪資與保險參數已更新。由於此薪資明細非草稿狀態，未自動重新計算此月薪資。');
+      }
+
+      setIsEditSettingsOpen(false);
+      loadPayrollRecord();
+    } catch (err) {
+      console.error(err);
+      alert(err.message || '更新員工薪資保險參數失敗');
     } finally {
       setSaving(false);
     }
@@ -348,6 +453,11 @@ export default function PayrollDetail() {
           {record.status === 'DRAFT' && !isEditing && (
             <Button variant="outline" icon="edit" onClick={() => setIsEditing(true)}>
               手動調整
+            </Button>
+          )}
+          {!isEditing && (
+            <Button variant="outline" icon="settings" onClick={() => setIsEditSettingsOpen(true)}>
+              編輯薪資保險參數
             </Button>
           )}
           {record.status === 'DRAFT' && (
@@ -1140,6 +1250,207 @@ export default function PayrollDetail() {
           </div>
         )}
       </div>
+
+      {/* Edit Salary & Insurance Settings Modal */}
+      <Modal
+        isOpen={isEditSettingsOpen}
+        onClose={() => setIsEditSettingsOpen(false)}
+        title={`編輯 ${employee.name} 的薪資與保險參數`}
+        footer={
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Button variant="outline" onClick={() => setIsEditSettingsOpen(false)}>取消</Button>
+            <Button variant="primary" loading={saving} onClick={handleSaveSettings}>儲存參數</Button>
+          </div>
+        }
+      >
+        <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          {record.status === 'DRAFT' ? (
+            <div style={{ padding: 'var(--space-2) var(--space-3)', background: 'rgba(16, 185, 129, 0.1)', border: '1px dashed rgb(16, 185, 129)', borderRadius: '8px', fontSize: '12px', color: 'rgb(5, 150, 105)', fontWeight: '500' }}>
+              提示：儲存參數設定後，系統將自動依據新參數重新計算此月份 ({record.year} 年 {record.month} 月) 的薪資明細。
+            </div>
+          ) : (
+            <div style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--color-warning-light)', border: '1px dashed var(--color-warning)', borderRadius: '8px', fontSize: '12px', color: 'var(--color-warning)', fontWeight: '500' }}>
+              警告：此筆薪資紀錄非草稿狀態（已鎖定或核准），儲存後將僅更新員工資料庫之全域設定，無法自動更新重新計算當月薪資。如需重新計算，請先將此明細解除鎖定。
+            </div>
+          )}
+          
+          <div style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--color-neutral-50)', border: '1px dashed var(--color-neutral-200)', borderRadius: '8px', fontSize: '11px', color: 'var(--color-neutral-600)' }}>
+            提示：計薪類型、底薪/時薪、主管/證照加給與其他津貼已與「主系統班表歷史紀錄」同步，為唯讀欄位。如需變更，請直接至主系統的「班表紀錄」頁面進行編輯。
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+            <Input
+              label="計薪類型 (唯讀)"
+              type="select"
+              value={settingsForm.salaryType}
+              onChange={e => setSettingsForm(prev => ({ ...prev, salaryType: e.target.value }))}
+              disabled={true}
+              options={[
+                { value: 'monthly', label: '月薪制' },
+                { value: 'hourly', label: '時薪制' }
+              ]}
+            />
+            <Input
+              label={settingsForm.salaryType === 'monthly' ? '月薪底薪 (元) (唯讀)' : '約定時薪 (元) (唯讀)'}
+              type="number"
+              value={settingsForm.baseSalary}
+              onChange={e => setSettingsForm(prev => ({ ...prev, baseSalary: e.target.value }))}
+              disabled={true}
+            />
+            <Input
+              label="AA 加給 (元)"
+              type="number"
+              value={settingsForm.allowanceAA}
+              onChange={e => setSettingsForm(prev => ({ ...prev, allowanceAA: e.target.value }))}
+            />
+            <Input
+              label="專業證照加給 (元) (唯讀)"
+              type="number"
+              value={settingsForm.allowanceLicense}
+              onChange={e => setSettingsForm(prev => ({ ...prev, allowanceLicense: e.target.value }))}
+              disabled={true}
+            />
+            <Input
+              label="主管加給 (元) (唯讀)"
+              type="number"
+              value={settingsForm.allowanceManager}
+              onChange={e => setSettingsForm(prev => ({ ...prev, allowanceManager: e.target.value }))}
+              disabled={true}
+            />
+            <Input
+              label="其他津貼 (元) (唯讀)"
+              type="number"
+              value={settingsForm.otherAllowance}
+              onChange={e => setSettingsForm(prev => ({ ...prev, otherAllowance: e.target.value }))}
+              disabled={true}
+            />
+            <Input
+              label="其他津貼（不列入平均時薪計算） (元)"
+              type="number"
+              value={settingsForm.mealAllowance}
+              onChange={e => setSettingsForm(prev => ({ ...prev, mealAllowance: e.target.value }))}
+            />
+          </div>
+          
+          <h4 style={{ margin: 'var(--space-2) 0 0 0', borderBottom: '1px solid var(--color-neutral-200)', paddingBottom: '4px', color: 'var(--color-primary-700)' }}>保險與級距設定 (填寫級距金額，0代表按薪資自動計算)</h4>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+            <Input
+              label="勞保投保薪資級距 (0:自動, -1:免繳)"
+              type="number"
+              value={settingsForm.laborInsuranceGrade}
+              onChange={e => setSettingsForm(prev => ({ ...prev, laborInsuranceGrade: e.target.value }))}
+              placeholder="輸入0為自動計算，-1為已退休免扣自付額"
+            />
+            <Input
+              label="職保投保薪資級距 (0:自動, -1:免繳)"
+              type="number"
+              value={settingsForm.laborOccupationalGrade}
+              onChange={e => setSettingsForm(prev => ({ ...prev, laborOccupationalGrade: e.target.value }))}
+              placeholder="輸入0為自動計算，-1為免投保職保"
+            />
+            <Input
+              label="健保投保薪資級距 (0:自動, -1:不加保)"
+              type="number"
+              value={settingsForm.healthInsuranceGrade}
+              onChange={e => setSettingsForm(prev => ({ ...prev, healthInsuranceGrade: e.target.value }))}
+              placeholder="輸入0為自動計算，-1為投保於其他單位"
+            />
+            <Input
+              label="勞退提繳薪資級距 (0:自動, -1:免提繳)"
+              type="number"
+              value={settingsForm.laborPensionGrade}
+              onChange={e => setSettingsForm(prev => ({ ...prev, laborPensionGrade: e.target.value }))}
+              placeholder="輸入0為自動計算，-1為免提繳勞退"
+            />
+            <Input
+              label="自願提繳比率 (%)"
+              type="number"
+              min="0"
+              max="6"
+              value={settingsForm.voluntaryPensionRate}
+              onChange={e => setSettingsForm(prev => ({ ...prev, voluntaryPensionRate: e.target.value }))}
+            />
+            <Input
+              label="健保扶養人數"
+              type="number"
+              min="0"
+              value={settingsForm.dependents}
+              onChange={e => setSettingsForm(prev => ({ ...prev, dependents: e.target.value }))}
+            />
+            <Input
+              label="二代健保自付額 (元)"
+              type="number"
+              min="0"
+              value={settingsForm.supplementaryHealthInsurance}
+              onChange={e => setSettingsForm(prev => ({ ...prev, supplementaryHealthInsurance: e.target.value }))}
+            />
+            <Input
+              label="前期勞健退差額 (元)"
+              type="number"
+              value={settingsForm.prevInsuranceDifference}
+              onChange={e => setSettingsForm(prev => ({ ...prev, prevInsuranceDifference: e.target.value }))}
+            />
+            <Input
+              label="健保保費減免比例 (0-1.0)"
+              type="number"
+              min="0"
+              max="1"
+              step="0.01"
+              value={settingsForm.healthDisabilityExemption}
+              onChange={e => setSettingsForm(prev => ({ ...prev, healthDisabilityExemption: e.target.value }))}
+            />
+            <Input
+              label="勞保保費減免比例 (0-1.0)"
+              type="number"
+              min="0"
+              max="1"
+              step="0.01"
+              value={settingsForm.laborDisabilityExemption}
+              onChange={e => setSettingsForm(prev => ({ ...prev, laborDisabilityExemption: e.target.value }))}
+            />
+            <Input
+              label="健保政府補貼定額 (元)"
+              type="number"
+              min="0"
+              value={settingsForm.healthGovSubsidy}
+              onChange={e => setSettingsForm(prev => ({ ...prev, healthGovSubsidy: e.target.value }))}
+            />
+            <Input
+              label="請假補貼薪資 (時薪) (元)"
+              type="number"
+              min="0"
+              value={settingsForm.leavePaySupplement}
+              onChange={e => setSettingsForm(prev => ({ ...prev, leavePaySupplement: e.target.value }))}
+              disabled={settingsForm.salaryType === 'monthly'}
+            />
+          </div>
+
+          <h4 style={{ margin: 'var(--space-2) 0 0 0', borderBottom: '1px solid var(--color-neutral-200)', paddingBottom: '4px', color: 'var(--color-primary-700)' }}>撥款資訊</h4>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+            <Input
+              label="銀行名稱"
+              type="text"
+              value={settingsForm.bankName}
+              onChange={e => setSettingsForm(prev => ({ ...prev, bankName: e.target.value }))}
+            />
+            <Input
+              label="銀行帳號"
+              type="text"
+              value={settingsForm.bankAccount}
+              onChange={e => setSettingsForm(prev => ({ ...prev, bankAccount: e.target.value }))}
+            />
+            <Input
+              label="備註"
+              type="textarea"
+              value={settingsForm.notes}
+              onChange={e => setSettingsForm(prev => ({ ...prev, notes: e.target.value }))}
+              style={{ gridColumn: 'span 2' }}
+            />
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
