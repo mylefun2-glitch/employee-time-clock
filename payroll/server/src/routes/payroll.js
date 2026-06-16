@@ -363,7 +363,7 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
 }
 
 // Helper to fetch active schedules from Supabase for a given month and build mappings
-async function fetchActiveSchedulesForMonth(y, m) {
+async function fetchActiveSchedulesForMonth(y, m, preFetchedEmployees = null) {
   try {
     const monthStr = String(m).padStart(2, '0');
     const nextMonth = m === 12 ? 1 : m + 1;
@@ -371,11 +371,15 @@ async function fetchActiveSchedulesForMonth(y, m) {
     const lastDay = new Date(nextYear, nextMonth - 1, 0).getDate();
     const endDate = `${y}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
-    // 1. Fetch all employees from Supabase to build UUID mapping
-    const { data: sbEmployees, error: sbEmpError } = await supabase
-      .from('employees')
-      .select('id, username');
-    if (sbEmpError) throw sbEmpError;
+    // 1. Use pre-fetched employees or fetch all from Supabase to build UUID mapping
+    let sbEmployees = preFetchedEmployees;
+    if (!sbEmployees) {
+      const { data, error: sbEmpError } = await supabase
+        .from('employees')
+        .select('id, username');
+      if (sbEmpError) throw sbEmpError;
+      sbEmployees = data;
+    }
 
     const uuidToEmpNo = {};
     sbEmployees.forEach(sbEmp => {
@@ -530,31 +534,35 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
 
     console.log(`[Calc] Starting optimized calculation for ${y}-${m}...`);
 
+    // Sync attendance logs and approved leaves from Supabase first
+    const singleEmpId = (employeeIds && Array.isArray(employeeIds) && employeeIds.length === 1) ? employeeIds[0] : null;
+
     // Sync employees from Supabase first to ensure statuses are updated
     console.log('[Calc] Syncing employees...');
-    await syncEmployees(true).catch(err => console.error("Sync employees failed:", err));
+    const forceSyncEmployees = singleEmpId ? false : true;
+    await syncEmployees(forceSyncEmployees).catch(err => console.error("Sync employees failed:", err));
     console.log('[Calc] Employees synced.');
 
     // Sync attendance logs and approved leaves from Supabase first
     console.log('[Calc] Syncing attendance and leaves...');
-    const singleEmpId = (employeeIds && Array.isArray(employeeIds) && employeeIds.length === 1) ? employeeIds[0] : null;
     await syncAttendanceAndLeaves(y, m, false, singleEmpId).catch(err => console.error("Sync attendance/leaves failed:", err));
     console.log('[Calc] Attendance and leaves synced.');
 
-    // Fetch active schedules for this month from Supabase to override salary structures
-    console.log('[Calc] Fetching active schedules for month...');
-    const activeSchedules = await fetchActiveSchedulesForMonth(y, m);
-    console.log('[Calc] Active schedules fetched. Count keys:', Object.keys(activeSchedules).length);
-
-    // Fetch all employees' standard_daily_hours from Supabase for fallback
-    console.log('[Calc] Fetching employees standard daily hours from Supabase...');
-    const { data: sbEmps } = await supabase.from('employees').select('name, standard_daily_hours');
+    // Fetch all employees from Supabase once for mappings and fallback hours
+    console.log('[Calc] Fetching employees from Supabase for mappings...');
+    const { data: sbEmps } = await supabase.from('employees').select('id, username, name, standard_daily_hours');
+    
     const empHoursMap = {};
     if (sbEmps) {
       sbEmps.forEach(e => {
         empHoursMap[e.name] = parseFloat(e.standard_daily_hours) || 8;
       });
     }
+
+    // Fetch active schedules for this month from Supabase to override salary structures
+    console.log('[Calc] Fetching active schedules for month...');
+    const activeSchedules = await fetchActiveSchedulesForMonth(y, m, sbEmps);
+    console.log('[Calc] Active schedules fetched. Count keys:', Object.keys(activeSchedules).length);
 
     // Get settings
     console.log('[Calc] Querying system settings...');
@@ -1166,8 +1174,8 @@ router.put('/:id', validateId(), async (req, res) => {
       leavePaySupplement: req.body.leavePaySupplement !== undefined ? parseFloat(req.body.leavePaySupplement) : existing.leavePaySupplement,
     };
 
-    // Sync attendance logs and approved leaves from Supabase first (optimized for this employee)
-    await syncAttendanceAndLeaves(existing.year, existing.month, false, existing.employeeId).catch(err => console.error("Sync attendance/leaves failed:", err));
+    // Skip forced sync on manual adjustment to improve save performance
+    // await syncAttendanceAndLeaves(existing.year, existing.month, false, existing.employeeId).catch(err => console.error("Sync attendance/leaves failed:", err));
 
     const freshAttendance = await getFreshAttendanceSummary(
       req.prisma,

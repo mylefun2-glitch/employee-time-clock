@@ -253,7 +253,7 @@ const activeSyncs = {};
 export function syncAttendanceAndLeaves(year, month, force = false, targetEmployeeId = null) {
   const key = targetEmployeeId ? `${year}_${month}_${targetEmployeeId}` : `${year}_${month}`;
   const now = Date.now();
-  if (!targetEmployeeId && !force && lastAttendanceSyncs[key] && (now - lastAttendanceSyncs[key] < SYNC_COOLDOWN_MS)) {
+  if (!force && lastAttendanceSyncs[key] && (now - lastAttendanceSyncs[key] < SYNC_COOLDOWN_MS)) {
     console.log(`[Sync] Skipping attendance and leaves sync for ${key} (cooldown active)`);
     return Promise.resolve();
   }

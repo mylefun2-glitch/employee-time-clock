@@ -81,70 +81,74 @@ export default function PayrollDetail() {
     loadPayrollRecord();
   }, [id]);
 
+  const updateStateWithData = (data) => {
+    setRecord(data);
+    setEmployee(data?.employee);
+    
+    if (data) {
+      setEditForm({
+        baseSalary: (data.baseSalary || 0).toString(),
+        allowanceAA: (data.allowanceAA || 0).toString(),
+        allowanceLicense: (data.allowanceLicense || 0).toString(),
+        allowanceManager: (data.allowanceManager || 0).toString(),
+        otherAllowance: (data.otherAllowance || 0).toString(),
+        mealAllowance: (data.mealAllowance || 0).toString(),
+        bonus: (data.bonus || 0).toString(),
+        retroPay: (data.retroPay || 0).toString(),
+        leaveDeduction: (data.leaveDeduction || 0).toString(),
+        otherDeductions: (data.otherDeductions || 0).toString(),
+        overtimeHours134: formatHours(data.overtimeHours134),
+        overtimeHours167: formatHours(data.overtimeHours167),
+        overtimeHours200: formatHours(data.overtimeHours200),
+        overtimeHours267: formatHours(data.overtimeHours267),
+        laborInsuranceGrade: (data.laborInsuranceGrade || 0).toString(),
+        laborOccupationalGrade: (data.laborOccupationalGrade || 0).toString(),
+        healthInsuranceGrade: (data.healthInsuranceGrade || 0).toString(),
+        laborPensionGrade: (data.laborPensionGrade || 0).toString(),
+        notes: data.notes || '',
+        supplementaryHealthInsurance: (data.supplementaryHealthInsurance || 0).toString(),
+        prevInsuranceDifference: (data.prevInsuranceDifference || 0).toString(),
+        healthDisabilityExemption: (data.healthDisabilityExemption || 0).toString(),
+        laborDisabilityExemption: (data.laborDisabilityExemption || 0).toString(),
+        healthGovSubsidy: (data.healthGovSubsidy || 0).toString(),
+        leavePaySupplement: (data.leavePaySupplement || 0).toString(),
+        incomeTax: (data.incomeTax || 0).toString()
+      });
+    }
+    if (data && data.employee) {
+      const emp = data.employee;
+      setSettingsForm({
+        salaryType: emp.salaryType || 'monthly',
+        baseSalary: (emp.baseSalary || 0).toString(),
+        allowanceAA: (emp.allowanceAA || 0).toString(),
+        allowanceLicense: (emp.allowanceLicense || 0).toString(),
+        allowanceManager: (emp.allowanceManager || 0).toString(),
+        otherAllowance: (emp.otherAllowance || 0).toString(),
+        mealAllowance: (emp.mealAllowance || 0).toString(),
+        laborInsuranceGrade: (emp.laborInsuranceGrade || 0).toString(),
+        laborOccupationalGrade: (emp.laborOccupationalGrade || 0).toString(),
+        healthInsuranceGrade: (emp.healthInsuranceGrade || 0).toString(),
+        laborPensionGrade: (emp.laborPensionGrade || 0).toString(),
+        voluntaryPensionRate: (emp.voluntaryPensionRate || 0).toString(),
+        dependents: (emp.dependents || 0).toString(),
+        bankName: emp.bankName || '',
+        bankAccount: emp.bankAccount || '',
+        notes: emp.notes || '',
+        supplementaryHealthInsurance: (emp.supplementaryHealthInsurance || 0).toString(),
+        prevInsuranceDifference: (emp.prevInsuranceDifference || 0).toString(),
+        healthDisabilityExemption: (emp.healthDisabilityExemption || 0).toString(),
+        laborDisabilityExemption: (emp.laborDisabilityExemption || 0).toString(),
+        healthGovSubsidy: (emp.healthGovSubsidy || 0).toString(),
+        leavePaySupplement: (emp.leavePaySupplement || 0).toString()
+      });
+    }
+  };
+
   const loadPayrollRecord = async () => {
     setLoading(true);
     try {
       const res = await payrollService.getPayroll(id);
-      setRecord(res.data);
-      setEmployee(res.data?.employee);
-      
-      if (res.data) {
-        setEditForm({
-          baseSalary: (res.data.baseSalary || 0).toString(),
-          allowanceAA: (res.data.allowanceAA || 0).toString(),
-          allowanceLicense: (res.data.allowanceLicense || 0).toString(),
-          allowanceManager: (res.data.allowanceManager || 0).toString(),
-          otherAllowance: (res.data.otherAllowance || 0).toString(),
-          mealAllowance: (res.data.mealAllowance || 0).toString(),
-          bonus: (res.data.bonus || 0).toString(),
-          retroPay: (res.data.retroPay || 0).toString(),
-          leaveDeduction: (res.data.leaveDeduction || 0).toString(),
-          otherDeductions: (res.data.otherDeductions || 0).toString(),
-          overtimeHours134: formatHours(res.data.overtimeHours134),
-          overtimeHours167: formatHours(res.data.overtimeHours167),
-          overtimeHours200: formatHours(res.data.overtimeHours200),
-          overtimeHours267: formatHours(res.data.overtimeHours267),
-          laborInsuranceGrade: (res.data.laborInsuranceGrade || 0).toString(),
-          laborOccupationalGrade: (res.data.laborOccupationalGrade || 0).toString(),
-          healthInsuranceGrade: (res.data.healthInsuranceGrade || 0).toString(),
-          laborPensionGrade: (res.data.laborPensionGrade || 0).toString(),
-          notes: res.data.notes || '',
-          supplementaryHealthInsurance: (res.data.supplementaryHealthInsurance || 0).toString(),
-          prevInsuranceDifference: (res.data.prevInsuranceDifference || 0).toString(),
-          healthDisabilityExemption: (res.data.healthDisabilityExemption || 0).toString(),
-          laborDisabilityExemption: (res.data.laborDisabilityExemption || 0).toString(),
-          healthGovSubsidy: (res.data.healthGovSubsidy || 0).toString(),
-          leavePaySupplement: (res.data.leavePaySupplement || 0).toString(),
-          incomeTax: (res.data.incomeTax || 0).toString()
-        });
-      }
-      if (res.data && res.data.employee) {
-        const emp = res.data.employee;
-        setSettingsForm({
-          salaryType: emp.salaryType || 'monthly',
-          baseSalary: (emp.baseSalary || 0).toString(),
-          allowanceAA: (emp.allowanceAA || 0).toString(),
-          allowanceLicense: (emp.allowanceLicense || 0).toString(),
-          allowanceManager: (emp.allowanceManager || 0).toString(),
-          otherAllowance: (emp.otherAllowance || 0).toString(),
-          mealAllowance: (emp.mealAllowance || 0).toString(),
-          laborInsuranceGrade: (emp.laborInsuranceGrade || 0).toString(),
-          laborOccupationalGrade: (emp.laborOccupationalGrade || 0).toString(),
-          healthInsuranceGrade: (emp.healthInsuranceGrade || 0).toString(),
-          laborPensionGrade: (emp.laborPensionGrade || 0).toString(),
-          voluntaryPensionRate: (emp.voluntaryPensionRate || 0).toString(),
-          dependents: (emp.dependents || 0).toString(),
-          bankName: emp.bankName || '',
-          bankAccount: emp.bankAccount || '',
-          notes: emp.notes || '',
-          supplementaryHealthInsurance: (emp.supplementaryHealthInsurance || 0).toString(),
-          prevInsuranceDifference: (emp.prevInsuranceDifference || 0).toString(),
-          healthDisabilityExemption: (emp.healthDisabilityExemption || 0).toString(),
-          laborDisabilityExemption: (emp.laborDisabilityExemption || 0).toString(),
-          healthGovSubsidy: (emp.healthGovSubsidy || 0).toString(),
-          leavePaySupplement: (emp.leavePaySupplement || 0).toString()
-        });
-      }
+      updateStateWithData(res.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -157,7 +161,7 @@ export default function PayrollDetail() {
     setSaving(true);
     try {
       // Backend now automatically recalculates based on raw parameters passed!
-      await payrollService.updatePayroll(id, {
+      const res = await payrollService.updatePayroll(id, {
         baseSalary: parseFloat(editForm.baseSalary) || 0,
         allowanceAA: parseFloat(editForm.allowanceAA) || 0,
         allowanceLicense: parseFloat(editForm.allowanceLicense) || 0,
@@ -188,7 +192,11 @@ export default function PayrollDetail() {
 
       alert('薪資調整與計算已完成');
       setIsEditing(false);
-      loadPayrollRecord();
+      if (res.data && res.data.data) {
+        updateStateWithData(res.data.data);
+      } else {
+        loadPayrollRecord();
+      }
     } catch (err) {
       console.error(err);
       alert(err.message || '儲存與重新計算失敗');
