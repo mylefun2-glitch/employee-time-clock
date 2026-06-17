@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS monthly_salary_schedules (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id   uuid NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
     service_date  date NOT NULL,
-    shift_type    text NOT NULL,             -- 班別：增-轉場 / 正常日班 / 休息日班 / 國定假日
+    shift_type    text NOT NULL,             -- 班別：增-轉場 / 正常班 / 休息日班 / 國定假日
     case_name     text NOT NULL DEFAULT '',  -- 個案姓名或自訂文字（設為 NOT NULL 配合唯一約束）
     service_mins  integer NOT NULL DEFAULT 0, -- 服務時間（分鐘）
     note          text,                      -- 備註

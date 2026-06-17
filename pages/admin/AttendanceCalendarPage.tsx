@@ -408,7 +408,7 @@ const AttendanceCalendarPage: React.FC = () => {
     const handleDownloadSalaryScheduleTemplate = () => {
         const headers = ['姓名', '服務日期(yyyy-MM-dd)', '班別', '個案', '服務時間(分鐘)', '備註'];
         const examples = [
-            ['王小明', format(new Date(), 'yyyy-MM-dd'), '正常日班', '陳大華', '240', '居家服務'],
+            ['王小明', format(new Date(), 'yyyy-MM-dd'), '正常班', '陳大華', '240', '居家服務'],
             ['李美玲', format(new Date(), 'yyyy-MM-dd'), '休息日班', '林小花', '180', ''],
             ['張志明', format(new Date(), 'yyyy-MM-dd'), '增-轉場', '自訂個案', '120', '交通時間已含'],
             ['陳惠君', format(new Date(), 'yyyy-MM-dd'), '國定假日', '王大同', '300', '加班補登'],
@@ -1702,7 +1702,7 @@ const AttendanceCalendarPage: React.FC = () => {
                                                  if (daySchedules.length === 0) return null;
 
                                                  const SHIFT_COLORS: Record<string, string> = {
-                                                     '正常日班': 'bg-blue-100 text-blue-700 border-blue-200',
+                                                     '正常班': 'bg-blue-100 text-blue-700 border-blue-200',
                                                      '休息日班': 'bg-amber-100 text-amber-700 border-amber-200',
                                                      '國定假日': 'bg-rose-100 text-rose-700 border-rose-200',
                                                      '增-轉場': 'bg-violet-100 text-violet-700 border-violet-200',
@@ -1908,7 +1908,7 @@ const AttendanceCalendarPage: React.FC = () => {
                                     onChange={(e) => setSalaryScheduleForm({ ...salaryScheduleForm, shift_type: e.target.value })}
                                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                                 >
-                                    <option value="正常日班">正常日班</option>
+                                    <option value="正常班">正常班</option>
                                     <option value="休息日班">休息日班</option>
                                     <option value="國定假日">國定假日</option>
                                     <option value="增-轉場">增-轉場</option>

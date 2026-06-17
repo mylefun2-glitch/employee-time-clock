@@ -1008,7 +1008,7 @@ export const importMonthlySalarySchedules = async (
 
         if (empError) throw empError;
 
-        const VALID_SHIFT_TYPES = ['增-轉場', '正常日班', '休息日班', '國定假日'];
+        const VALID_SHIFT_TYPES = ['增-轉場', '正常班', '休息日班', '國定假日'];
 
         const insertData: Omit<MonthlySalarySchedule, 'id' | 'created_at' | 'updated_at'>[] = [];
         const processedKeys = new Set<string>();
