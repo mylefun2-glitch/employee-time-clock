@@ -938,3 +938,174 @@ export const importBulkEmployeeSchedules = async (
     }
 };
 
+// ============================================================
+// 薪制人員班表相關
+// ============================================================
+
+export interface MonthlySalarySchedule {
+    id: string;
+    employee_id: string;
+    service_date: string;   // 'yyyy-MM-dd'
+    shift_type: string;     // 班別
+    case_name?: string;     // 個案
+    service_mins: number;   // 服務時間（分鐘）
+    note?: string;
+    created_at?: string;
+    updated_at?: string;
+}
+
+/**
+ * 查詢指定員工某月份的薪制班表
+ */
+export const getMonthlySalarySchedules = async (
+    employeeId: string,
+    startDate: string,
+    endDate: string
+): Promise<MonthlySalarySchedule[]> => {
+    const { data, error } = await supabase
+        .from('monthly_salary_schedules')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .gte('service_date', startDate)
+        .lte('service_date', endDate)
+        .order('service_date', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching monthly salary schedules:', error);
+        return [];
+    }
+    return data || [];
+};
+
+/**
+ * 批量匯入薪制人員班表（CSV 解析後傳入）
+ * 每行欄位：姓名, 服務日期, 班別, 個案, 服務時間(分鐘), 備註
+ */
+export const importMonthlySalarySchedules = async (
+    rows: Array<{
+        name: string;
+        service_date: string;
+        shift_type: string;
+        case_name: string;
+        service_mins_str: string;
+        note: string;
+    }>
+): Promise<{ success: boolean; succeeded: number; skipped: number; failed: number; errors: Array<{ line: number; name: string; error: string }> }> => {
+    const results = {
+        success: true,
+        succeeded: 0,
+        skipped: 0,
+        failed: 0,
+        errors: [] as Array<{ line: number; name: string; error: string }>
+    };
+
+    try {
+        // 1. 取得所有員工（依姓名查找）
+        const { data: employees, error: empError } = await supabase
+            .from('employees')
+            .select('id, name')
+            .eq('is_active', true);
+
+        if (empError) throw empError;
+
+        const VALID_SHIFT_TYPES = ['增-轉場', '正常日班', '休息日班', '國定假日'];
+
+        const insertData: Omit<MonthlySalarySchedule, 'id' | 'created_at' | 'updated_at'>[] = [];
+        const processedKeys = new Set<string>();
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const lineNum = i + 2; // 第 1 行是標題
+
+            // 比對員工姓名
+            const employee = employees?.find(e => e.name === row.name.trim());
+            if (!employee) {
+                results.failed++;
+                results.errors.push({ line: lineNum, name: row.name || '（空）', error: `找不到員工：「${row.name}」` });
+                continue;
+            }
+
+            // 驗證日期格式 yyyy-MM-dd
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(row.service_date.trim())) {
+                results.failed++;
+                results.errors.push({ line: lineNum, name: row.name, error: `服務日期格式錯誤（需為 yyyy-MM-dd）：「${row.service_date}」` });
+                continue;
+            }
+
+            // 驗證班別
+            const shiftType = row.shift_type.trim();
+            if (!VALID_SHIFT_TYPES.includes(shiftType)) {
+                results.failed++;
+                results.errors.push({ line: lineNum, name: row.name, error: `班別不正確：「${shiftType}」，有效值：${VALID_SHIFT_TYPES.join('、')}` });
+                continue;
+            }
+
+            // 驗證服務時間（整數分鐘）
+            const serviceMins = parseInt(row.service_mins_str.trim(), 10);
+            if (isNaN(serviceMins) || serviceMins < 0) {
+                results.failed++;
+                results.errors.push({ line: lineNum, name: row.name, error: `服務時間格式錯誤（需為正整數分鐘）：「${row.service_mins_str}」` });
+                continue;
+            }
+
+            // 防止批次內重複（同員工 + 同日期 + 同班別）
+            const dedupeKey = `${employee.id}_${row.service_date.trim()}_${shiftType}`;
+            if (processedKeys.has(dedupeKey)) {
+                results.skipped++;
+                continue;
+            }
+            processedKeys.add(dedupeKey);
+
+            insertData.push({
+                employee_id: employee.id,
+                service_date: row.service_date.trim(),
+                shift_type: shiftType,
+                case_name: row.case_name.trim() || undefined,
+                service_mins: serviceMins,
+                note: row.note.trim() || undefined
+            });
+        }
+
+        if (insertData.length > 0) {
+            // upsert 依據 (employee_id, service_date, shift_type) 做覆蓋
+            const { error: insertError } = await supabase
+                .from('monthly_salary_schedules')
+                .upsert(insertData, {
+                    onConflict: 'employee_id,service_date,shift_type',
+                    ignoreDuplicates: false
+                });
+
+            if (insertError) {
+                // 若 upsert 不支援（無 unique constraint）則改用 insert
+                const { error: fallbackError } = await supabase
+                    .from('monthly_salary_schedules')
+                    .insert(insertData);
+
+                if (fallbackError) {
+                    console.error('Error inserting monthly salary schedules:', fallbackError);
+                    return {
+                        success: false,
+                        succeeded: 0,
+                        skipped: results.skipped,
+                        failed: rows.length,
+                        errors: [{ line: 0, name: '系統', error: fallbackError.message }]
+                    };
+                }
+            }
+            results.succeeded = insertData.length;
+        }
+
+        return results;
+    } catch (err: any) {
+        console.error('Unexpected error in importMonthlySalarySchedules:', err);
+        return {
+            success: false,
+            succeeded: 0,
+            skipped: 0,
+            failed: rows.length,
+            errors: [{ line: 0, name: '系統', error: err.message || '系統錯誤' }]
+        };
+    }
+};
+

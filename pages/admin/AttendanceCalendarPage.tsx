@@ -6,7 +6,7 @@ import { zhTW } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X, CheckSquare, Square, Info, Search, Plus, Pencil } from 'lucide-react';
 import TimeInput24h from '../../components/ui/TimeInput24h';
 import { sortByNameStroke } from '../../lib/nameStrokeSort';
-import { deleteAttendanceLog, deleteAttendanceLogs, createAttendanceLog, updateAttendanceLog, importAttendanceLogs, getEmployeeSchedules } from '../../services/admin';
+import { deleteAttendanceLog, deleteAttendanceLogs, createAttendanceLog, updateAttendanceLog, importAttendanceLogs, getEmployeeSchedules, getMonthlySalarySchedules, importMonthlySalarySchedules, MonthlySalarySchedule } from '../../services/admin';
 import { isNationalHoliday } from '../../lib/holidays';
 import ModificationRequestForm from '../../components/ModificationRequestForm';
 import LeaveRequestForm from '../../components/LeaveRequestForm';
@@ -70,12 +70,15 @@ const AttendanceCalendarPage: React.FC = () => {
     const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
     const [isDeleting, setIsDeleting] = useState(false);
     const [importing, setImporting] = useState(false);
+    const [importingSchedule, setImportingSchedule] = useState(false);
+    const [salarySchedules, setSalarySchedules] = useState<MonthlySalarySchedule[]>([]);
 
     // Employee Search State
     const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
     const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
     const employeeDropdownRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const scheduleFileInputRef = useRef<HTMLInputElement>(null);
 
     // Add Log State
     const [isAddLogModalOpen, setIsAddLogModalOpen] = useState(false);
@@ -173,6 +176,12 @@ const AttendanceCalendarPage: React.FC = () => {
             // Fetch historical schedules
             const schedules = await getEmployeeSchedules(selectedEmployeeId);
             setHistoricalSchedules(schedules);
+
+            // Fetch monthly salary schedules（薪制班表）
+            const startDateStr = format(startOfMonth(currentDate), 'yyyy-MM-dd');
+            const endDateStr = format(endOfMonth(currentDate), 'yyyy-MM-dd');
+            const salaryScheds = await getMonthlySalarySchedules(selectedEmployeeId, startDateStr, endDateStr);
+            setSalarySchedules(salaryScheds);
         } catch (err) {
             console.error('Error fetching calendar data:', err);
         } finally {
@@ -314,6 +323,98 @@ const AttendanceCalendarPage: React.FC = () => {
         link.click();
         document.body.removeChild(link);
     };
+
+    // ============================================================
+    // 薪制班表匯入 handlers
+    // ============================================================
+
+    const handleSalaryScheduleImportClick = () => {
+        scheduleFileInputRef.current?.click();
+    };
+
+    const handleSalaryScheduleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (!file.name.endsWith('.csv')) {
+            alert('請選擇 CSV 檔案');
+            return;
+        }
+
+        setImportingSchedule(true);
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const text = e.target?.result as string;
+                const rows = parseCSV(text);
+
+                if (rows.length <= 1) {
+                    alert('檔案中沒有資料');
+                    return;
+                }
+
+                // 標題列: 姓名, 服務日期, 班別, 個案, 服務時間, 備註
+                const importRows = [];
+                for (let i = 1; i < rows.length; i++) {
+                    const [name, service_date, shift_type, case_name, service_mins_str, note] = rows[i];
+                    if (!name && !service_date) continue;
+
+                    importRows.push({
+                        name: name || '',
+                        service_date: service_date || '',
+                        shift_type: shift_type || '',
+                        case_name: case_name || '',
+                        service_mins_str: service_mins_str || '0',
+                        note: note || ''
+                    });
+                }
+
+                if (importRows.length === 0) {
+                    alert('找不到有效的班表資料');
+                    return;
+                }
+
+                const res = await importMonthlySalarySchedules(importRows);
+                if (res.success) {
+                    let msg = `班表匯入完成！成功：${res.succeeded} 筆`;
+                    if (res.skipped > 0) msg += `，跳過重複：${res.skipped} 筆`;
+                    if (res.failed > 0) msg += `，失敗：${res.failed} 筆`;
+                    if (res.errors.length > 0) {
+                        msg += `\n\n失敗原因：\n` + res.errors.map(err => `第 ${err.line} 行（${err.name}）: ${err.error}`).join('\n');
+                    }
+                    alert(msg);
+                    fetchData();
+                } else {
+                    alert(`匯入失敗：${res.errors[0]?.error || '未知錯誤'}`);
+                }
+            } catch (error: any) {
+                alert(`匯入執行錯誤：${error.message}`);
+            } finally {
+                setImportingSchedule(false);
+                if (scheduleFileInputRef.current) scheduleFileInputRef.current.value = '';
+            }
+        };
+        reader.readAsText(file, 'UTF-8');
+    };
+
+    const handleDownloadSalaryScheduleTemplate = () => {
+        const headers = ['姓名', '服務日期(yyyy-MM-dd)', '班別', '個案', '服務時間(分鐘)', '備註'];
+        const examples = [
+            ['王小明', format(new Date(), 'yyyy-MM-dd'), '正常日班', '陳大華', '240', '居家服務'],
+            ['李美玲', format(new Date(), 'yyyy-MM-dd'), '休息日班', '林小花', '180', ''],
+            ['張志明', format(new Date(), 'yyyy-MM-dd'), '增-轉場', '自訂個案', '120', '交通時間已含'],
+            ['陳惠君', format(new Date(), 'yyyy-MM-dd'), '國定假日', '王大同', '300', '加班補登'],
+        ];
+        const csvContent = [headers, ...examples].map(r => r.join(',')).join('\n');
+
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', '薪制班表匯入範本.csv');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
 
     const weeks = useMemo(() => {
         const start = startOfMonth(currentDate);
@@ -1285,6 +1386,26 @@ const AttendanceCalendarPage: React.FC = () => {
                             </button>
                             <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileChange} className="hidden" />
                         </div>
+
+                        {/* 薪制班表匯入 */}
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={handleSalaryScheduleImportClick}
+                                disabled={importingSchedule}
+                                className={`inline-flex items-center px-3 py-2 ${importingSchedule ? 'bg-slate-400' : 'bg-violet-600 hover:bg-violet-700'} text-white rounded-xl text-xs font-black transition-all shadow-md shadow-violet-100 whitespace-nowrap`}
+                            >
+                                <Plus className="h-3.5 w-3.5 mr-1" />
+                                {importingSchedule ? '處理中...' : '匯入班表'}
+                            </button>
+                            <button
+                                onClick={handleDownloadSalaryScheduleTemplate}
+                                className="p-2 bg-white text-violet-600 border border-violet-100 rounded-xl hover:bg-violet-50 transition-all shadow-sm"
+                                title="下載薪制班表匯入範本"
+                            >
+                                <Download className="h-4 w-4" />
+                            </button>
+                            <input ref={scheduleFileInputRef} type="file" accept=".csv" onChange={handleSalaryScheduleFileChange} className="hidden" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1498,13 +1619,49 @@ const AttendanceCalendarPage: React.FC = () => {
                                                      </div>
                                                  </div>
                                              ))}
+
+                                             {/* 薪制班表 */}
+                                             {(() => {
+                                                 const daySchedules = salarySchedules.filter(s => s.service_date === dateKey);
+                                                 if (daySchedules.length === 0) return null;
+
+                                                 const SHIFT_COLORS: Record<string, string> = {
+                                                     '正常日班': 'bg-blue-100 text-blue-700 border-blue-200',
+                                                     '休息日班': 'bg-amber-100 text-amber-700 border-amber-200',
+                                                     '國定假日': 'bg-rose-100 text-rose-700 border-rose-200',
+                                                     '增-轉場': 'bg-violet-100 text-violet-700 border-violet-200',
+                                                 };
+
+                                                 return (
+                                                     <div className="space-y-1 mt-1">
+                                                         {daySchedules.map(sched => (
+                                                             <div
+                                                                 key={sched.id}
+                                                                 className={`px-2 py-1 rounded-md text-[10px] font-black border flex flex-col gap-0.5 ${SHIFT_COLORS[sched.shift_type] || 'bg-slate-100 text-slate-700 border-slate-200'}`}
+                                                                 title={[sched.case_name && `個案：${sched.case_name}`, `服務時間：${sched.service_mins} 分鐘`, sched.note && `備註：${sched.note}`].filter(Boolean).join('\n')}
+                                                                 onClick={(e) => e.stopPropagation()}
+                                                             >
+                                                                 <div className="flex items-center justify-between gap-1">
+                                                                     <span className="truncate">{sched.shift_type}</span>
+                                                                     <span className="shrink-0 opacity-70">{sched.service_mins}分</span>
+                                                                 </div>
+                                                                 {sched.case_name && (
+                                                                     <div className="text-[8px] opacity-75 truncate leading-tight">
+                                                                         👤 {sched.case_name}
+                                                                     </div>
+                                                                 )}
+                                                             </div>
+                                                         ))}
+                                                     </div>
+                                                 );
+                                             })()}
                                          </div>
                                     </div>
                                 );
                             })}
                         </div>
                     ))}
-                </div>
+                 </div>
             </div>
 
 
