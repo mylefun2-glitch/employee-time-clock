@@ -131,7 +131,6 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
     standardHours = await getStandardHoursForEmployee(employee.name, y, m);
   }
 
-
   // Fetch attendance records from local DB
   const attendanceRecords = await prisma.attendanceRecord.findMany({
     where: {
@@ -235,8 +234,72 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
         }
       });
     } else {
-      workDays = 22;
-      regularHours = 0;
+      try {
+        // Use email (more reliable than name) to find the Supabase UUID
+        const sbQuery = supabase.from('employees').select('id');
+        if (employee.email) {
+          sbQuery.eq('username', employee.email);
+        } else {
+          sbQuery.eq('name', employee.name);
+        }
+        const { data: sbEmp } = await sbQuery.limit(1);
+        if (sbEmp && sbEmp.length > 0) {
+          const { data: scheds } = await supabase
+            .from('monthly_salary_schedules')
+            .select('service_date, service_mins, shift_type')
+            .eq('employee_id', sbEmp[0].id)
+            .gte('service_date', `${y}-${monthStr}-01`)
+            .lte('service_date', `${y}-${monthStr}-${lastDayStr}`);
+          
+          if (scheds && scheds.length > 0) {
+            const dailyData = {};
+            scheds.forEach(s => {
+              if (s.service_mins > 0) {
+                if (!dailyData[s.service_date]) {
+                  dailyData[s.service_date] = { mins: 0, types: new Set() };
+                }
+                dailyData[s.service_date].mins += s.service_mins;
+                if (s.shift_type) dailyData[s.service_date].types.add(s.shift_type);
+              }
+            });
+            
+            for (const date of Object.keys(dailyData)) {
+              workDays++;
+              const hrs = dailyData[date].mins / 60;
+              const types = Array.from(dailyData[date].types);
+              const isNatHoliday = types.some(t => t.includes('國假') || t.includes('國定假日'));
+              const isRoutineDayOff = types.some(t => t.includes('例假日'));
+              const isRestDay = types.some(t => t.includes('休息日'));
+              
+              if (isNatHoliday || isRoutineDayOff) {
+                overtimeHours += hrs;
+                overtimeHours200 += hrs;
+              } else if (isRestDay) {
+                overtimeHours += hrs;
+                overtimeHours134 += Math.min(2, hrs);
+                overtimeHours167 += Math.min(6, Math.max(0, hrs - 2));
+                overtimeHours267 += Math.max(0, hrs - 8);
+              } else {
+                regularHours += hrs;
+              }
+            }
+            
+            regularHours = parseFloat(regularHours.toFixed(2));
+            overtimeHours = parseFloat(overtimeHours.toFixed(2));
+            overtimeHours134 = parseFloat(overtimeHours134.toFixed(2));
+            overtimeHours167 = parseFloat(overtimeHours167.toFixed(2));
+            overtimeHours200 = parseFloat(overtimeHours200.toFixed(2));
+            overtimeHours267 = parseFloat(overtimeHours267.toFixed(2));
+          } else {
+            workDays = 0; regularHours = 0;
+          }
+        } else {
+          workDays = 0; regularHours = 0;
+        }
+      } catch (err) {
+        console.error('Error fetching fallback schedules:', err);
+        workDays = 0; regularHours = 0;
+      }
     }
   } else {
     const daysInMonth = new Date(y, m, 0).getDate();
@@ -363,7 +426,7 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
 }
 
 // Helper to fetch active schedules from Supabase for a given month and build mappings
-async function fetchActiveSchedulesForMonth(y, m, preFetchedEmployees = null) {
+async function fetchActiveSchedulesForMonth(y, m) {
   try {
     const monthStr = String(m).padStart(2, '0');
     const nextMonth = m === 12 ? 1 : m + 1;
@@ -371,15 +434,11 @@ async function fetchActiveSchedulesForMonth(y, m, preFetchedEmployees = null) {
     const lastDay = new Date(nextYear, nextMonth - 1, 0).getDate();
     const endDate = `${y}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
-    // 1. Use pre-fetched employees or fetch all from Supabase to build UUID mapping
-    let sbEmployees = preFetchedEmployees;
-    if (!sbEmployees) {
-      const { data, error: sbEmpError } = await supabase
-        .from('employees')
-        .select('id, username');
-      if (sbEmpError) throw sbEmpError;
-      sbEmployees = data;
-    }
+    // 1. Fetch all employees from Supabase to build UUID mapping
+    const { data: sbEmployees, error: sbEmpError } = await supabase
+      .from('employees')
+      .select('id, username');
+    if (sbEmpError) throw sbEmpError;
 
     const uuidToEmpNo = {};
     sbEmployees.forEach(sbEmp => {
@@ -534,35 +593,31 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
 
     console.log(`[Calc] Starting optimized calculation for ${y}-${m}...`);
 
-    // Sync attendance logs and approved leaves from Supabase first
-    const singleEmpId = (employeeIds && Array.isArray(employeeIds) && employeeIds.length === 1) ? employeeIds[0] : null;
-
     // Sync employees from Supabase first to ensure statuses are updated
     console.log('[Calc] Syncing employees...');
-    const forceSyncEmployees = singleEmpId ? false : true;
-    await syncEmployees(forceSyncEmployees).catch(err => console.error("Sync employees failed:", err));
+    await syncEmployees(true).catch(err => console.error("Sync employees failed:", err));
     console.log('[Calc] Employees synced.');
 
     // Sync attendance logs and approved leaves from Supabase first
     console.log('[Calc] Syncing attendance and leaves...');
+    const singleEmpId = (employeeIds && Array.isArray(employeeIds) && employeeIds.length === 1) ? employeeIds[0] : null;
     await syncAttendanceAndLeaves(y, m, false, singleEmpId).catch(err => console.error("Sync attendance/leaves failed:", err));
     console.log('[Calc] Attendance and leaves synced.');
 
-    // Fetch all employees from Supabase once for mappings and fallback hours
-    console.log('[Calc] Fetching employees from Supabase for mappings...');
-    const { data: sbEmps } = await supabase.from('employees').select('id, username, name, standard_daily_hours');
-    
+    // Fetch active schedules for this month from Supabase to override salary structures
+    console.log('[Calc] Fetching active schedules for month...');
+    const activeSchedules = await fetchActiveSchedulesForMonth(y, m);
+    console.log('[Calc] Active schedules fetched. Count keys:', Object.keys(activeSchedules).length);
+
+    // Fetch all employees' standard_daily_hours from Supabase for fallback
+    console.log('[Calc] Fetching employees standard daily hours from Supabase...');
+    const { data: sbEmps } = await supabase.from('employees').select('name, standard_daily_hours');
     const empHoursMap = {};
     if (sbEmps) {
       sbEmps.forEach(e => {
         empHoursMap[e.name] = parseFloat(e.standard_daily_hours) || 8;
       });
     }
-
-    // Fetch active schedules for this month from Supabase to override salary structures
-    console.log('[Calc] Fetching active schedules for month...');
-    const activeSchedules = await fetchActiveSchedulesForMonth(y, m, sbEmps);
-    console.log('[Calc] Active schedules fetched. Count keys:', Object.keys(activeSchedules).length);
 
     // Get settings
     console.log('[Calc] Querying system settings...');
@@ -583,6 +638,88 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
     const lastDayStr = String(lastDay).padStart(2, '0');
     const monthStartStr = `${y}-${monthStr}-01`;
     const monthEndStr = `${y}-${monthStr}-${lastDayStr}`;
+
+    // Fetch monthly salary schedules to get shift types (班別) for hourly employees
+    console.log('[Calc] Fetching monthly salary schedules...');
+    const { data: sbEmpsAll } = await supabase.from('employees').select('id, username');
+    const uuidToEmpNoAll = {};
+    if (sbEmpsAll) {
+      sbEmpsAll.forEach(sbEmp => {
+        let employeeNo = '';
+        if (sbEmp.username && sbEmp.username.includes('@')) {
+          employeeNo = sbEmp.username.split('@')[0].toUpperCase();
+        } else {
+          employeeNo = `EMP-${sbEmp.id.substring(0, 4).toUpperCase()}`;
+        }
+        uuidToEmpNoAll[sbEmp.id] = employeeNo;
+      });
+    }
+
+    const { data: monthlySchedulesData } = await supabase
+      .from('monthly_salary_schedules')
+      .select('employee_id, service_date, shift_type, service_mins')
+      .gte('service_date', monthStartStr)
+      .lte('service_date', monthEndStr);
+
+    const shiftTypeMap = {};
+    const scheduledHoursMap = {};
+    if (monthlySchedulesData) {
+      const empDailyData = {};
+      monthlySchedulesData.forEach(sched => {
+        const empNo = uuidToEmpNoAll[sched.employee_id];
+        if (empNo) {
+          if (sched.shift_type) {
+            const key = `${empNo}_${sched.service_date}`;
+            if (!shiftTypeMap[key]) shiftTypeMap[key] = new Set();
+            shiftTypeMap[key].add(sched.shift_type);
+          }
+          if (sched.service_mins > 0) {
+            if (!empDailyData[empNo]) empDailyData[empNo] = {};
+            if (!empDailyData[empNo][sched.service_date]) {
+              empDailyData[empNo][sched.service_date] = { mins: 0, types: new Set() };
+            }
+            empDailyData[empNo][sched.service_date].mins += sched.service_mins;
+            if (sched.shift_type) empDailyData[empNo][sched.service_date].types.add(sched.shift_type);
+          }
+        }
+      });
+      
+      // Calculate categorized hours per employee
+      for (const empNo of Object.keys(empDailyData)) {
+        scheduledHoursMap[empNo] = {
+          regularHours: 0, overtimeHours: 0, overtimeHours134: 0,
+          overtimeHours167: 0, overtimeHours200: 0, overtimeHours267: 0, workDays: 0
+        };
+        const dailyData = empDailyData[empNo];
+        for (const date of Object.keys(dailyData)) {
+          scheduledHoursMap[empNo].workDays++;
+          const hrs = dailyData[date].mins / 60;
+          const types = Array.from(dailyData[date].types);
+          const isNatHoliday = types.some(t => t.includes('國假') || t.includes('國定假日'));
+          const isRoutineDayOff = types.some(t => t.includes('例假日'));
+          const isRestDay = types.some(t => t.includes('休息日'));
+          
+          if (isNatHoliday || isRoutineDayOff) {
+            scheduledHoursMap[empNo].overtimeHours += hrs;
+            scheduledHoursMap[empNo].overtimeHours200 += hrs;
+          } else if (isRestDay) {
+            scheduledHoursMap[empNo].overtimeHours += hrs;
+            scheduledHoursMap[empNo].overtimeHours134 += Math.min(2, hrs);
+            scheduledHoursMap[empNo].overtimeHours167 += Math.min(6, Math.max(0, hrs - 2));
+            scheduledHoursMap[empNo].overtimeHours267 += Math.max(0, hrs - 8);
+          } else {
+            scheduledHoursMap[empNo].regularHours += hrs;
+          }
+        }
+        
+        // Round all numbers to 2 decimal places
+        for (const key of Object.keys(scheduledHoursMap[empNo])) {
+          if (key !== 'workDays') {
+            scheduledHoursMap[empNo][key] = parseFloat(scheduledHoursMap[empNo][key].toFixed(2));
+          }
+        }
+      }
+    }
 
     // Build employee query
     const empWhere = {
@@ -944,7 +1081,56 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       if (currentEmp.salaryType === 'hourly') {
         if (attendanceRecords.length > 0) {
           attendanceRecords.forEach(att => {
-            regularHours += att.regularHours;
+            const isNatHoliday = isHoliday(att.date);
+            const dailyReg = att.regularHours || 0;
+            const dailyOt = att.overtimeHours || 0;
+            const totalDaily = dailyReg + dailyOt;
+
+            const dateObj = new Date(att.date);
+            const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 6 = Saturday
+
+            // Determine if the day is a Routine Day Off (例假日) or Rest Day (休息日) based on shift schedules
+            const shiftKey = `${currentEmp.employeeNo}_${att.date}`;
+            const shiftTypes = shiftTypeMap[shiftKey] || new Set();
+            const hasRoutineDayOffShift = Array.from(shiftTypes).some(t => t.includes('例假日'));
+            const hasRestDayShift = Array.from(shiftTypes).some(t => t.includes('休息日'));
+
+            // Fallback to dayOfWeek if no specific shift type is mapped
+            const isRoutineDayOff = shiftTypes.size > 0 ? hasRoutineDayOffShift : (dayOfWeek === 0);
+            const isRestDay = shiftTypes.size > 0 ? hasRestDayShift : (dayOfWeek === 6);
+
+            if (isNatHoliday) {
+              // National holiday: 2x rate for all hours
+              overtimeHours += totalDaily;
+              overtimeHours200 += totalDaily;
+            } else if (isRoutineDayOff) {
+              // 例假日 (Routine Day Off): 2x pay for all hours
+              overtimeHours += totalDaily;
+              overtimeHours200 += totalDaily;
+            } else if (isRestDay) {
+              // Saturday (休息日): Rest day formula (all hours are overtime)
+              overtimeHours += totalDaily;
+              const otHrs = totalDaily;
+              const ot134 = Math.min(2, otHrs);
+              const ot167 = Math.min(6, Math.max(0, otHrs - 2));
+              const ot267 = Math.max(0, otHrs - 8);
+              overtimeHours134 += ot134;
+              overtimeHours167 += ot167;
+              overtimeHours267 += ot267;
+            } else {
+              // Normal weekday
+              regularHours += dailyReg;
+              if (dailyOt > 0) {
+                overtimeHours += dailyOt;
+                const ot134 = Math.min(2, dailyOt);
+                const ot167 = Math.min(6, Math.max(0, dailyOt - 2));
+                const ot267 = Math.max(0, dailyOt - 8);
+                overtimeHours134 += ot134;
+                overtimeHours167 += ot167;
+                overtimeHours267 += ot267;
+              }
+            }
+
             if (att.status === 'present' || att.clockIn || att.clockOut) {
               workDays++;
             } else if (att.status === 'absent') {
@@ -952,8 +1138,19 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
             }
           });
         } else {
-          workDays = 22;
-          regularHours = 0;
+          const schedData = scheduledHoursMap[currentEmp.employeeNo];
+          if (schedData && (schedData.regularHours > 0 || schedData.overtimeHours > 0)) {
+            workDays = schedData.workDays;
+            regularHours = schedData.regularHours;
+            overtimeHours += schedData.overtimeHours;
+            overtimeHours134 += schedData.overtimeHours134;
+            overtimeHours167 += schedData.overtimeHours167;
+            overtimeHours200 += schedData.overtimeHours200;
+            overtimeHours267 += schedData.overtimeHours267;
+          } else {
+            workDays = 0;
+            regularHours = 0;
+          }
         }
       } else {
         // Monthly employees: count standard weekdays in the month
@@ -1174,8 +1371,8 @@ router.put('/:id', validateId(), async (req, res) => {
       leavePaySupplement: req.body.leavePaySupplement !== undefined ? parseFloat(req.body.leavePaySupplement) : existing.leavePaySupplement,
     };
 
-    // Skip forced sync on manual adjustment to improve save performance
-    // await syncAttendanceAndLeaves(existing.year, existing.month, false, existing.employeeId).catch(err => console.error("Sync attendance/leaves failed:", err));
+    // Sync attendance logs and approved leaves from Supabase first (optimized for this employee)
+    await syncAttendanceAndLeaves(existing.year, existing.month, false, existing.employeeId).catch(err => console.error("Sync attendance/leaves failed:", err));
 
     const freshAttendance = await getFreshAttendanceSummary(
       req.prisma,
@@ -1195,10 +1392,10 @@ router.put('/:id', validateId(), async (req, res) => {
 
     // Prepare overridden attendance & adjustments
     const attendanceSummary = {
-      workDays: freshAttendance.workDays,
-      leaveDays: freshAttendance.leaveDays,
-      absentDays: freshAttendance.absentDays,
-      regularHours: freshAttendance.regularHours,
+      workDays: req.body.workDays !== undefined ? parseFloat(req.body.workDays) : freshAttendance.workDays,
+      leaveDays: req.body.leaveDays !== undefined ? parseFloat(req.body.leaveDays) : freshAttendance.leaveDays,
+      absentDays: req.body.absentDays !== undefined ? parseFloat(req.body.absentDays) : freshAttendance.absentDays,
+      regularHours: req.body.regularHours !== undefined ? parseFloat(req.body.regularHours) : freshAttendance.regularHours,
       overtimeHours134: req.body.overtimeHours134 !== undefined ? parseFloat(req.body.overtimeHours134) : freshAttendance.overtimeHours134,
       overtimeHours167: req.body.overtimeHours167 !== undefined ? parseFloat(req.body.overtimeHours167) : freshAttendance.overtimeHours167,
       overtimeHours200: req.body.overtimeHours200 !== undefined ? parseFloat(req.body.overtimeHours200) : freshAttendance.overtimeHours200,
@@ -1481,15 +1678,15 @@ router.post('/batch-update-adjustments', async (req, res) => {
 
       // Prepare attendance summary for recalculation
       const attendanceSummary = {
-        workDays: freshAttendance.workDays,
-        leaveDays: freshAttendance.leaveDays,
-        absentDays: freshAttendance.absentDays,
+        workDays: req.body.overrides?.workDays !== undefined ? parseFloat(req.body.overrides.workDays) : freshAttendance.workDays,
+        leaveDays: req.body.overrides?.leaveDays !== undefined ? parseFloat(req.body.overrides.leaveDays) : freshAttendance.leaveDays,
+        absentDays: req.body.overrides?.absentDays !== undefined ? parseFloat(req.body.overrides.absentDays) : freshAttendance.absentDays,
         overtimeHours: freshAttendance.overtimeHours,
         overtimeHours134: freshAttendance.overtimeHours134,
         overtimeHours167: freshAttendance.overtimeHours167,
         overtimeHours200: freshAttendance.overtimeHours200,
         overtimeHours267: freshAttendance.overtimeHours267,
-        regularHours: freshAttendance.regularHours,
+        regularHours: req.body.overrides?.regularHours !== undefined ? parseFloat(req.body.overrides.regularHours) : freshAttendance.regularHours,
         bonus: updatedBonus,
         retroPay: payrollRecord.retroPay,
         otherDeductions: updatedOtherDeductions,

@@ -18,6 +18,7 @@ export default function PayrollList() {
   const [nameFilter, setNameFilter] = useState(location.state?.nameFilter || '');
   const [selectedIds, setSelectedIds] = useState([]);
   const [isCalcModalOpen, setIsCalcModalOpen] = useState(false);
+  const [resetSettings, setResetSettings] = useState(false);
   const [calcSettings, setCalcSettings] = useState({
     labor_insurance_rate: '0.12',
     labor_insurance_employee_share: '0.20',
@@ -142,6 +143,7 @@ export default function PayrollList() {
       await payrollService.calculatePayroll({
         year: parseInt(year),
         month: parseInt(month),
+        resetSettings,
         settings: {
           labor_insurance_rate: calcSettings.labor_insurance_rate,
           labor_insurance_employee_share: calcSettings.labor_insurance_employee_share,
@@ -571,6 +573,19 @@ export default function PayrollList() {
           <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-neutral-600)' }}>
             提示：您可以在本次計算前調整勞健保費率與公提率。此處修改僅影響本月本次的計算，不會永久儲存至系統設定。
           </p>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', backgroundColor: 'var(--color-warning-50)', borderRadius: '4px', border: '1px solid var(--color-warning-200)' }}>
+            <input 
+              type="checkbox" 
+              id="resetSettings" 
+              checked={resetSettings} 
+              onChange={e => setResetSettings(e.target.checked)} 
+            />
+            <label htmlFor="resetSettings" style={{ fontSize: 'var(--text-sm)', color: 'var(--color-warning-900)', cursor: 'pointer' }}>
+              <strong>重置並重新套用員工設定</strong> <br/>
+              (注意：勾選此項將清除本月已存的薪資手動設定，強制用最新系統排班與時薪重新計算，建議修正時勾選)
+            </label>
+          </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
             <Input
