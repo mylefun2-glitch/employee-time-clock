@@ -1455,6 +1455,10 @@ const AttendanceCalendarPage: React.FC = () => {
                                      }
                                  }
 
+                                 const daySchedules = salarySchedules.filter(s => s.service_date === dateKey);
+                                 const totalServiceMins = daySchedules.reduce((sum, s) => sum + s.service_mins, 0);
+                                 const totalServiceHours = totalServiceMins > 0 ? (totalServiceMins / 60).toFixed(1) : '0';
+
                                 return (
                                     <div
                                         key={dateKey}
@@ -1509,8 +1513,13 @@ const AttendanceCalendarPage: React.FC = () => {
                                                     </button>
                                                 )}
                                                 {dayInfo?.hours > 0 && (
-                                                    <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                                    <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 whitespace-nowrap">
                                                         {dayInfo.hours}H
+                                                    </span>
+                                                )}
+                                                {Number(totalServiceHours) > 0 && (
+                                                    <span className="text-[10px] font-black text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full border border-violet-100 whitespace-nowrap">
+                                                        合計 {totalServiceHours}H
                                                     </span>
                                                 )}
                                             </div>
@@ -1622,7 +1631,6 @@ const AttendanceCalendarPage: React.FC = () => {
 
                                              {/* 薪制班表 */}
                                              {(() => {
-                                                 const daySchedules = salarySchedules.filter(s => s.service_date === dateKey);
                                                  if (daySchedules.length === 0) return null;
 
                                                  const SHIFT_COLORS: Record<string, string> = {
@@ -1637,19 +1645,19 @@ const AttendanceCalendarPage: React.FC = () => {
                                                          {daySchedules.map(sched => (
                                                              <div
                                                                  key={sched.id}
-                                                                 className={`px-2 py-1 rounded-md text-[10px] font-black border flex flex-col gap-0.5 ${SHIFT_COLORS[sched.shift_type] || 'bg-slate-100 text-slate-700 border-slate-200'}`}
+                                                                 className={`px-1.5 py-1 rounded-md text-[10px] font-black border flex items-center justify-between gap-1 overflow-hidden whitespace-nowrap ${SHIFT_COLORS[sched.shift_type] || 'bg-slate-100 text-slate-700 border-slate-200'}`}
                                                                  title={[sched.case_name && `個案：${sched.case_name}`, `服務時間：${sched.service_mins} 分鐘`, sched.note && `備註：${sched.note}`].filter(Boolean).join('\n')}
                                                                  onClick={(e) => e.stopPropagation()}
                                                              >
-                                                                 <div className="flex items-center justify-between gap-1">
-                                                                     <span className="truncate">{sched.shift_type}</span>
-                                                                     <span className="shrink-0 opacity-70">{sched.service_mins}分</span>
+                                                                 <div className="flex items-center gap-1 overflow-hidden">
+                                                                     <span className="shrink-0">{sched.shift_type}</span>
+                                                                     {sched.case_name && (
+                                                                         <span className="text-[9px] opacity-75 truncate" title={sched.case_name}>
+                                                                             👤{sched.case_name}
+                                                                         </span>
+                                                                     )}
                                                                  </div>
-                                                                 {sched.case_name && (
-                                                                     <div className="text-[8px] opacity-75 truncate leading-tight">
-                                                                         👤 {sched.case_name}
-                                                                     </div>
-                                                                 )}
+                                                                 <span className="shrink-0 opacity-80">{sched.service_mins}分</span>
                                                              </div>
                                                          ))}
                                                      </div>

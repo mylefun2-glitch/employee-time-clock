@@ -171,7 +171,7 @@ const AdminLayout: React.FC = () => {
 
             {/* Main Content */}
             <main className="flex-1 overflow-x-hidden print:overflow-visible">
-                <div className="p-4 md:p-8 max-w-7xl mx-auto print:p-0 print:max-w-none">
+                <div className="p-4 md:p-8 w-full mx-auto print:p-0 print:max-w-none">
                     <Outlet />
                 </div>
             </main>
