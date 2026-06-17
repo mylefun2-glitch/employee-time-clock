@@ -293,8 +293,9 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
     const isNotHealthInsuredAtCompany = (employee.healthInsuranceGrade === -1) || isMidMonthResigned;
     if (isNotHealthInsuredAtCompany) {
       const minWage = parseFloat(settings.minimum_wage_monthly) || 29500;
-      if (grossPay > minWage) {
-        supplementaryHealthInsurance = Math.round(grossPay * 0.0211);
+      const netGrossForNhi = grossPay - leaveDeduction;
+      if (netGrossForNhi >= minWage) {
+        supplementaryHealthInsurance = Math.round(netGrossForNhi * 0.0211);
       }
     }
   }
