@@ -235,43 +235,70 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
       });
     } else {
       try {
-        const { data: sbEmp } = await supabase
-          .from('employees')
-          .select('id')
-          .eq('name', employee.name)
-          .limit(1);
+        // Use email (more reliable than name) to find the Supabase UUID
+        const sbQuery = supabase.from('employees').select('id');
+        if (employee.email) {
+          sbQuery.eq('username', employee.email);
+        } else {
+          sbQuery.eq('name', employee.name);
+        }
+        const { data: sbEmp } = await sbQuery.limit(1);
         if (sbEmp && sbEmp.length > 0) {
           const { data: scheds } = await supabase
             .from('monthly_salary_schedules')
-            .select('service_mins')
+            .select('service_date, service_mins, shift_type')
             .eq('employee_id', sbEmp[0].id)
             .gte('service_date', `${y}-${monthStr}-01`)
             .lte('service_date', `${y}-${monthStr}-${lastDayStr}`);
           
           if (scheds && scheds.length > 0) {
-            let totalMins = 0;
+            const dailyData = {};
             scheds.forEach(s => {
-              if (s.service_mins) totalMins += s.service_mins;
+              if (s.service_mins > 0) {
+                if (!dailyData[s.service_date]) {
+                  dailyData[s.service_date] = { mins: 0, types: new Set() };
+                }
+                dailyData[s.service_date].mins += s.service_mins;
+                if (s.shift_type) dailyData[s.service_date].types.add(s.shift_type);
+              }
             });
-            if (totalMins > 0) {
-              regularHours = totalMins / 60;
-              workDays = Math.ceil(regularHours / 8);
-            } else {
-              workDays = 22;
-              regularHours = 0;
+            
+            for (const date of Object.keys(dailyData)) {
+              workDays++;
+              const hrs = dailyData[date].mins / 60;
+              const types = Array.from(dailyData[date].types);
+              const isNatHoliday = types.some(t => t.includes('國假') || t.includes('國定假日'));
+              const isRoutineDayOff = types.some(t => t.includes('例假日'));
+              const isRestDay = types.some(t => t.includes('休息日'));
+              
+              if (isNatHoliday || isRoutineDayOff) {
+                overtimeHours += hrs;
+                overtimeHours200 += hrs;
+              } else if (isRestDay) {
+                overtimeHours += hrs;
+                overtimeHours134 += Math.min(2, hrs);
+                overtimeHours167 += Math.min(6, Math.max(0, hrs - 2));
+                overtimeHours267 += Math.max(0, hrs - 8);
+              } else {
+                regularHours += hrs;
+              }
             }
+            
+            regularHours = parseFloat(regularHours.toFixed(2));
+            overtimeHours = parseFloat(overtimeHours.toFixed(2));
+            overtimeHours134 = parseFloat(overtimeHours134.toFixed(2));
+            overtimeHours167 = parseFloat(overtimeHours167.toFixed(2));
+            overtimeHours200 = parseFloat(overtimeHours200.toFixed(2));
+            overtimeHours267 = parseFloat(overtimeHours267.toFixed(2));
           } else {
-            workDays = 22;
-            regularHours = 0;
+            workDays = 0; regularHours = 0;
           }
         } else {
-          workDays = 22;
-          regularHours = 0;
+          workDays = 0; regularHours = 0;
         }
       } catch (err) {
         console.error('Error fetching fallback schedules:', err);
-        workDays = 22;
-        regularHours = 0;
+        workDays = 0; regularHours = 0;
       }
     }
   } else {
@@ -637,6 +664,7 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
     const shiftTypeMap = {};
     const scheduledHoursMap = {};
     if (monthlySchedulesData) {
+      const empDailyData = {};
       monthlySchedulesData.forEach(sched => {
         const empNo = uuidToEmpNoAll[sched.employee_id];
         if (empNo) {
@@ -645,12 +673,52 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
             if (!shiftTypeMap[key]) shiftTypeMap[key] = new Set();
             shiftTypeMap[key].add(sched.shift_type);
           }
-          if (sched.service_mins) {
-            if (!scheduledHoursMap[empNo]) scheduledHoursMap[empNo] = 0;
-            scheduledHoursMap[empNo] += (sched.service_mins / 60);
+          if (sched.service_mins > 0) {
+            if (!empDailyData[empNo]) empDailyData[empNo] = {};
+            if (!empDailyData[empNo][sched.service_date]) {
+              empDailyData[empNo][sched.service_date] = { mins: 0, types: new Set() };
+            }
+            empDailyData[empNo][sched.service_date].mins += sched.service_mins;
+            if (sched.shift_type) empDailyData[empNo][sched.service_date].types.add(sched.shift_type);
           }
         }
       });
+      
+      // Calculate categorized hours per employee
+      for (const empNo of Object.keys(empDailyData)) {
+        scheduledHoursMap[empNo] = {
+          regularHours: 0, overtimeHours: 0, overtimeHours134: 0,
+          overtimeHours167: 0, overtimeHours200: 0, overtimeHours267: 0, workDays: 0
+        };
+        const dailyData = empDailyData[empNo];
+        for (const date of Object.keys(dailyData)) {
+          scheduledHoursMap[empNo].workDays++;
+          const hrs = dailyData[date].mins / 60;
+          const types = Array.from(dailyData[date].types);
+          const isNatHoliday = types.some(t => t.includes('國假') || t.includes('國定假日'));
+          const isRoutineDayOff = types.some(t => t.includes('例假日'));
+          const isRestDay = types.some(t => t.includes('休息日'));
+          
+          if (isNatHoliday || isRoutineDayOff) {
+            scheduledHoursMap[empNo].overtimeHours += hrs;
+            scheduledHoursMap[empNo].overtimeHours200 += hrs;
+          } else if (isRestDay) {
+            scheduledHoursMap[empNo].overtimeHours += hrs;
+            scheduledHoursMap[empNo].overtimeHours134 += Math.min(2, hrs);
+            scheduledHoursMap[empNo].overtimeHours167 += Math.min(6, Math.max(0, hrs - 2));
+            scheduledHoursMap[empNo].overtimeHours267 += Math.max(0, hrs - 8);
+          } else {
+            scheduledHoursMap[empNo].regularHours += hrs;
+          }
+        }
+        
+        // Round all numbers to 2 decimal places
+        for (const key of Object.keys(scheduledHoursMap[empNo])) {
+          if (key !== 'workDays') {
+            scheduledHoursMap[empNo][key] = parseFloat(scheduledHoursMap[empNo][key].toFixed(2));
+          }
+        }
+      }
     }
 
     // Build employee query
@@ -1070,12 +1138,17 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
             }
           });
         } else {
-          const schedHours = scheduledHoursMap[currentEmp.employeeNo];
-          if (schedHours !== undefined && schedHours > 0) {
-            regularHours = schedHours;
-            workDays = Math.ceil(schedHours / 8);
+          const schedData = scheduledHoursMap[currentEmp.employeeNo];
+          if (schedData && (schedData.regularHours > 0 || schedData.overtimeHours > 0)) {
+            workDays = schedData.workDays;
+            regularHours = schedData.regularHours;
+            overtimeHours += schedData.overtimeHours;
+            overtimeHours134 += schedData.overtimeHours134;
+            overtimeHours167 += schedData.overtimeHours167;
+            overtimeHours200 += schedData.overtimeHours200;
+            overtimeHours267 += schedData.overtimeHours267;
           } else {
-            workDays = 22;
+            workDays = 0;
             regularHours = 0;
           }
         }

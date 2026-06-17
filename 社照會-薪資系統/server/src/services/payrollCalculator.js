@@ -314,7 +314,7 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
   );
 
   return {
-    baseSalary: employee.salaryType === 'hourly' ? 0 : (proRataInfo.isProRata ? regularPay : baseSalary),
+    baseSalary: employee.salaryType === 'hourly' ? employee.baseSalary : (proRataInfo.isProRata ? regularPay : baseSalary),
     overtimePay: finalOvertimePay,
     mealAllowance: otherAllowanceExempt,
     transportAllowance: 0, // Transport allowance removed
