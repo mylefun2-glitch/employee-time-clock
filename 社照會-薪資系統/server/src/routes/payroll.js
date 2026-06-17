@@ -655,11 +655,28 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       });
     }
 
-    const { data: monthlySchedulesData } = await supabase
-      .from('monthly_salary_schedules')
-      .select('employee_id, service_date, shift_type, service_mins')
-      .gte('service_date', monthStartStr)
-      .lte('service_date', monthEndStr);
+    // Supabase has a default 1000 row limit. Use pagination to fetch all rows for the month.
+    let monthlySchedulesData = [];
+    let hasMore = true;
+    let fromIndex = 0;
+    const step = 1000;
+    
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('monthly_salary_schedules')
+        .select('employee_id, service_date, shift_type, service_mins')
+        .gte('service_date', monthStartStr)
+        .lte('service_date', monthEndStr)
+        .range(fromIndex, fromIndex + step - 1);
+        
+      if (error || !data || data.length === 0) {
+        hasMore = false;
+      } else {
+        monthlySchedulesData = monthlySchedulesData.concat(data);
+        if (data.length < step) hasMore = false;
+        fromIndex += step;
+      }
+    }
 
     const shiftTypeMap = {};
     const scheduledHoursMap = {};
