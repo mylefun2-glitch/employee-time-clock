@@ -1718,10 +1718,12 @@ const AttendanceCalendarPage: React.FC = () => {
                                                                  onClick={(e) => handleSalaryScheduleClick(sched, e)}
                                                              >
                                                                  <div className="flex items-center gap-1 overflow-hidden">
-                                                                     <span className="shrink-0">{sched.shift_type}</span>
+                                                                     {sched.shift_type !== '正常班' && (
+                                                                         <span className="shrink-0">{sched.shift_type}</span>
+                                                                     )}
                                                                      {sched.case_name && (
                                                                          <span className="text-[9px] opacity-75 truncate" title={sched.case_name}>
-                                                                             👤{sched.case_name}
+                                                                             {sched.case_name}
                                                                          </span>
                                                                      )}
                                                                  </div>
