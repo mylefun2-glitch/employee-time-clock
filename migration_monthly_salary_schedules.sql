@@ -29,8 +29,8 @@ CREATE POLICY "admin_full_access" ON monthly_salary_schedules
 CREATE INDEX IF NOT EXISTS idx_mss_employee_date
     ON monthly_salary_schedules (employee_id, service_date);
 
--- 建立唯一約束，支援 upsert（同員工＋同日＋同班別＋同個案只能有一筆）
--- 若先前已建立舊版資料表，先做平滑升級
+-- 移除唯一約束以支援同天多個相同個案或重複時段的服務記錄
+-- 若先前已建立舊版資料表約束，做平滑升級移除
 DO $$
 BEGIN
     -- 1. 移除舊的唯一約束 (如果存在)
@@ -40,19 +40,17 @@ BEGIN
         ALTER TABLE monthly_salary_schedules DROP CONSTRAINT uq_mss_employee_date_shift;
     END IF;
 
-    -- 2. 將 NULL 的 case_name 轉換為空字串，並設為 NOT NULL DEFAULT ''
+    -- 2. 移除新版的唯一約束 (如果存在)
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'uq_mss_employee_date_shift_case'
+    ) THEN
+        ALTER TABLE monthly_salary_schedules DROP CONSTRAINT uq_mss_employee_date_shift_case;
+    END IF;
+
+    -- 3. 將 NULL 的 case_name 轉換為空字串，並設為 NOT NULL DEFAULT '' (維持非空以確保一致性)
     UPDATE monthly_salary_schedules SET case_name = '' WHERE case_name IS NULL;
     ALTER TABLE monthly_salary_schedules ALTER COLUMN case_name SET DEFAULT '';
     ALTER TABLE monthly_salary_schedules ALTER COLUMN case_name SET NOT NULL;
-
-    -- 3. 建立新的唯一約束
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'uq_mss_employee_date_shift_case'
-    ) THEN
-        ALTER TABLE monthly_salary_schedules
-            ADD CONSTRAINT uq_mss_employee_date_shift_case
-            UNIQUE (employee_id, service_date, shift_type, case_name);
-    END IF;
 END $$;
 
 

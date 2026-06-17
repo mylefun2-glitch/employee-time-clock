@@ -1049,14 +1049,7 @@ export const importMonthlySalarySchedules = async (
                 continue;
             }
 
-            // 防止批次內重複（同員工 + 同日期 + 同班別 + 同個案）
             const caseName = row.case_name.trim();
-            const dedupeKey = `${employee.id}_${row.service_date.trim()}_${shiftType}_${caseName}`;
-            if (processedKeys.has(dedupeKey)) {
-                results.skipped++;
-                continue;
-            }
-            processedKeys.add(dedupeKey);
 
             insertData.push({
                 employee_id: employee.id,
@@ -1069,30 +1062,51 @@ export const importMonthlySalarySchedules = async (
         }
 
         if (insertData.length > 0) {
-            // upsert 依據 (employee_id, service_date, shift_type, case_name) 做覆蓋
-            const { error: insertError } = await supabase
-                .from('monthly_salary_schedules')
-                .upsert(insertData, {
-                    onConflict: 'employee_id,service_date,shift_type,case_name',
-                    ignoreDuplicates: false
-                });
+            // 2. 收集需要刪除的 員工 + 日期 組合（以實現覆蓋更新，避免同天重複記錄或個案重複問題）
+            // 格式：Map<employee_id, Set<service_date>>
+            const employeeDatesMap = new Map<string, Set<string>>();
+            for (const item of insertData) {
+                if (!employeeDatesMap.has(item.employee_id)) {
+                    employeeDatesMap.set(item.employee_id, new Set());
+                }
+                employeeDatesMap.get(item.employee_id)!.add(item.service_date);
+            }
 
-            if (insertError) {
-                // 若 upsert 不支援（舊版/無 unique constraint）則改用 insert
-                const { error: fallbackError } = await supabase
+            // 3. 依員工刪除該些服務日期的舊資料
+            for (const [employeeId, datesSet] of employeeDatesMap.entries()) {
+                const datesArray = Array.from(datesSet);
+                const { error: deleteError } = await supabase
                     .from('monthly_salary_schedules')
-                    .insert(insertData);
+                    .delete()
+                    .eq('employee_id', employeeId)
+                    .in('service_date', datesArray);
 
-                if (fallbackError) {
-                    console.error('Error inserting monthly salary schedules:', fallbackError);
+                if (deleteError) {
+                    console.error(`Error deleting existing schedules for employee ${employeeId}:`, deleteError);
                     return {
                         success: false,
                         succeeded: 0,
-                        skipped: results.skipped,
+                        skipped: 0,
                         failed: rows.length,
-                        errors: [{ line: 0, name: '系統', error: fallbackError.message }]
+                        errors: [{ line: 0, name: '系統', error: `刪除舊資料失敗：${deleteError.message}` }]
                     };
                 }
+            }
+
+            // 4. 插入所有新資料（無 UNIQUE 限制，可完整匯入同天多筆或相同個案）
+            const { error: insertError } = await supabase
+                .from('monthly_salary_schedules')
+                .insert(insertData);
+
+            if (insertError) {
+                console.error('Error inserting monthly salary schedules:', insertError);
+                return {
+                    success: false,
+                    succeeded: 0,
+                    skipped: 0,
+                    failed: rows.length,
+                    errors: [{ line: 0, name: '系統', error: insertError.message }]
+                };
             }
             results.succeeded = insertData.length;
         }
