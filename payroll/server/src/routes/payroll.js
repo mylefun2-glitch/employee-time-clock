@@ -280,7 +280,16 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
                 overtimeHours167 += Math.min(6, Math.max(0, hrs - 2));
                 overtimeHours267 += Math.max(0, hrs - 8);
               } else {
-                regularHours += hrs;
+                if (hrs > 8) {
+                  regularHours += 8;
+                  const dailyOt = hrs - 8;
+                  overtimeHours += dailyOt;
+                  overtimeHours134 += Math.min(2, dailyOt);
+                  overtimeHours167 += Math.min(6, Math.max(0, dailyOt - 2));
+                  overtimeHours267 += Math.max(0, dailyOt - 8);
+                } else {
+                  regularHours += hrs;
+                }
               }
             }
             
@@ -725,7 +734,16 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
             scheduledHoursMap[empNo].overtimeHours167 += Math.min(6, Math.max(0, hrs - 2));
             scheduledHoursMap[empNo].overtimeHours267 += Math.max(0, hrs - 8);
           } else {
-            scheduledHoursMap[empNo].regularHours += hrs;
+            if (hrs > 8) {
+              scheduledHoursMap[empNo].regularHours += 8;
+              const dailyOt = hrs - 8;
+              scheduledHoursMap[empNo].overtimeHours += dailyOt;
+              scheduledHoursMap[empNo].overtimeHours134 += Math.min(2, dailyOt);
+              scheduledHoursMap[empNo].overtimeHours167 += Math.min(6, Math.max(0, dailyOt - 2));
+              scheduledHoursMap[empNo].overtimeHours267 += Math.max(0, dailyOt - 8);
+            } else {
+              scheduledHoursMap[empNo].regularHours += hrs;
+            }
           }
         }
         
