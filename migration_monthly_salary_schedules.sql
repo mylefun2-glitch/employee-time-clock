@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS monthly_salary_schedules (
 ALTER TABLE monthly_salary_schedules ENABLE ROW LEVEL SECURITY;
 
 -- 允許管理員（已通過 auth）讀寫所有資料
+DROP POLICY IF EXISTS "admin_full_access" ON monthly_salary_schedules;
 CREATE POLICY "admin_full_access" ON monthly_salary_schedules
     FOR ALL
     USING (true)
