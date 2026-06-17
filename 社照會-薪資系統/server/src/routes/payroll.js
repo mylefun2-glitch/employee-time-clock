@@ -234,8 +234,45 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
         }
       });
     } else {
-      workDays = 22;
-      regularHours = 0;
+      try {
+        const { data: sbEmp } = await supabase
+          .from('employees')
+          .select('id')
+          .eq('name', employee.name)
+          .limit(1);
+        if (sbEmp && sbEmp.length > 0) {
+          const { data: scheds } = await supabase
+            .from('monthly_salary_schedules')
+            .select('service_mins')
+            .eq('employee_id', sbEmp[0].id)
+            .gte('service_date', `${y}-${monthStr}-01`)
+            .lte('service_date', `${y}-${monthStr}-${lastDayStr}`);
+          
+          if (scheds && scheds.length > 0) {
+            let totalMins = 0;
+            scheds.forEach(s => {
+              if (s.service_mins) totalMins += s.service_mins;
+            });
+            if (totalMins > 0) {
+              regularHours = totalMins / 60;
+              workDays = Math.ceil(regularHours / 8);
+            } else {
+              workDays = 22;
+              regularHours = 0;
+            }
+          } else {
+            workDays = 22;
+            regularHours = 0;
+          }
+        } else {
+          workDays = 22;
+          regularHours = 0;
+        }
+      } catch (err) {
+        console.error('Error fetching fallback schedules:', err);
+        workDays = 22;
+        regularHours = 0;
+      }
     }
   } else {
     const daysInMonth = new Date(y, m, 0).getDate();
@@ -593,18 +630,25 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
 
     const { data: monthlySchedulesData } = await supabase
       .from('monthly_salary_schedules')
-      .select('employee_id, service_date, shift_type')
+      .select('employee_id, service_date, shift_type, service_mins')
       .gte('service_date', monthStartStr)
       .lte('service_date', monthEndStr);
 
     const shiftTypeMap = {};
+    const scheduledHoursMap = {};
     if (monthlySchedulesData) {
       monthlySchedulesData.forEach(sched => {
         const empNo = uuidToEmpNoAll[sched.employee_id];
-        if (empNo && sched.shift_type) {
-          const key = `${empNo}_${sched.service_date}`;
-          if (!shiftTypeMap[key]) shiftTypeMap[key] = new Set();
-          shiftTypeMap[key].add(sched.shift_type);
+        if (empNo) {
+          if (sched.shift_type) {
+            const key = `${empNo}_${sched.service_date}`;
+            if (!shiftTypeMap[key]) shiftTypeMap[key] = new Set();
+            shiftTypeMap[key].add(sched.shift_type);
+          }
+          if (sched.service_mins) {
+            if (!scheduledHoursMap[empNo]) scheduledHoursMap[empNo] = 0;
+            scheduledHoursMap[empNo] += (sched.service_mins / 60);
+          }
         }
       });
     }
@@ -1026,8 +1070,14 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
             }
           });
         } else {
-          workDays = 22;
-          regularHours = 0;
+          const schedHours = scheduledHoursMap[currentEmp.employeeNo];
+          if (schedHours !== undefined && schedHours > 0) {
+            regularHours = schedHours;
+            workDays = Math.ceil(schedHours / 8);
+          } else {
+            workDays = 22;
+            regularHours = 0;
+          }
         }
       } else {
         // Monthly employees: count standard weekdays in the month
