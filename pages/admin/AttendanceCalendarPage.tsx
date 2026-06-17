@@ -1730,11 +1730,11 @@ const AttendanceCalendarPage: React.FC = () => {
                                                  };
 
                                                  return (
-                                                     <div className="space-y-1 mt-1">
+                                                     <div className="space-y-0.5 mt-1 max-h-[120px] overflow-y-auto overscroll-contain print:max-h-none pr-0.5 custom-scrollbar">
                                                          {daySchedules.map(sched => (
                                                              <div
                                                                  key={sched.id}
-                                                                 className={`px-1.5 py-1 rounded-md text-[10px] font-black border flex items-center justify-between gap-1 overflow-hidden whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity ${SHIFT_COLORS[sched.shift_type] || 'bg-slate-100 text-slate-700 border-slate-200'}`}
+                                                                 className={`px-1.5 py-0.5 rounded text-[9px] font-black border flex items-center justify-between gap-1 overflow-hidden whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity ${SHIFT_COLORS[sched.shift_type] || 'bg-slate-100 text-slate-700 border-slate-200'}`}
                                                                  title={[sched.case_name && `個案：${sched.case_name}`, `服務時間：${sched.service_mins} 分鐘`, sched.note && `備註：${sched.note}`].filter(Boolean).join('\n')}
                                                                  onClick={(e) => handleSalaryScheduleClick(sched, e)}
                                                              >
@@ -1743,7 +1743,7 @@ const AttendanceCalendarPage: React.FC = () => {
                                                                          <span className="shrink-0">{sched.shift_type}</span>
                                                                      )}
                                                                      {sched.case_name && (
-                                                                         <span className="text-[9px] opacity-75 truncate" title={sched.case_name}>
+                                                                         <span className="opacity-80 truncate" title={sched.case_name}>
                                                                              {sched.case_name}
                                                                          </span>
                                                                      )}
