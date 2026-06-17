@@ -24,6 +24,8 @@ export default function PayrollDetail() {
   // Editable fields state
   const [editForm, setEditForm] = useState({
     baseSalary: '0',
+    regularHours: '0',
+    workDays: '0',
     allowanceAA: '0',
     allowanceLicense: '0',
     allowanceManager: '0',
@@ -65,6 +67,8 @@ export default function PayrollDetail() {
       if (res.data) {
         setEditForm({
           baseSalary: (res.data.baseSalary || 0).toString(),
+          regularHours: (res.data.regularHours || 0).toString(),
+          workDays: (res.data.workDays || 0).toString(),
           allowanceAA: (res.data.allowanceAA || 0).toString(),
           allowanceLicense: (res.data.allowanceLicense || 0).toString(),
           allowanceManager: (res.data.allowanceManager || 0).toString(),
@@ -106,6 +110,8 @@ export default function PayrollDetail() {
       // Backend now automatically recalculates based on raw parameters passed!
       await payrollService.updatePayroll(id, {
         baseSalary: parseFloat(editForm.baseSalary) || 0,
+        regularHours: parseFloat(editForm.regularHours) || 0,
+        workDays: parseFloat(editForm.workDays) || 0,
         allowanceAA: parseFloat(editForm.allowanceAA) || 0,
         allowanceLicense: parseFloat(editForm.allowanceLicense) || 0,
         allowanceManager: parseFloat(editForm.allowanceManager) || 0,

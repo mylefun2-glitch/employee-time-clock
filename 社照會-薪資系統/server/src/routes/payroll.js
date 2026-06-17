@@ -1269,10 +1269,10 @@ router.put('/:id', validateId(), async (req, res) => {
 
     // Prepare overridden attendance & adjustments
     const attendanceSummary = {
-      workDays: freshAttendance.workDays,
-      leaveDays: freshAttendance.leaveDays,
-      absentDays: freshAttendance.absentDays,
-      regularHours: freshAttendance.regularHours,
+      workDays: req.body.workDays !== undefined ? parseFloat(req.body.workDays) : freshAttendance.workDays,
+      leaveDays: req.body.leaveDays !== undefined ? parseFloat(req.body.leaveDays) : freshAttendance.leaveDays,
+      absentDays: req.body.absentDays !== undefined ? parseFloat(req.body.absentDays) : freshAttendance.absentDays,
+      regularHours: req.body.regularHours !== undefined ? parseFloat(req.body.regularHours) : freshAttendance.regularHours,
       overtimeHours134: req.body.overtimeHours134 !== undefined ? parseFloat(req.body.overtimeHours134) : freshAttendance.overtimeHours134,
       overtimeHours167: req.body.overtimeHours167 !== undefined ? parseFloat(req.body.overtimeHours167) : freshAttendance.overtimeHours167,
       overtimeHours200: req.body.overtimeHours200 !== undefined ? parseFloat(req.body.overtimeHours200) : freshAttendance.overtimeHours200,
@@ -1555,15 +1555,15 @@ router.post('/batch-update-adjustments', async (req, res) => {
 
       // Prepare attendance summary for recalculation
       const attendanceSummary = {
-        workDays: freshAttendance.workDays,
-        leaveDays: freshAttendance.leaveDays,
-        absentDays: freshAttendance.absentDays,
+        workDays: req.body.overrides?.workDays !== undefined ? parseFloat(req.body.overrides.workDays) : freshAttendance.workDays,
+        leaveDays: req.body.overrides?.leaveDays !== undefined ? parseFloat(req.body.overrides.leaveDays) : freshAttendance.leaveDays,
+        absentDays: req.body.overrides?.absentDays !== undefined ? parseFloat(req.body.overrides.absentDays) : freshAttendance.absentDays,
         overtimeHours: freshAttendance.overtimeHours,
         overtimeHours134: freshAttendance.overtimeHours134,
         overtimeHours167: freshAttendance.overtimeHours167,
         overtimeHours200: freshAttendance.overtimeHours200,
         overtimeHours267: freshAttendance.overtimeHours267,
-        regularHours: freshAttendance.regularHours,
+        regularHours: req.body.overrides?.regularHours !== undefined ? parseFloat(req.body.overrides.regularHours) : freshAttendance.regularHours,
         bonus: updatedBonus,
         retroPay: payrollRecord.retroPay,
         otherDeductions: updatedOtherDeductions,

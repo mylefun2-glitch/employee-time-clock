@@ -349,7 +349,9 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
             } else {
               const inHour = inH + inM / 60;
               const outHour = outH + outM / 60;
-              let hoursWorked = Math.max(0, outHour - inHour - 1); // subtract 1 hour break
+              let duration = Math.max(0, outHour - inHour);
+              // Only subtract 1 hour break if they worked 5 hours or more
+              let hoursWorked = duration >= 5 ? duration - 1 : duration;
               regularHours = Math.min(8, hoursWorked);
             }
             const inHourRaw = inH + inM / 60;
