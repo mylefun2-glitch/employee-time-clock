@@ -55,6 +55,20 @@ app.get('/api/version', (req, res) => {
   res.json({ version: 'fix-nhi-1' });
 });
 
+app.get('/api/test-nhi-calc', async (req, res) => {
+  try {
+    const { calculatePayroll } = await import('./services/payrollCalculator.js');
+    const result = calculatePayroll(
+      { baseSalary: 33000, salaryType: 'monthly', healthInsuranceGrade: -1 },
+      { leaveDeduction: 11000 },
+      { minimum_wage_monthly: '29500' }
+    );
+    res.json({ result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeeRoutes);
