@@ -1527,6 +1527,14 @@ const AttendanceCalendarPage: React.FC = () => {
                                  const totalServiceMins = daySchedules.reduce((sum, s) => sum + s.service_mins, 0);
                                  const totalServiceHours = totalServiceMins > 0 ? (totalServiceMins / 60).toFixed(1) : '0';
 
+                                 const shiftTypes = Array.from(new Set(daySchedules.map(s => s.shift_type).filter(Boolean)));
+                                 const hasMultipleShiftTypes = shiftTypes.length > 1;
+                                 const hasRoutineDayOffAnomaly = shiftTypes.some(t => t.includes('例假日'));
+                                 const anomalies = [];
+                                 if (hasRoutineDayOffAnomaly) anomalies.push('例假日不能排班');
+                                 if (hasMultipleShiftTypes) anomalies.push('班別出現2種以上');
+
+
                                 return (
                                     <div
                                         key={dateKey}
@@ -1557,6 +1565,15 @@ const AttendanceCalendarPage: React.FC = () => {
                                                                  {overrideLabel}
                                                              </span>
                                                          )}
+                                                     </div>
+                                                 )}
+                                                 {anomalies.length > 0 && (
+                                                     <div className="flex flex-col mt-1 gap-0.5">
+                                                         {anomalies.map((anomaly, idx) => (
+                                                             <span key={idx} className="text-[10px] font-black text-white bg-rose-500 px-1 py-0.5 rounded shadow-sm whitespace-nowrap" title="排班異常">
+                                                                 異常: {anomaly}
+                                                             </span>
+                                                         ))}
                                                      </div>
                                                  )}
                                              </div>

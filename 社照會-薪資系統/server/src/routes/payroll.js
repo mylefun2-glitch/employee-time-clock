@@ -575,6 +575,40 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
     const monthStartStr = `${y}-${monthStr}-01`;
     const monthEndStr = `${y}-${monthStr}-${lastDayStr}`;
 
+    // Fetch monthly salary schedules to get shift types (班別) for hourly employees
+    console.log('[Calc] Fetching monthly salary schedules...');
+    const { data: sbEmpsAll } = await supabase.from('employees').select('id, username');
+    const uuidToEmpNoAll = {};
+    if (sbEmpsAll) {
+      sbEmpsAll.forEach(sbEmp => {
+        let employeeNo = '';
+        if (sbEmp.username && sbEmp.username.includes('@')) {
+          employeeNo = sbEmp.username.split('@')[0].toUpperCase();
+        } else {
+          employeeNo = `EMP-${sbEmp.id.substring(0, 4).toUpperCase()}`;
+        }
+        uuidToEmpNoAll[sbEmp.id] = employeeNo;
+      });
+    }
+
+    const { data: monthlySchedulesData } = await supabase
+      .from('monthly_salary_schedules')
+      .select('employee_id, service_date, shift_type')
+      .gte('service_date', monthStartStr)
+      .lte('service_date', monthEndStr);
+
+    const shiftTypeMap = {};
+    if (monthlySchedulesData) {
+      monthlySchedulesData.forEach(sched => {
+        const empNo = uuidToEmpNoAll[sched.employee_id];
+        if (empNo && sched.shift_type) {
+          const key = `${empNo}_${sched.service_date}`;
+          if (!shiftTypeMap[key]) shiftTypeMap[key] = new Set();
+          shiftTypeMap[key].add(sched.shift_type);
+        }
+      });
+    }
+
     // Build employee query
     const empWhere = {
       hireDate: { lte: monthEndStr },
@@ -935,7 +969,56 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       if (currentEmp.salaryType === 'hourly') {
         if (attendanceRecords.length > 0) {
           attendanceRecords.forEach(att => {
-            regularHours += att.regularHours;
+            const isNatHoliday = isHoliday(att.date);
+            const dailyReg = att.regularHours || 0;
+            const dailyOt = att.overtimeHours || 0;
+            const totalDaily = dailyReg + dailyOt;
+
+            const dateObj = new Date(att.date);
+            const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 6 = Saturday
+
+            // Determine if the day is a Routine Day Off (例假日) or Rest Day (休息日) based on shift schedules
+            const shiftKey = `${currentEmp.employeeNo}_${att.date}`;
+            const shiftTypes = shiftTypeMap[shiftKey] || new Set();
+            const hasRoutineDayOffShift = Array.from(shiftTypes).some(t => t.includes('例假日'));
+            const hasRestDayShift = Array.from(shiftTypes).some(t => t.includes('休息日'));
+
+            // Fallback to dayOfWeek if no specific shift type is mapped
+            const isRoutineDayOff = shiftTypes.size > 0 ? hasRoutineDayOffShift : (dayOfWeek === 0);
+            const isRestDay = shiftTypes.size > 0 ? hasRestDayShift : (dayOfWeek === 6);
+
+            if (isNatHoliday) {
+              // National holiday: 2x rate for all hours
+              overtimeHours += totalDaily;
+              overtimeHours200 += totalDaily;
+            } else if (isRoutineDayOff) {
+              // 例假日 (Routine Day Off): 2x pay for all hours
+              overtimeHours += totalDaily;
+              overtimeHours200 += totalDaily;
+            } else if (isRestDay) {
+              // Saturday (休息日): Rest day formula (all hours are overtime)
+              overtimeHours += totalDaily;
+              const otHrs = totalDaily;
+              const ot134 = Math.min(2, otHrs);
+              const ot167 = Math.min(6, Math.max(0, otHrs - 2));
+              const ot267 = Math.max(0, otHrs - 8);
+              overtimeHours134 += ot134;
+              overtimeHours167 += ot167;
+              overtimeHours267 += ot267;
+            } else {
+              // Normal weekday
+              regularHours += dailyReg;
+              if (dailyOt > 0) {
+                overtimeHours += dailyOt;
+                const ot134 = Math.min(2, dailyOt);
+                const ot167 = Math.min(6, Math.max(0, dailyOt - 2));
+                const ot267 = Math.max(0, dailyOt - 8);
+                overtimeHours134 += ot134;
+                overtimeHours167 += ot167;
+                overtimeHours267 += ot267;
+              }
+            }
+
             if (att.status === 'present' || att.clockIn || att.clockOut) {
               workDays++;
             } else if (att.status === 'absent') {
