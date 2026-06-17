@@ -6,7 +6,7 @@ import { zhTW } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X, CheckSquare, Square, Info, Search, Plus, Pencil } from 'lucide-react';
 import TimeInput24h from '../../components/ui/TimeInput24h';
 import { sortByNameStroke } from '../../lib/nameStrokeSort';
-import { deleteAttendanceLog, deleteAttendanceLogs, createAttendanceLog, updateAttendanceLog, importAttendanceLogs, getEmployeeSchedules, getMonthlySalarySchedules, importMonthlySalarySchedules, MonthlySalarySchedule } from '../../services/admin';
+import { deleteAttendanceLog, deleteAttendanceLogs, createAttendanceLog, updateAttendanceLog, importAttendanceLogs, getEmployeeSchedules, getMonthlySalarySchedules, importMonthlySalarySchedules, MonthlySalarySchedule, updateMonthlySalarySchedule, deleteMonthlySalarySchedule } from '../../services/admin';
 import { isNationalHoliday } from '../../lib/holidays';
 import ModificationRequestForm from '../../components/ModificationRequestForm';
 import LeaveRequestForm from '../../components/LeaveRequestForm';
@@ -84,6 +84,15 @@ const AttendanceCalendarPage: React.FC = () => {
     const [isAddLogModalOpen, setIsAddLogModalOpen] = useState(false);
     const [isEditLogModalOpen, setIsEditLogModalOpen] = useState(false);
     const [editingLog, setEditingLog] = useState<AttendanceLog | null>(null);
+    const [editingSalarySchedule, setEditingSalarySchedule] = useState<MonthlySalarySchedule | null>(null);
+    const [isEditSalaryScheduleModalOpen, setIsEditSalaryScheduleModalOpen] = useState(false);
+    const [salaryScheduleForm, setSalaryScheduleForm] = useState({
+        shift_type: '',
+        case_name: '',
+        service_mins: 0,
+        note: ''
+    });
+    const [isSubmittingSalarySchedule, setIsSubmittingSalarySchedule] = useState(false);
     const [selectedLeaveForModification, setSelectedLeaveForModification] = useState<LeaveRequest | null>(null);
     const [selectedLeaveForAction, setSelectedLeaveForAction] = useState<LeaveRequest | null>(null);
     const [showActionMenu, setShowActionMenu] = useState(false);
@@ -1172,6 +1181,65 @@ const AttendanceCalendarPage: React.FC = () => {
         }
     };
 
+    const handleSalaryScheduleClick = (sched: MonthlySalarySchedule, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setEditingSalarySchedule(sched);
+        setSalaryScheduleForm({
+            shift_type: sched.shift_type,
+            case_name: sched.case_name || '',
+            service_mins: sched.service_mins,
+            note: sched.note || ''
+        });
+        setIsEditSalaryScheduleModalOpen(true);
+    };
+
+    const submitEditSalarySchedule = async () => {
+        if (!editingSalarySchedule) return;
+        setIsSubmittingSalarySchedule(true);
+        try {
+            const result = await updateMonthlySalarySchedule(editingSalarySchedule.id, {
+                shift_type: salaryScheduleForm.shift_type,
+                case_name: salaryScheduleForm.case_name,
+                service_mins: salaryScheduleForm.service_mins,
+                note: salaryScheduleForm.note
+            });
+            if (result.success) {
+                await fetchData();
+                setIsEditSalaryScheduleModalOpen(false);
+                setEditingSalarySchedule(null);
+            } else {
+                alert(`更新失敗: ${result.error}`);
+            }
+        } catch (error) {
+            console.error('Error submitting edit salary schedule:', error);
+            alert('系統錯誤');
+        } finally {
+            setIsSubmittingSalarySchedule(false);
+        }
+    };
+
+    const handleDeleteSalarySchedule = async () => {
+        if (!editingSalarySchedule) return;
+        if (!window.confirm('確定要刪除這筆班表紀錄嗎？')) return;
+        
+        setIsSubmittingSalarySchedule(true);
+        try {
+            const result = await deleteMonthlySalarySchedule(editingSalarySchedule.id);
+            if (result.success) {
+                await fetchData();
+                setIsEditSalaryScheduleModalOpen(false);
+                setEditingSalarySchedule(null);
+            } else {
+                alert(`刪除失敗: ${result.error}`);
+            }
+        } catch (error) {
+            console.error('Error deleting salary schedule:', error);
+            alert('系統錯誤');
+        } finally {
+            setIsSubmittingSalarySchedule(false);
+        }
+    };
+
     const handleWithdrawRequest = async () => {
         if (!withdrawingId) return;
 
@@ -1645,9 +1713,9 @@ const AttendanceCalendarPage: React.FC = () => {
                                                          {daySchedules.map(sched => (
                                                              <div
                                                                  key={sched.id}
-                                                                 className={`px-1.5 py-1 rounded-md text-[10px] font-black border flex items-center justify-between gap-1 overflow-hidden whitespace-nowrap ${SHIFT_COLORS[sched.shift_type] || 'bg-slate-100 text-slate-700 border-slate-200'}`}
+                                                                 className={`px-1.5 py-1 rounded-md text-[10px] font-black border flex items-center justify-between gap-1 overflow-hidden whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity ${SHIFT_COLORS[sched.shift_type] || 'bg-slate-100 text-slate-700 border-slate-200'}`}
                                                                  title={[sched.case_name && `個案：${sched.case_name}`, `服務時間：${sched.service_mins} 分鐘`, sched.note && `備註：${sched.note}`].filter(Boolean).join('\n')}
-                                                                 onClick={(e) => e.stopPropagation()}
+                                                                 onClick={(e) => handleSalaryScheduleClick(sched, e)}
                                                              >
                                                                  <div className="flex items-center gap-1 overflow-hidden">
                                                                      <span className="shrink-0">{sched.shift_type}</span>
@@ -1810,6 +1878,88 @@ const AttendanceCalendarPage: React.FC = () => {
                                 className="flex-1 py-5 text-sm font-black text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50"
                             >
                                 {isSubmittingLog ? '處理中...' : '確定新增'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Salary Schedule Modal */}
+            {isEditSalaryScheduleModalOpen && editingSalarySchedule && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                                <Pencil className="h-5 w-5 text-blue-500" />
+                                編輯薪制班表
+                            </h3>
+                            <button
+                                onClick={() => setIsEditSalaryScheduleModalOpen(false)}
+                                className="p-2 hover:bg-white rounded-xl transition-all text-slate-400 hover:text-slate-600 hover:shadow-sm"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-6">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">班別</label>
+                                <select
+                                    value={salaryScheduleForm.shift_type}
+                                    onChange={(e) => setSalaryScheduleForm({ ...salaryScheduleForm, shift_type: e.target.value })}
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                                >
+                                    <option value="正常日班">正常日班</option>
+                                    <option value="休息日班">休息日班</option>
+                                    <option value="國定假日">國定假日</option>
+                                    <option value="增-轉場">增-轉場</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">個案姓名 (選填)</label>
+                                <input
+                                    type="text"
+                                    value={salaryScheduleForm.case_name}
+                                    onChange={(e) => setSalaryScheduleForm({ ...salaryScheduleForm, case_name: e.target.value })}
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                                    placeholder="請輸入個案姓名..."
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">服務時間 (分鐘)</label>
+                                <input
+                                    type="number"
+                                    value={salaryScheduleForm.service_mins}
+                                    onChange={(e) => setSalaryScheduleForm({ ...salaryScheduleForm, service_mins: parseInt(e.target.value) || 0 })}
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                                    min="0"
+                                    step="1"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">備註 (選填)</label>
+                                <input
+                                    type="text"
+                                    value={salaryScheduleForm.note}
+                                    onChange={(e) => setSalaryScheduleForm({ ...salaryScheduleForm, note: e.target.value })}
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                                    placeholder="補充說明..."
+                                />
+                            </div>
+                        </div>
+                        <div className="flex border-t border-slate-100 bg-slate-50/50">
+                            <button
+                                onClick={handleDeleteSalarySchedule}
+                                disabled={isSubmittingSalarySchedule}
+                                className="flex-1 py-5 text-sm font-black text-rose-500 hover:bg-rose-50 border-r border-slate-100 transition-colors disabled:opacity-50"
+                            >
+                                刪除紀錄
+                            </button>
+                            <button
+                                onClick={submitEditSalarySchedule}
+                                disabled={isSubmittingSalarySchedule}
+                                className="flex-1 py-5 text-sm font-black text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                            >
+                                {isSubmittingSalarySchedule ? '處理中...' : '儲存變更'}
                             </button>
                         </div>
                     </div>

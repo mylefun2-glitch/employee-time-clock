@@ -1124,3 +1124,35 @@ export const importMonthlySalarySchedules = async (
     }
 };
 
+export const updateMonthlySalarySchedule = async (
+    id: string,
+    updates: Partial<Omit<MonthlySalarySchedule, 'id' | 'created_at' | 'updated_at'>>
+): Promise<{ success: boolean; error?: string }> => {
+    try {
+        const { error } = await supabase
+            .from('monthly_salary_schedules')
+            .update(updates)
+            .eq('id', id);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (err: any) {
+        console.error('Error updating monthly salary schedule:', err);
+        return { success: false, error: err.message };
+    }
+};
+
+export const deleteMonthlySalarySchedule = async (id: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+        const { error } = await supabase
+            .from('monthly_salary_schedules')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (err: any) {
+        console.error('Error deleting monthly salary schedule:', err);
+        return { success: false, error: err.message };
+    }
+};
