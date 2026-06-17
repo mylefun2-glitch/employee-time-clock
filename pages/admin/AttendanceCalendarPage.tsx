@@ -1026,7 +1026,9 @@ const AttendanceCalendarPage: React.FC = () => {
         return monthlySchedulesList.map(item => `${item.breakTimesString || '無'} (${item.rangeString})`).join('、');
     }, [monthlySchedulesList, breakTimesString]);
 
-    const totalMonthlyHours = Object.values(monthData).reduce((acc, curr) => acc + curr.hours, 0);
+    const totalLogHours = Object.values(monthData).reduce((acc, curr) => acc + (curr.hours || 0), 0);
+    const totalServiceHoursForMonth = salarySchedules.reduce((acc, curr) => acc + (curr.service_mins || 0), 0) / 60;
+    const totalMonthlyHours = totalLogHours + totalServiceHoursForMonth;
 
     const weekDays = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
 
@@ -1528,7 +1530,9 @@ const AttendanceCalendarPage: React.FC = () => {
                                  const totalServiceHours = totalServiceMins > 0 ? (totalServiceMins / 60).toFixed(1) : '0';
 
                                  const shiftTypes = Array.from(new Set(daySchedules.map(s => s.shift_type).filter(Boolean)));
-                                 const hasMultipleShiftTypes = shiftTypes.length > 1;
+                                 const coreShiftTypes = ['正常班', '休息日班', '國定假日'];
+                                 const distinctCoreShifts = new Set(shiftTypes.filter(t => coreShiftTypes.includes(t)));
+                                 const hasMultipleShiftTypes = distinctCoreShifts.size > 1;
                                  const hasRoutineDayOffAnomaly = shiftTypes.some(t => t.includes('例假日'));
                                  const anomalies = [];
                                  if (hasRoutineDayOffAnomaly) anomalies.push('例假日不能排班');
