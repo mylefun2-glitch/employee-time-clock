@@ -1049,8 +1049,9 @@ export const importMonthlySalarySchedules = async (
                 continue;
             }
 
-            // 防止批次內重複（同員工 + 同日期 + 同班別）
-            const dedupeKey = `${employee.id}_${row.service_date.trim()}_${shiftType}`;
+            // 防止批次內重複（同員工 + 同日期 + 同班別 + 同個案）
+            const caseName = row.case_name.trim();
+            const dedupeKey = `${employee.id}_${row.service_date.trim()}_${shiftType}_${caseName}`;
             if (processedKeys.has(dedupeKey)) {
                 results.skipped++;
                 continue;
@@ -1061,23 +1062,23 @@ export const importMonthlySalarySchedules = async (
                 employee_id: employee.id,
                 service_date: row.service_date.trim(),
                 shift_type: shiftType,
-                case_name: row.case_name.trim() || undefined,
+                case_name: caseName, // 使用 caseName（空字串或有值均可，配合資料庫的 NOT NULL DEFAULT ''）
                 service_mins: serviceMins,
                 note: row.note.trim() || undefined
             });
         }
 
         if (insertData.length > 0) {
-            // upsert 依據 (employee_id, service_date, shift_type) 做覆蓋
+            // upsert 依據 (employee_id, service_date, shift_type, case_name) 做覆蓋
             const { error: insertError } = await supabase
                 .from('monthly_salary_schedules')
                 .upsert(insertData, {
-                    onConflict: 'employee_id,service_date,shift_type',
+                    onConflict: 'employee_id,service_date,shift_type,case_name',
                     ignoreDuplicates: false
                 });
 
             if (insertError) {
-                // 若 upsert 不支援（無 unique constraint）則改用 insert
+                // 若 upsert 不支援（舊版/無 unique constraint）則改用 insert
                 const { error: fallbackError } = await supabase
                     .from('monthly_salary_schedules')
                     .insert(insertData);
