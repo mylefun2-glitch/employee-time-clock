@@ -68,7 +68,15 @@ app.use((req, res, next) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), service: '社照會薪資系統 API' });
+  res.json({
+    status: 'ok',
+    timestamp: new Date(),
+    service: '社照會薪資系統 API'
+  });
+});
+
+app.get('/api/version', (req, res) => {
+  res.json({ version: 'fix-nhi-1' });
 });
 
 // Routes
