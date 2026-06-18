@@ -1411,45 +1411,28 @@ router.put('/:id', validateId(), async (req, res) => {
       leavePaySupplement: req.body.leavePaySupplement !== undefined ? parseFloat(req.body.leavePaySupplement) : existing.leavePaySupplement,
     };
 
-    // Sync attendance logs and approved leaves from Supabase first (optimized for this employee)
-    await syncAttendanceAndLeaves(existing.year, existing.month, false, existing.employeeId).catch(err => console.error("Sync attendance/leaves failed:", err));
-
-    const freshAttendance = await getFreshAttendanceSummary(
-      req.prisma,
-      existing.employee,
-      existing.year,
-      existing.month,
-      {
-        baseSalary: req.body.baseSalary !== undefined ? parseFloat(req.body.baseSalary) : existing.baseSalary,
-        allowanceAA: req.body.allowanceAA !== undefined ? parseFloat(req.body.allowanceAA) : existing.allowanceAA,
-        allowanceLicense: req.body.allowanceLicense !== undefined ? parseFloat(req.body.allowanceLicense) : existing.allowanceLicense,
-        allowanceManager: req.body.allowanceManager !== undefined ? parseFloat(req.body.allowanceManager) : existing.allowanceManager,
-        otherAllowance: req.body.otherAllowance !== undefined ? parseFloat(req.body.otherAllowance) : existing.otherAllowance,
-        bonus: req.body.bonus !== undefined ? parseFloat(req.body.bonus) : existing.bonus
-      },
-      settings
-    );
-
-    // Prepare overridden attendance & adjustments
+    // Prepare overridden attendance & adjustments using existing record data
     const attendanceSummary = {
-      workDays: req.body.workDays !== undefined ? parseFloat(req.body.workDays) : freshAttendance.workDays,
-      leaveDays: req.body.leaveDays !== undefined ? parseFloat(req.body.leaveDays) : freshAttendance.leaveDays,
-      absentDays: req.body.absentDays !== undefined ? parseFloat(req.body.absentDays) : freshAttendance.absentDays,
-      regularHours: req.body.regularHours !== undefined ? parseFloat(req.body.regularHours) : freshAttendance.regularHours,
-      overtimeHours134: req.body.overtimeHours134 !== undefined ? parseFloat(req.body.overtimeHours134) : freshAttendance.overtimeHours134,
-      overtimeHours167: req.body.overtimeHours167 !== undefined ? parseFloat(req.body.overtimeHours167) : freshAttendance.overtimeHours167,
-      overtimeHours200: req.body.overtimeHours200 !== undefined ? parseFloat(req.body.overtimeHours200) : freshAttendance.overtimeHours200,
-      overtimeHours267: req.body.overtimeHours267 !== undefined ? parseFloat(req.body.overtimeHours267) : freshAttendance.overtimeHours267,
-      overtimeHours: (req.body.overtimeHours134 !== undefined ? parseFloat(req.body.overtimeHours134) : freshAttendance.overtimeHours134) +
-                     (req.body.overtimeHours167 !== undefined ? parseFloat(req.body.overtimeHours167) : freshAttendance.overtimeHours167) +
-                     (req.body.overtimeHours200 !== undefined ? parseFloat(req.body.overtimeHours200) : freshAttendance.overtimeHours200) +
-                     (req.body.overtimeHours267 !== undefined ? parseFloat(req.body.overtimeHours267) : freshAttendance.overtimeHours267),
+      workDays: req.body.workDays !== undefined ? parseFloat(req.body.workDays) : existing.workDays,
+      leaveDays: req.body.leaveDays !== undefined ? parseFloat(req.body.leaveDays) : existing.leaveDays,
+      absentDays: req.body.absentDays !== undefined ? parseFloat(req.body.absentDays) : existing.absentDays,
+      regularHours: req.body.regularHours !== undefined ? parseFloat(req.body.regularHours) : existing.regularHours,
+      overtimeHours134: req.body.overtimeHours134 !== undefined ? parseFloat(req.body.overtimeHours134) : existing.overtimeHours134,
+      overtimeHours167: req.body.overtimeHours167 !== undefined ? parseFloat(req.body.overtimeHours167) : existing.overtimeHours167,
+      overtimeHours200: req.body.overtimeHours200 !== undefined ? parseFloat(req.body.overtimeHours200) : existing.overtimeHours200,
+      overtimeHours267: req.body.overtimeHours267 !== undefined ? parseFloat(req.body.overtimeHours267) : existing.overtimeHours267,
+      overtimeHours: (req.body.overtimeHours134 !== undefined ? parseFloat(req.body.overtimeHours134) : existing.overtimeHours134) +
+                     (req.body.overtimeHours167 !== undefined ? parseFloat(req.body.overtimeHours167) : existing.overtimeHours167) +
+                     (req.body.overtimeHours200 !== undefined ? parseFloat(req.body.overtimeHours200) : existing.overtimeHours200) +
+                     (req.body.overtimeHours267 !== undefined ? parseFloat(req.body.overtimeHours267) : existing.overtimeHours267),
       bonus: req.body.bonus !== undefined ? parseFloat(req.body.bonus) : existing.bonus,
       retroPay: req.body.retroPay !== undefined ? parseFloat(req.body.retroPay) : existing.retroPay,
       otherDeductions: req.body.otherDeductions !== undefined ? parseFloat(req.body.otherDeductions) : existing.otherDeductions,
-      leaveDeduction: req.body.leaveDeduction !== undefined ? parseFloat(req.body.leaveDeduction) : freshAttendance.leaveDeduction,
-      leaveHoursHalf: freshAttendance.leaveHoursHalf,
-      leaveHoursPaid: freshAttendance.leaveHoursPaid,
+      leaveDeduction: req.body.leaveDeduction !== undefined ? parseFloat(req.body.leaveDeduction) : existing.leaveDeduction,
+      // We do not pass leaveHoursHalf and leaveHoursPaid because we want calculatePayroll 
+      // to respect the manual leavePaySupplement if it was edited.
+      leaveHoursHalf: undefined,
+      leaveHoursPaid: undefined,
       supplementaryHealthInsurance: req.body.supplementaryHealthInsurance !== undefined ? parseFloat(req.body.supplementaryHealthInsurance) : existing.supplementaryHealthInsurance,
       prevInsuranceDifference: req.body.prevInsuranceDifference !== undefined ? parseFloat(req.body.prevInsuranceDifference) : existing.prevInsuranceDifference,
       healthDisabilityExemption: req.body.healthDisabilityExemption !== undefined ? parseFloat(req.body.healthDisabilityExemption) : existing.healthDisabilityExemption,
