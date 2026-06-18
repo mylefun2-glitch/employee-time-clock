@@ -136,17 +136,20 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
 
         keys.forEach(k => {
           const lk = k.toLowerCase().trim();
-          if (lk === '工號' || lk === 'no' || lk.includes('員工編號') || lk.includes('工號')) {
+          // Normalize full-width characters to half-width
+          const normalizedLk = lk.replace(/[Ａ-Ｚａ-ｚ]/g, char => String.fromCharCode(char.charCodeAt(0) - 65248));
+
+          if (normalizedLk === '工號' || normalizedLk === 'no' || normalizedLk.includes('員工編號') || normalizedLk.includes('工號')) {
             empNoKey = k;
           }
-          if (lk === '姓名' || lk === 'name' || lk.includes('姓名')) {
+          if (normalizedLk === '姓名' || normalizedLk === 'name' || normalizedLk.includes('姓名')) {
             nameKey = k;
           }
-          if (lk.includes('獎金') || lk.includes('bonus') || lk.includes('績效')) {
+          if (normalizedLk.includes('獎金') || normalizedLk.includes('bonus') || normalizedLk.includes('績效')) {
             bonusKey = k;
           }
           // Match AA specifically (avoid conflict with other allowances containing "加給")
-          if (lk.includes('aa') || lk === 'aa加給') {
+          if (normalizedLk.includes('aa') || normalizedLk === 'aa加給') {
             aaKey = k;
           }
           // Match license specifically
@@ -196,16 +199,24 @@ export default function ImportModal({ isOpen, onClose, year, month, payrolls, on
           const empNo = empNoKey ? String(row[empNoKey] || '').trim() : '';
           const name = nameKey ? String(row[nameKey] || '').trim() : '';
 
-          // Omit missing fields (use undefined) so they do NOT overwrite DB values with 0
-          const bonus = bonusKey ? parseFloat(row[bonusKey]) || 0 : undefined;
-          const allowanceAA = aaKey ? parseFloat(row[aaKey]) || 0 : undefined;
-          const allowanceLicense = licenseKey ? parseFloat(row[licenseKey]) || 0 : undefined;
-          const otherAllowance = otherKey ? parseFloat(row[otherKey]) || 0 : undefined;
-          const mealAllowance = otherExemptKey ? parseFloat(row[otherExemptKey]) || 0 : undefined;
-          const notes = notesKey ? String(row[notesKey] || '').trim() : undefined;
+          const parseValue = (key) => {
+            if (!key) return undefined;
+            const val = row[key];
+            if (val === undefined || val === null || val === '') return undefined;
+            const parsed = parseFloat(String(val).replace(/,/g, ''));
+            return isNaN(parsed) ? 0 : parsed;
+          };
 
-          const prevInsuranceDifference = prevDiffKey ? parseFloat(row[prevDiffKey]) || 0 : undefined;
-          const otherDeductions = otherDeductionsKey ? parseFloat(row[otherDeductionsKey]) || 0 : undefined;
+          // Omit missing fields (use undefined) so they do NOT overwrite DB values with 0
+          const bonus = parseValue(bonusKey);
+          const allowanceAA = parseValue(aaKey);
+          const allowanceLicense = parseValue(licenseKey);
+          const otherAllowance = parseValue(otherKey);
+          const mealAllowance = parseValue(otherExemptKey);
+          const notes = notesKey && row[notesKey] !== undefined && row[notesKey] !== null ? String(row[notesKey]).trim() : undefined;
+
+          const prevInsuranceDifference = parseValue(prevDiffKey);
+          const otherDeductions = parseValue(otherDeductionsKey);
           
           let healthDisabilityExemption = undefined;
           if (exemptionKey && row[exemptionKey] !== undefined) {

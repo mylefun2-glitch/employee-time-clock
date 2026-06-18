@@ -1712,16 +1712,17 @@ router.post('/batch-update-adjustments', async (req, res) => {
       );
 
       // Prepare attendance summary for recalculation
+      // Preserve existing hours from payrollRecord so manual edits and calculated hours are not lost during import.
       const attendanceSummary = {
-        workDays: req.body.overrides?.workDays !== undefined ? parseFloat(req.body.overrides.workDays) : freshAttendance.workDays,
-        leaveDays: req.body.overrides?.leaveDays !== undefined ? parseFloat(req.body.overrides.leaveDays) : freshAttendance.leaveDays,
-        absentDays: req.body.overrides?.absentDays !== undefined ? parseFloat(req.body.overrides.absentDays) : freshAttendance.absentDays,
-        overtimeHours: freshAttendance.overtimeHours,
-        overtimeHours134: freshAttendance.overtimeHours134,
-        overtimeHours167: freshAttendance.overtimeHours167,
-        overtimeHours200: freshAttendance.overtimeHours200,
-        overtimeHours267: freshAttendance.overtimeHours267,
-        regularHours: req.body.overrides?.regularHours !== undefined ? parseFloat(req.body.overrides.regularHours) : freshAttendance.regularHours,
+        workDays: req.body.overrides?.workDays !== undefined ? parseFloat(req.body.overrides.workDays) : payrollRecord.workDays,
+        leaveDays: req.body.overrides?.leaveDays !== undefined ? parseFloat(req.body.overrides.leaveDays) : payrollRecord.leaveDays,
+        absentDays: req.body.overrides?.absentDays !== undefined ? parseFloat(req.body.overrides.absentDays) : payrollRecord.absentDays,
+        overtimeHours: payrollRecord.overtimeHours,
+        overtimeHours134: payrollRecord.overtimeHours134,
+        overtimeHours167: payrollRecord.overtimeHours167,
+        overtimeHours200: payrollRecord.overtimeHours200,
+        overtimeHours267: payrollRecord.overtimeHours267,
+        regularHours: req.body.overrides?.regularHours !== undefined ? parseFloat(req.body.overrides.regularHours) : payrollRecord.regularHours,
         bonus: updatedBonus,
         retroPay: payrollRecord.retroPay,
         otherDeductions: updatedOtherDeductions,
