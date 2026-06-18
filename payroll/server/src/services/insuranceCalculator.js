@@ -288,15 +288,17 @@ export function calculateAllInsurance(employee, settings = {}, days = 30, isMidM
   const healthInsurance = calculateHealthInsurance(healthInsuredSalary, employee.dependents || 0, rates);
 
   // Apply exemption and government subsidy to employee premium (Health)
-  // The exemption and subsidy ONLY apply to the employee's personal premium.
-  // Dependents do not receive exemption or subsidy.
+  // The disability exemption ONLY applies to the employee's personal premium.
+  // The government subsidy (fixed amount) applies to the total premium (personal + dependents).
   const healthExemption = parseFloat(employee.healthDisabilityExemption) || 0;
   const healthSubsidy = parseFloat(employee.healthGovSubsidy) || 0;
   healthInsurance.basePremium = healthInsurance.employeePremium; // Save original (which includes dependents)
   
-  const employeePersonalPremium = Math.max(0, Math.round(healthInsurance.rawSinglePremium * (1 - healthExemption)) - healthSubsidy);
+  const employeePersonalPremium = Math.round(healthInsurance.rawSinglePremium * (1 - healthExemption));
   const dependentsPremium = healthInsurance.singlePremium * healthInsurance.chargedDependents;
-  healthInsurance.employeePremium = employeePersonalPremium + dependentsPremium;
+  const totalPremiumBeforeSubsidy = employeePersonalPremium + dependentsPremium;
+  
+  healthInsurance.employeePremium = Math.max(0, totalPremiumBeforeSubsidy - healthSubsidy);
 
   // Apply exemption to employee premium (Labor)
   const laborExemption = parseFloat(employee.laborDisabilityExemption) || 0;
