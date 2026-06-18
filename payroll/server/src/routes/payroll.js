@@ -676,6 +676,8 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         .select('employee_id, service_date, shift_type, service_mins')
         .gte('service_date', monthStartStr)
         .lte('service_date', monthEndStr)
+        .order('employee_id')
+        .order('service_date')
         .range(fromIndex, fromIndex + step - 1);
         
       if (error || !data || data.length === 0) {
