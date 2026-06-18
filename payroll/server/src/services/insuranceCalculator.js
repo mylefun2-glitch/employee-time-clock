@@ -289,16 +289,43 @@ export function calculateAllInsurance(employee, settings = {}, days = 30, isMidM
 
   // Apply exemption and government subsidy to employee premium (Health)
   // The disability exemption ONLY applies to the employee's personal premium.
-  // The government subsidy (fixed amount) applies to the total premium (personal + dependents).
   const healthExemption = parseFloat(employee.healthDisabilityExemption) || 0;
   const healthSubsidy = parseFloat(employee.healthGovSubsidy) || 0;
   healthInsurance.basePremium = healthInsurance.employeePremium; // Save original (which includes dependents)
   
   const employeePersonalPremium = Math.round(healthInsurance.rawSinglePremium * (1 - healthExemption));
-  const dependentsPremium = healthInsurance.singlePremium * healthInsurance.chargedDependents;
-  const totalPremiumBeforeSubsidy = employeePersonalPremium + dependentsPremium;
   
-  healthInsurance.employeePremium = Math.max(0, totalPremiumBeforeSubsidy - healthSubsidy);
+  // To correctly apply the fixed amount government subsidy without "spillover" (溢扣),
+  // we break the total healthSubsidy into chunks (e.g. 826 is a standard full unit).
+  // We then pair the largest subsidy chunks with the largest individual premiums.
+  const BASE_UNIT = 826;
+  
+  let premiums = [employeePersonalPremium];
+  for (let i = 0; i < healthInsurance.chargedDependents; i++) {
+    premiums.push(healthInsurance.singlePremium);
+  }
+  // Sort premiums descending to maximize deduction without spilling over
+  premiums.sort((a, b) => b - a);
+  
+  let subsidies = [];
+  let numFull = Math.floor(healthSubsidy / BASE_UNIT);
+  let partial = healthSubsidy % BASE_UNIT;
+  
+  for (let i = 0; i < numFull; i++) {
+    subsidies.push(BASE_UNIT);
+  }
+  if (partial > 0) {
+    subsidies.push(partial);
+  }
+  subsidies.sort((a, b) => b - a);
+  
+  let effectiveSubsidy = 0;
+  for (let i = 0; i < Math.min(premiums.length, subsidies.length); i++) {
+    effectiveSubsidy += Math.min(premiums[i], subsidies[i]);
+  }
+  
+  const totalPremiumBeforeSubsidy = premiums.reduce((sum, p) => sum + p, 0);
+  healthInsurance.employeePremium = Math.max(0, totalPremiumBeforeSubsidy - effectiveSubsidy);
 
   // Apply exemption to employee premium (Labor)
   const laborExemption = parseFloat(employee.laborDisabilityExemption) || 0;
