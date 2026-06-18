@@ -934,22 +934,27 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         };
       }
 
-      if (existingRecord && !req.body.resetSettings) {
+      if (existingRecord) {
+        if (!req.body.resetSettings) {
+          currentEmp = {
+            ...currentEmp,
+            // Preserve manual override grades from the existing payroll record if present
+            laborInsuranceGrade: existingRecord.laborInsuranceGrade !== 0 ? existingRecord.laborInsuranceGrade : currentEmp.laborInsuranceGrade,
+            healthInsuranceGrade: existingRecord.healthInsuranceGrade !== 0 ? existingRecord.healthInsuranceGrade : currentEmp.healthInsuranceGrade,
+            laborPensionGrade: existingRecord.laborPensionGrade !== 0 ? existingRecord.laborPensionGrade : currentEmp.laborPensionGrade,
+            laborOccupationalGrade: existingRecord.laborOccupationalGrade !== 0 ? existingRecord.laborOccupationalGrade : currentEmp.laborOccupationalGrade,
+            baseSalary: existingRecord.baseSalary > 0 ? existingRecord.baseSalary : currentEmp.baseSalary,
+          };
+        }
+
         currentEmp = {
           ...currentEmp,
-          // Preserve manual override grades from the existing payroll record if present
-          laborInsuranceGrade: existingRecord.laborInsuranceGrade !== 0 ? existingRecord.laborInsuranceGrade : currentEmp.laborInsuranceGrade,
-          healthInsuranceGrade: existingRecord.healthInsuranceGrade !== 0 ? existingRecord.healthInsuranceGrade : currentEmp.healthInsuranceGrade,
-          laborPensionGrade: existingRecord.laborPensionGrade !== 0 ? existingRecord.laborPensionGrade : currentEmp.laborPensionGrade,
-          laborOccupationalGrade: existingRecord.laborOccupationalGrade !== 0 ? existingRecord.laborOccupationalGrade : currentEmp.laborOccupationalGrade,
-          
-          // Preserve allowances and baseSalary from existing payroll record
+          // Always preserve allowances from existing payroll record because they are often imported/manually adjusted per month
           allowanceAA: existingRecord.allowanceAA,
           allowanceLicense: existingRecord.allowanceLicense,
           allowanceManager: existingRecord.allowanceManager,
           otherAllowance: existingRecord.otherAllowance,
           mealAllowance: existingRecord.mealAllowance,
-          baseSalary: existingRecord.baseSalary > 0 ? existingRecord.baseSalary : currentEmp.baseSalary,
         };
       }
 
