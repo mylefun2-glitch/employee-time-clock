@@ -245,14 +245,9 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
   }
 
   // 1b. Calculate Leave Pay Supplement for Hourly Employees
-  let leavePaySupplement = parseFloat(attendance.leavePaySupplement) || 0;
-  if (employee.salaryType === 'hourly' && (attendance.leaveHoursHalf !== undefined || attendance.leaveHoursPaid !== undefined)) {
-    const leaveHoursHalf = parseFloat(attendance.leaveHoursHalf) || 0;
-    const leaveHoursPaid = parseFloat(attendance.leaveHoursPaid) || 0;
-    leavePaySupplement = Math.round((leaveHoursHalf * 0.5 + leaveHoursPaid * 1.0) * averageHourlyRate);
-  } else if (employee.salaryType !== 'hourly') {
-    leavePaySupplement = 0;
-  }
+  // As per user request, leave pay supplement for hourly employees is already included in other allowances,
+  // so we set it directly to 0.
+  let leavePaySupplement = 0;
 
   // 2. Calculate Overtime Pay
   const otBase = employee.salaryType === 'hourly' ? averageHourlyRate : hourlyRate;
