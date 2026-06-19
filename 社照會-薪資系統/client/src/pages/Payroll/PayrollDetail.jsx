@@ -51,7 +51,8 @@ export default function PayrollDetail() {
     healthGovSubsidy: '0',
     leavePaySupplement: '0',
     incomeTax: '0',
-    dependents: '0'
+    dependents: '0',
+    laborPensionEmployee: '0'
   });
 
   useEffect(() => {
@@ -95,7 +96,8 @@ export default function PayrollDetail() {
           healthGovSubsidy: (res.data.healthGovSubsidy || 0).toString(),
           leavePaySupplement: (res.data.leavePaySupplement || 0).toString(),
           incomeTax: (res.data.incomeTax || 0).toString(),
-          dependents: (res.data.dependents || 0).toString()
+          dependents: (res.data.dependents || 0).toString(),
+          laborPensionEmployee: (res.data.laborPensionEmployee || 0).toString()
         });
       }
     } catch (err) {
@@ -139,7 +141,8 @@ export default function PayrollDetail() {
         healthGovSubsidy: parseFloat(editForm.healthGovSubsidy) || 0,
         leavePaySupplement: parseFloat(editForm.leavePaySupplement) || 0,
         incomeTax: parseFloat(editForm.incomeTax) || 0,
-        dependents: parseInt(editForm.dependents) || 0
+        dependents: parseInt(editForm.dependents) || 0,
+        laborPensionEmployee: parseFloat(editForm.laborPensionEmployee) || 0
       });
 
       alert('薪資調整與計算已完成');
@@ -520,6 +523,13 @@ export default function PayrollDetail() {
                     type="number"
                     value={editForm.prevInsuranceDifference}
                     onChange={e => setEditForm(prev => ({ ...prev, prevInsuranceDifference: e.target.value }))}
+                  />
+
+                  <Input
+                    label="勞退自提額 (元)"
+                    type="number"
+                    value={editForm.laborPensionEmployee}
+                    onChange={e => setEditForm(prev => ({ ...prev, laborPensionEmployee: e.target.value }))}
                   />
 
                   <Input
