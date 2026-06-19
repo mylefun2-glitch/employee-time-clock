@@ -74,7 +74,8 @@ export default function PayrollDetail() {
     laborDisabilityExemption: '0',
     healthGovSubsidy: '0',
     leavePaySupplement: '0',
-    incomeTax: '0'
+    incomeTax: '0',
+    dependents: '0'
   });
 
   useEffect(() => {
@@ -112,7 +113,8 @@ export default function PayrollDetail() {
         laborDisabilityExemption: (data.laborDisabilityExemption || 0).toString(),
         healthGovSubsidy: (data.healthGovSubsidy || 0).toString(),
         leavePaySupplement: (data.leavePaySupplement || 0).toString(),
-        incomeTax: (data.incomeTax || 0).toString()
+        incomeTax: (data.incomeTax || 0).toString(),
+        dependents: (data.dependents || 0).toString()
       });
     }
     if (data && data.employee) {
@@ -187,7 +189,8 @@ export default function PayrollDetail() {
         laborDisabilityExemption: parseFloat(editForm.laborDisabilityExemption) || 0,
         healthGovSubsidy: parseFloat(editForm.healthGovSubsidy) || 0,
         leavePaySupplement: parseFloat(editForm.leavePaySupplement) || 0,
-        incomeTax: parseFloat(editForm.incomeTax) || 0
+        incomeTax: parseFloat(editForm.incomeTax) || 0,
+        dependents: parseInt(editForm.dependents) || 0
       });
 
       alert('薪資調整與計算已完成');
@@ -663,14 +666,21 @@ export default function PayrollDetail() {
                       value={editForm.healthDisabilityExemption}
                       onChange={e => setEditForm(prev => ({ ...prev, healthDisabilityExemption: e.target.value }))}
                     />
+                    <Input
+                      label="健保扶養人數 (眷口數)"
+                      type="number"
+                      min="0"
+                      value={editForm.dependents}
+                      onChange={e => setEditForm(prev => ({ ...prev, dependents: e.target.value }))}
+                    />
+                    <Input
+                      label="健保政府補貼定額 (元)"
+                      type="number"
+                      min="0"
+                      value={editForm.healthGovSubsidy}
+                      onChange={e => setEditForm(prev => ({ ...prev, healthGovSubsidy: e.target.value }))}
+                    />
                   </div>
-                  <Input
-                    label="健保政府補貼定額 (元)"
-                    type="number"
-                    min="0"
-                    value={editForm.healthGovSubsidy}
-                    onChange={e => setEditForm(prev => ({ ...prev, healthGovSubsidy: e.target.value }))}
-                  />
 
                   <h4 style={{ borderBottom: '1px solid var(--color-neutral-200)', paddingBottom: '4px', margin: '12px 0 4px 0', color: 'var(--color-neutral-700)' }}>投保級距覆蓋 (0代表依薪資自動對照)</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>

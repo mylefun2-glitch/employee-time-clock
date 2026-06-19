@@ -146,7 +146,9 @@ model PayrollRecord {
   laborOccupationalGrade Float   @default(0) // Occupational accident grade (職保級距)
   healthInsuranceGrade  Float    @default(0) // Health insurance grade (健保級距)
   laborPensionGrade     Float    @default(0) // Labor pension grade (勞退級距)
+  dependents            Int      @default(0) // NHI dependents count (健眷人數)
   laborOccupationalEmployer Float @default(0) // Employer occupational accident contribution (雇主職保)
+  
   
   // Employee deductions (員工自付)
   laborInsuranceEmployee  Float  @default(0) // Labor insurance - employee (勞保自付)

@@ -950,6 +950,7 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
             laborPensionGrade: existingRecord.laborPensionGrade !== 0 ? existingRecord.laborPensionGrade : currentEmp.laborPensionGrade,
             laborOccupationalGrade: existingRecord.laborOccupationalGrade !== 0 ? existingRecord.laborOccupationalGrade : currentEmp.laborOccupationalGrade,
             baseSalary: existingRecord.baseSalary > 0 ? existingRecord.baseSalary : currentEmp.baseSalary,
+            dependents: existingRecord.dependents !== undefined ? existingRecord.dependents : currentEmp.dependents,
           };
         }
 
@@ -1237,6 +1238,7 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         bonus: existingRecord ? existingRecord.bonus : 0,
         retroPay: existingRecord ? existingRecord.retroPay : 0,
         otherDeductions: existingRecord ? existingRecord.otherDeductions : 0,
+        dependents: existingRecord ? existingRecord.dependents : undefined,
         supplementaryHealthInsurance: (existingRecord && existingRecord.supplementaryHealthInsurance !== 0) ? existingRecord.supplementaryHealthInsurance : undefined,
         prevInsuranceDifference: (existingRecord && existingRecord.prevInsuranceDifference !== 0) ? existingRecord.prevInsuranceDifference : undefined,
         healthDisabilityExemption: (existingRecord && existingRecord.healthDisabilityExemption !== 0) ? existingRecord.healthDisabilityExemption : undefined,
@@ -1407,7 +1409,7 @@ router.put('/:id', validateId(), async (req, res) => {
       laborOccupationalGrade: req.body.laborOccupationalGrade !== undefined ? parseFloat(req.body.laborOccupationalGrade) : existing.laborOccupationalGrade,
       healthInsuranceGrade: req.body.healthInsuranceGrade !== undefined ? parseFloat(req.body.healthInsuranceGrade) : existing.healthInsuranceGrade,
       laborPensionGrade: req.body.laborPensionGrade !== undefined ? parseFloat(req.body.laborPensionGrade) : existing.laborPensionGrade,
-      dependents: req.body.dependents !== undefined ? parseInt(req.body.dependents) : existing.employee.dependents,
+      dependents: req.body.dependents !== undefined ? parseInt(req.body.dependents) : (existing.dependents !== undefined ? existing.dependents : existing.employee.dependents),
       voluntaryPensionRate: req.body.voluntaryPensionRate !== undefined ? parseFloat(req.body.voluntaryPensionRate) : existing.employee.voluntaryPensionRate,
       supplementaryHealthInsurance: req.body.supplementaryHealthInsurance !== undefined ? parseFloat(req.body.supplementaryHealthInsurance) : existing.supplementaryHealthInsurance,
       prevInsuranceDifference: req.body.prevInsuranceDifference !== undefined ? parseFloat(req.body.prevInsuranceDifference) : existing.prevInsuranceDifference,
@@ -1445,6 +1447,7 @@ router.put('/:id', validateId(), async (req, res) => {
       laborDisabilityExemption: req.body.laborDisabilityExemption !== undefined ? parseFloat(req.body.laborDisabilityExemption) : existing.laborDisabilityExemption,
       healthGovSubsidy: req.body.healthGovSubsidy !== undefined ? parseFloat(req.body.healthGovSubsidy) : existing.healthGovSubsidy,
       leavePaySupplement: req.body.leavePaySupplement !== undefined ? parseFloat(req.body.leavePaySupplement) : existing.leavePaySupplement,
+      dependents: req.body.dependents !== undefined ? parseInt(req.body.dependents) : (existing.dependents !== undefined ? existing.dependents : existing.employee.dependents),
     };
 
     // Recalculate
@@ -1462,11 +1465,12 @@ router.put('/:id', validateId(), async (req, res) => {
       'laborInsuranceEmployee', 'healthInsuranceEmployee', 'laborPensionEmployee',
       'incomeTax', 'otherDeductions', 'laborInsuranceEmployer', 'healthInsuranceEmployer',
       'laborPensionEmployer', 'laborOccupationalEmployer', 'totalEmployerCost', 'totalDeductions', 'netPay',
-      'supplementaryHealthInsurance', 'prevInsuranceDifference', 'healthDisabilityExemption', 'laborDisabilityExemption', 'healthGovSubsidy', 'leavePaySupplement'
+      'supplementaryHealthInsurance', 'prevInsuranceDifference', 'healthDisabilityExemption', 'laborDisabilityExemption', 'healthGovSubsidy', 'leavePaySupplement',
+      'dependents'
     ];
     overrideFields.forEach(f => {
       if (req.body[f] !== undefined) {
-        updateData[f] = parseFloat(req.body[f]) || 0;
+        updateData[f] = f === 'dependents' ? parseInt(req.body[f]) : parseFloat(req.body[f]) || 0;
       }
     });
 
@@ -1624,7 +1628,7 @@ router.post('/batch-update-adjustments', async (req, res) => {
       const {
         employeeNo, employeeName, bonus, allowanceAA, allowanceLicense, otherAllowance, mealAllowance, notes,
         supplementaryHealthInsurance, prevInsuranceDifference, healthDisabilityExemption, laborDisabilityExemption, healthGovSubsidy, leavePaySupplement,
-        otherDeductions, laborInsuranceGrade, laborOccupationalGrade, healthInsuranceGrade, laborPensionGrade
+        otherDeductions, laborInsuranceGrade, laborOccupationalGrade, healthInsuranceGrade, laborPensionGrade, dependents
       } = adj;
 
       // Find employee
@@ -1688,6 +1692,9 @@ router.post('/batch-update-adjustments', async (req, res) => {
       const updatedPensionGrade = (laborPensionGrade !== undefined && parseFloat(laborPensionGrade) !== 0)
         ? parseFloat(laborPensionGrade)
         : emp.laborPensionGrade;
+      const updatedDependents = (dependents !== undefined)
+        ? parseInt(dependents)
+        : (payrollRecord.dependents !== undefined ? payrollRecord.dependents : emp.dependents);
 
       const freshAttendance = await getFreshAttendanceSummary(
         req.prisma,
@@ -1728,7 +1735,8 @@ router.post('/batch-update-adjustments', async (req, res) => {
         healthDisabilityExemption: updatedExemption,
         laborDisabilityExemption: updatedLaborExemption,
         healthGovSubsidy: updatedSubsidy,
-        leavePaySupplement: updatedLeaveSupp
+        leavePaySupplement: updatedLeaveSupp,
+        dependents: updatedDependents
       };
 
       // Recalculate
@@ -1748,7 +1756,8 @@ router.post('/batch-update-adjustments', async (req, res) => {
         laborInsuranceGrade: updatedLaborGrade,
         laborOccupationalGrade: updatedOccupationalGrade,
         healthInsuranceGrade: updatedHealthGrade,
-        laborPensionGrade: updatedPensionGrade
+        laborPensionGrade: updatedPensionGrade,
+        dependents: updatedDependents
       };
 
       const payDetails = calculatePayroll(empOverride, attendanceSummary, settings);

@@ -152,6 +152,7 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
   // Build overridden employee settings for insurance/deduction purposes
   const empOverride = {
     ...employee,
+    dependents: attendance.dependents !== undefined ? parseInt(attendance.dependents) : (employee.dependents || 0),
     supplementaryHealthInsurance: attendance.supplementaryHealthInsurance !== undefined ? parseFloat(attendance.supplementaryHealthInsurance) : (employee.supplementaryHealthInsurance || 0),
     prevInsuranceDifference: attendance.prevInsuranceDifference !== undefined ? parseFloat(attendance.prevInsuranceDifference) : (employee.prevInsuranceDifference || 0),
     healthDisabilityExemption: attendance.healthDisabilityExemption !== undefined ? parseFloat(attendance.healthDisabilityExemption) : (employee.healthDisabilityExemption || 0),
@@ -338,6 +339,7 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
     healthDisabilityExemption: empOverride.healthDisabilityExemption,
     laborDisabilityExemption: empOverride.laborDisabilityExemption,
     healthGovSubsidy: empOverride.healthGovSubsidy,
+    dependents: empOverride.dependents,
     grossPay,
     
     // Attendance stats
