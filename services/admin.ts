@@ -1040,9 +1040,9 @@ export const importMonthlySalarySchedules = async (
 
             // 驗證服務時間（整數分鐘）
             const serviceMins = parseInt(row.service_mins_str.trim(), 10);
-            if (isNaN(serviceMins) || serviceMins < 0) {
+            if (isNaN(serviceMins) || serviceMins <= 0) {
                 results.failed++;
-                results.errors.push({ line: lineNum, name: row.name, error: `服務時間格式錯誤（需為正整數分鐘）：「${row.service_mins_str}」` });
+                results.errors.push({ line: lineNum, name: row.name, error: `服務時間格式錯誤（需為大於0的正整數分鐘）：「${row.service_mins_str}」` });
                 continue;
             }
 
