@@ -1189,6 +1189,14 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         });
       }
 
+      // Round all hours to 2 decimal places before calculation/saving
+      regularHours = parseFloat(regularHours.toFixed(2));
+      overtimeHours = parseFloat(overtimeHours.toFixed(2));
+      overtimeHours134 = parseFloat(overtimeHours134.toFixed(2));
+      overtimeHours167 = parseFloat(overtimeHours167.toFixed(2));
+      overtimeHours200 = parseFloat(overtimeHours200.toFixed(2));
+      overtimeHours267 = parseFloat(overtimeHours267.toFixed(2));
+
       const attendanceSummary = {
         year: y,
         month: m,

@@ -203,7 +203,8 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
 
   if (employee.salaryType === 'hourly') {
     hourlyRate = baseSalary; // 約定時薪
-    regularPay = Math.round(regularHours * hourlyRate); // 正常薪資
+    const regHoursRounded = parseFloat(regularHours.toFixed(2));
+    regularPay = Math.round(regHoursRounded * hourlyRate); // 正常薪資
 
     // Calculate Average Hourly Rate for Overtime calculations
     if (regularHours > 0) {
