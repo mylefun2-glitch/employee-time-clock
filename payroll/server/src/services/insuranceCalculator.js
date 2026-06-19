@@ -175,13 +175,13 @@ export function calculateLaborInsurance(insuredSalary, rates = {}, days = 30) {
 export function calculateHealthInsurance(insuredSalary, dependents = 0, rates = {}) {
   const r = { ...DEFAULT_RATES, ...rates };
   
-  // Calculate single premium first (四捨五入)
+  // Calculate raw single premium first
   const rawSinglePremium = insuredSalary * r.healthInsuranceRate * r.healthInsuranceEmployeeShare;
   const singlePremium = Math.round(rawSinglePremium);
   
-  // Employee pays: singlePremium × (1 + dependents), capped at 3 dependents
+  // Employee pays: ROUND( insuredSalary * rate * share * (1 + dependents), 0 ), capped at 3 dependents
   const chargedDependents = Math.min(3, dependents);
-  const employeePremium = singlePremium * (1 + chargedDependents);
+  const employeePremium = Math.round(rawSinglePremium * (1 + chargedDependents));
   
   // Employer pays: insuredSalary × 5.17% × 60% × (1 + avg dependents ratio)
   const employerPremium = Math.round(
@@ -288,44 +288,63 @@ export function calculateAllInsurance(employee, settings = {}, days = 30, isMidM
   const healthInsurance = calculateHealthInsurance(healthInsuredSalary, employee.dependents || 0, rates);
 
   // Apply exemption and government subsidy to employee premium (Health)
-  // The disability exemption ONLY applies to the employee's personal premium.
   const healthExemption = parseFloat(employee.healthDisabilityExemption) || 0;
   const healthSubsidy = parseFloat(employee.healthGovSubsidy) || 0;
-  healthInsurance.basePremium = healthInsurance.employeePremium; // Save original (which includes dependents)
+  healthInsurance.basePremium = healthInsurance.employeePremium; // Save original 全戶全額保費
   
-  const employeePersonalPremium = Math.round(healthInsurance.rawSinglePremium * (1 - healthExemption));
+  // 全戶總補助 = ROUND( 投保金額 * 5.17% * 30% * 健保保費減免比例 , 0 )
+  const rate = rates.healthInsuranceRate || DEFAULT_RATES.healthInsuranceRate;
+  const share = rates.healthInsuranceEmployeeShare || DEFAULT_RATES.healthInsuranceEmployeeShare;
+  const totalExemptionSubsidy = Math.round(healthInsuredSalary * rate * share * healthExemption);
+  
+  // 實際應繳保費 = 全戶全額保費 - 全戶總補助
+  const netPayablePremium = Math.max(0, healthInsurance.employeePremium - totalExemptionSubsidy);
   
   // To correctly apply the fixed amount government subsidy without "spillover" (溢扣),
   // we break the total healthSubsidy into chunks (e.g. 826 is a standard full unit).
   // We then pair the largest subsidy chunks with the largest individual premiums.
   const BASE_UNIT = 826;
   
-  let premiums = [employeePersonalPremium];
-  for (let i = 0; i < healthInsurance.chargedDependents; i++) {
-    premiums.push(healthInsurance.singlePremium);
-  }
-  // Sort premiums descending to maximize deduction without spilling over
-  premiums.sort((a, b) => b - a);
+  let finalEmployeePremium = netPayablePremium;
   
-  let subsidies = [];
-  let numFull = Math.floor(healthSubsidy / BASE_UNIT);
-  let partial = healthSubsidy % BASE_UNIT;
-  
-  for (let i = 0; i < numFull; i++) {
-    subsidies.push(BASE_UNIT);
+  if (healthSubsidy > 0) {
+    const singlePremium = Math.round(healthInsuredSalary * rate * share);
+    // Employee personal premium after disability exemption:
+    const employeePersonalPremium = Math.max(0, singlePremium - totalExemptionSubsidy);
+    
+    let premiums = [employeePersonalPremium];
+    if (healthInsurance.chargedDependents > 0) {
+      const remainingPremium = Math.max(0, netPayablePremium - employeePersonalPremium);
+      const baseDepPremium = Math.floor(remainingPremium / healthInsurance.chargedDependents);
+      const extra = remainingPremium % healthInsurance.chargedDependents;
+      for (let i = 0; i < healthInsurance.chargedDependents; i++) {
+        premiums.push(baseDepPremium + (i < extra ? 1 : 0));
+      }
+    }
+    // Sort premiums descending to maximize deduction without spilling over
+    premiums.sort((a, b) => b - a);
+    
+    let subsidies = [];
+    let numFull = Math.floor(healthSubsidy / BASE_UNIT);
+    let partial = healthSubsidy % BASE_UNIT;
+    
+    for (let i = 0; i < numFull; i++) {
+      subsidies.push(BASE_UNIT);
+    }
+    if (partial > 0) {
+      subsidies.push(partial);
+    }
+    subsidies.sort((a, b) => b - a);
+    
+    let effectiveSubsidy = 0;
+    for (let i = 0; i < Math.min(premiums.length, subsidies.length); i++) {
+      effectiveSubsidy += Math.min(premiums[i], subsidies[i]);
+    }
+    
+    finalEmployeePremium = Math.max(0, netPayablePremium - effectiveSubsidy);
   }
-  if (partial > 0) {
-    subsidies.push(partial);
-  }
-  subsidies.sort((a, b) => b - a);
   
-  let effectiveSubsidy = 0;
-  for (let i = 0; i < Math.min(premiums.length, subsidies.length); i++) {
-    effectiveSubsidy += Math.min(premiums[i], subsidies[i]);
-  }
-  
-  const totalPremiumBeforeSubsidy = premiums.reduce((sum, p) => sum + p, 0);
-  healthInsurance.employeePremium = Math.max(0, totalPremiumBeforeSubsidy - effectiveSubsidy);
+  healthInsurance.employeePremium = finalEmployeePremium;
 
   // Apply exemption to employee premium (Labor)
   const laborExemption = parseFloat(employee.laborDisabilityExemption) || 0;
