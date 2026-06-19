@@ -94,7 +94,7 @@ function applyChineseFont(doc) {
  */
 function formatAmount(amount) {
   if (amount === undefined || amount === null || isNaN(amount)) return '0';
-  return Math.round(amount).toString();
+  return Math.round(parseFloat(parseFloat(amount).toFixed(4))).toString();
 }
 
 /**

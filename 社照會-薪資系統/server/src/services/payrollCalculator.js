@@ -204,14 +204,13 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
   if (employee.salaryType === 'hourly') {
     hourlyRate = baseSalary; // 約定時薪
     const regHoursRounded = parseFloat(regularHours.toFixed(2));
-    regularPay = Math.round(regHoursRounded * hourlyRate); // 正常薪資
+    regularPay = Math.round(parseFloat((regHoursRounded * hourlyRate).toFixed(4))); // 正常薪資
 
     // Calculate Average Hourly Rate for Overtime calculations
     if (regularHours > 0) {
       // 正常工時(四捨五入到2位)
-      const regHoursRounded = parseFloat(regularHours.toFixed(2));
       // 正常薪資(使用2位工時計算以符合備註)
-      const normalWageForAverage = Math.round(regHoursRounded * hourlyRate);
+      const normalWageForAverage = Math.round(parseFloat((regHoursRounded * hourlyRate).toFixed(4)));
       averageHourlyRate = (normalWageForAverage + allowanceAA + allowanceLicense + otherAllowance + bonus) / regularHours;
       averageHourlyRate = parseFloat(averageHourlyRate.toFixed(2));
     } else {

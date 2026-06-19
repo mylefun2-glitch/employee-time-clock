@@ -397,7 +397,10 @@ export default function PayrollDetail() {
   if (loading) return <LoadingSpinner fullPage size="lg" />;
   if (!record || !employee) return <Card>找不到該筆薪資紀錄</Card>;
 
-  const formatCurr = (v) => `${Math.round(v).toLocaleString('zh-TW')}`;
+  const formatCurr = (v) => {
+    if (v === undefined || v === null || isNaN(v)) return '0';
+    return `${Math.round(parseFloat(parseFloat(v).toFixed(4))).toLocaleString('zh-TW')}`;
+  };
 
   // Helper to calculate Average Hourly Rate for display
   let averageHourlyRateDisplay = 0;
