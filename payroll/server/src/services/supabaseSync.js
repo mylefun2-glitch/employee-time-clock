@@ -322,12 +322,12 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
       // Fetch all employees from Supabase to match UUID to email/employeeNo
       const { data: sbEmployees, error: sbEmpError } = await supabase
         .from('employees')
-        .select('id, name, username, gmail');
+        .select('id, name, username, gmail, break_start_time, break_end_time');
         
       if (sbEmpError) throw sbEmpError;
 
-      // Create mapping of Supabase UUID -> SQLite Int ID
       const uuidToDbId = {};
+      const dbIdToSbEmp = {};
       sbEmployees.forEach(sbEmp => {
         let employeeNo = '';
         if (sbEmp.username && sbEmp.username.includes('@')) {
@@ -339,6 +339,7 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
         const matched = dbEmployees.find(e => e.employeeNo === employeeNo);
         if (matched) {
           uuidToDbId[sbEmp.id] = matched.id;
+          dbIdToSbEmp[matched.id] = sbEmp;
         }
       });
 
@@ -467,18 +468,29 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
             const [inH, inM] = inTime.split(':').map(Number);
             const [outH, outM] = outTime.split(':').map(Number);
             
+            const sbEmp = dbIdToSbEmp[employeeId];
+            const breakStartStr = sbEmp?.break_start_time || '12:00';
+            const breakEndStr = sbEmp?.break_end_time || '13:00';
+            const [bsH, bsM] = breakStartStr.split(':').map(Number);
+            const [beH, beM] = breakEndStr.split(':').map(Number);
+            const breakStartHour = bsH + bsM / 60;
+            const breakEndHour = beH + beM / 60;
+
+            const inHourRaw = inH + inM / 60;
+            const outHourRaw = outH + outM / 60;
+            
+            const overlapStart = Math.max(inHourRaw, breakStartHour);
+            const overlapEnd = Math.min(outHourRaw, breakEndHour);
+            const actualBreak = Math.max(0, overlapEnd - overlapStart);
+            
             // If they clock in by 8:30 (510 min) and out after 17:00 (1020 min), it's a standard 8 hour workday
             if (inH * 60 + inM <= 510 && outH * 60 + outM >= 1020) {
               regularHours = 8;
             } else {
-              const inHour = inH + inM / 60;
-              const outHour = outH + outM / 60;
-              let hoursWorked = Math.max(0, outHour - inHour - 1); // subtract 1 hour break
+              let hoursWorked = Math.max(0, outHourRaw - inHourRaw - actualBreak);
               regularHours = Math.min(8, hoursWorked);
             }
-            const inHourRaw = inH + inM / 60;
-            const outHourRaw = outH + outM / 60;
-            let hoursWorkedRaw = Math.max(0, outHourRaw - inHourRaw - 1);
+            let hoursWorkedRaw = Math.max(0, outHourRaw - inHourRaw - actualBreak);
             overtimeHours = Math.max(0, hoursWorkedRaw - 8);
           } else if (inTime || outTime) {
             status = 'present'; // missing punch but attended

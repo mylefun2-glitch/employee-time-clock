@@ -596,22 +596,26 @@ router.get('/', validateYearMonth, async (req, res) => {
  */
 router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
   try {
-    const { year, month, employeeIds, settings: customSettings } = req.body;
+    const { year, month, employeeIds, settings: customSettings, skipSync } = req.body;
     const y = parseInt(year);
     const m = parseInt(month);
 
-    console.log(`[Calc] Starting optimized calculation for ${y}-${m}...`);
+    console.log(`[Calc] Starting optimized calculation for ${y}-${m}... (skipSync: ${skipSync})`);
 
-    // Sync employees from Supabase first to ensure statuses are updated
-    console.log('[Calc] Syncing employees...');
-    await syncEmployees(true).catch(err => console.error("Sync employees failed:", err));
-    console.log('[Calc] Employees synced.');
+    if (!skipSync) {
+      // Sync employees from Supabase first to ensure statuses are updated
+      console.log('[Calc] Syncing employees...');
+      await syncEmployees(true).catch(err => console.error("Sync employees failed:", err));
+      console.log('[Calc] Employees synced.');
 
-    // Sync attendance logs and approved leaves from Supabase first
-    console.log('[Calc] Syncing attendance and leaves...');
-    const singleEmpId = (employeeIds && Array.isArray(employeeIds) && employeeIds.length === 1) ? employeeIds[0] : null;
-    await syncAttendanceAndLeaves(y, m, false, singleEmpId).catch(err => console.error("Sync attendance/leaves failed:", err));
-    console.log('[Calc] Attendance and leaves synced.');
+      // Sync attendance logs and approved leaves from Supabase first
+      console.log('[Calc] Syncing attendance and leaves...');
+      const singleEmpId = (employeeIds && Array.isArray(employeeIds) && employeeIds.length === 1) ? employeeIds[0] : null;
+      await syncAttendanceAndLeaves(y, m, false, singleEmpId).catch(err => console.error("Sync attendance/leaves failed:", err));
+      console.log('[Calc] Attendance and leaves synced.');
+    } else {
+      console.log('[Calc] skipSync is true. Skipping Supabase sync for employees, attendance, and leaves.');
+    }
 
     // Fetch active schedules for this month from Supabase to override salary structures
     console.log('[Calc] Fetching active schedules for month...');

@@ -208,6 +208,10 @@ export default function PayrollDetail() {
   const handleSaveSettings = async (e) => {
     e.preventDefault();
     setSaving(true);
+    
+    // Close modal early for better UX
+    setIsEditSettingsOpen(false);
+    
     try {
       await employeeService.updateEmployee(employee.id, {
         salaryType: settingsForm.salaryType,
@@ -240,18 +244,19 @@ export default function PayrollDetail() {
           year: record.year.toString(),
           month: record.month.toString(),
           employeeIds: [employee.id],
-          resetSettings: true
+          resetSettings: true,
+          skipSync: true // Optimization: skip fetching from Supabase because we only updated settings
         });
         alert('員工薪資與保險參數已更新，且此月薪資明細已重新計算完成！');
       } else {
         alert('員工薪資與保險參數已更新。由於此薪資明細非草稿狀態，未自動重新計算此月薪資。');
       }
 
-      setIsEditSettingsOpen(false);
       loadPayrollRecord();
     } catch (err) {
       console.error(err);
       alert(err.message || '更新員工薪資保險參數失敗');
+      // Re-open if failed? (Optional, but usually alert is enough)
     } finally {
       setSaving(false);
     }

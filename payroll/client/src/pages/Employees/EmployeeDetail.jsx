@@ -83,6 +83,10 @@ export default function EmployeeDetail() {
   const handleSaveSettings = async (e) => {
     e.preventDefault();
     setSaving(true);
+    
+    // Close modal early for better UX
+    setIsEditModalOpen(false);
+    
     try {
       await employeeService.updateEmployee(id, {
         salaryType: formData.salaryType,
@@ -110,7 +114,6 @@ export default function EmployeeDetail() {
         leavePaySupplement: parseFloat(formData.leavePaySupplement) || 0
       });
       alert('薪資與保險參數已更新');
-      setIsEditModalOpen(false);
       loadEmployeeDetails();
     } catch (err) {
       console.error(err);
