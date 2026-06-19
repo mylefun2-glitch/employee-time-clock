@@ -574,12 +574,12 @@ router.get('/', validateYearMonth, async (req, res) => {
       where,
       include: {
         employee: {
-          select: { id: true, employeeNo: true, name: true, department: true, position: true, salaryType: true }
+          select: { id: true, employeeNo: true, name: true, department: true, position: true, salaryType: true, hireDate: true }
         }
       },
       orderBy: [
-        { employee: { department: 'asc' } },
-        { employee: { name: 'asc' } }
+        { employee: { salaryType: 'desc' } }, // 'monthly' (月薪) first, then 'hourly' (時薪)
+        { employee: { hireDate: 'asc' } } // 'earliest hireDate' (highest seniority) first
       ]
     });
 

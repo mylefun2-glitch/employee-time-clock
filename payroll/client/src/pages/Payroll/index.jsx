@@ -342,6 +342,7 @@ export default function PayrollList() {
       )
     },
     { title: '部門', key: 'department', render: (_, row) => row.employee?.department },
+    { title: '薪資類型', key: 'salaryType', render: (_, row) => row.employee?.salaryType === 'monthly' ? '月薪' : '時薪' },
     { title: '姓名', key: 'name', bold: true, render: (_, row) => row.employee?.name },
     { title: '應發薪資', key: 'grossPay', align: 'right', render: (val) => formatCurr(val) },
     { title: '應扣項目', key: 'totalDeductions', align: 'right', render: (val) => <span style={{ color: 'var(--color-error)', fontWeight: '500' }}>{formatCurr(val)}</span> },
