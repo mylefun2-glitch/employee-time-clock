@@ -5,26 +5,49 @@ import Header from './Header';
 
 export default function MainLayout() {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const location = useLocation();
 
   const sidebarWidth = isCollapsed ? 'var(--sidebar-collapsed)' : 'var(--sidebar-width)';
 
   return (
-    <div style={{ 
+    <div className="main-layout" style={{ 
       minHeight: '100vh', 
       display: 'flex',
       '--active-sidebar-width': sidebarWidth
     }}>
-      <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
-      <div style={{
+      {/* Mobile Overlay */}
+      {isMobileSidebarOpen && (
+        <div 
+          className="sidebar-overlay"
+          onClick={() => setIsMobileSidebarOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 'calc(var(--z-sidebar) - 1)',
+            backdropFilter: 'blur(2px)'
+          }}
+        />
+      )}
+
+      <Sidebar 
+        isCollapsed={isCollapsed} 
+        onToggle={() => setIsCollapsed(!isCollapsed)} 
+        isMobileOpen={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
+      />
+      
+      <div className="main-content-wrapper" style={{
         flex: 1,
         paddingLeft: 'var(--active-sidebar-width)',
         display: 'flex',
         flexDirection: 'column',
-        transition: 'padding-left var(--transition-normal)'
+        transition: 'padding-left var(--transition-normal)',
+        width: '100%'
       }}>
-        <Header />
-        <main style={{
+        <Header onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)} />
+        <main className="main-content" style={{
           padding: 'var(--space-6)',
           paddingTop: 'calc(var(--header-height) + var(--space-6))',
           backgroundColor: 'var(--surface-secondary)',

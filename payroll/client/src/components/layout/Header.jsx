@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Modal } from '../common';
 
-export default function Header() {
+export default function Header({ onOpenMobileSidebar }) {
   const location = useLocation();
   const [isLogOpen, setIsLogOpen] = useState(false);
 
@@ -19,7 +19,7 @@ export default function Header() {
 
   return (
     <>
-      <header style={{
+      <header className="header" style={{
         height: 'var(--header-height)',
         backgroundColor: 'var(--surface-primary)',
         borderBottom: '1px solid var(--color-neutral-200)',
@@ -36,13 +36,31 @@ export default function Header() {
         transition: 'left var(--transition-normal)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <span style={{
+          {/* Hamburger Menu for Mobile */}
+          <button 
+            onClick={onOpenMobileSidebar}
+            className="mobile-only"
+            style={{
+              color: 'var(--color-neutral-700)',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'var(--color-neutral-100)',
+              border: 'none'
+            }}
+          >
+            <span className="material-symbols-outlined">menu</span>
+          </button>
+          
+          <span className="desktop-only" style={{
             width: '4px',
             height: '20px',
             backgroundColor: 'var(--color-primary-600)',
             borderRadius: 'var(--radius-full)'
           }} />
-          <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: '600', margin: 0 }}>
+          <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: '600', margin: 0 }} className="truncate">
             {getPageTitle(location.pathname)}
           </h2>
         </div>
