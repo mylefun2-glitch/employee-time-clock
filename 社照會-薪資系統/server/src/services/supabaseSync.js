@@ -244,9 +244,18 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
           const localEmpId = uuidToDbId[leave.employee_id];
           if (!localEmpId) continue;
 
-          // Convert timestamps to clean YYYY-MM-DD
-          const startYMD = leave.start_date.substring(0, 10);
-          const endYMD = leave.end_date.substring(0, 10);
+          // Convert timestamps to clean YYYY-MM-DD in Taipei timezone (GMT+8)
+          const toTaipeiYMD = (utcStr) => {
+            if (!utcStr) return null;
+            const dateObj = new Date(utcStr);
+            const taipeiTime = new Date(dateObj.getTime() + (8 * 60 * 60 * 1000));
+            const yyyy = taipeiTime.getUTCFullYear();
+            const monthVal = String(taipeiTime.getUTCMonth() + 1).padStart(2, '0');
+            const dayVal = String(taipeiTime.getUTCDate()).padStart(2, '0');
+            return `${yyyy}-${monthVal}-${dayVal}`;
+          };
+          const startYMD = toTaipeiYMD(leave.start_date);
+          const endYMD = toTaipeiYMD(leave.end_date);
           const leaveName = leave.leave_types?.name || leave.leave_types?.code || '事假';
           const leaveDays = parseFloat(leave.hours) / 8 || 1;
           const status = (leave.status || 'pending').toLowerCase();
@@ -297,6 +306,11 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
           // Convert UTC timestamp to Taipei local time (GMT+8)
           const dateObj = new Date(log.timestamp);
           const taipeiTime = new Date(dateObj.getTime() + (8 * 60 * 60 * 1000));
+          
+          // Filter out logs that fall outside the target month in Taipei timezone
+          if (taipeiTime.getUTCFullYear() !== year || taipeiTime.getUTCMonth() + 1 !== month) {
+            return;
+          }
           
           const yyyy = taipeiTime.getUTCFullYear();
           const monthVal = String(taipeiTime.getUTCMonth() + 1).padStart(2, '0');
