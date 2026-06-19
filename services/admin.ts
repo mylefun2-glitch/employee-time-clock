@@ -649,11 +649,10 @@ export const updateAttendanceLog = async (
  */
 export const importAttendanceLogs = async (logs: any[]): Promise<{ success: boolean; succeeded: number; skipped: number; failed: number; errors: any[] }> => {
     try {
-        // 1. 獲取所有員工以便查找
+        // 1. 獲取所有員工以便查找 (包含非在職)
         const { data: employees, error: empError } = await supabase
             .from('employees')
-            .select('id, name, pin')
-            .eq('is_active', true);
+            .select('id, name, pin');
 
         if (empError) throw empError;
 
@@ -769,11 +768,10 @@ export const importBulkEmployeeSchedules = async (
     logs: any[]
 ): Promise<{ success: boolean; succeeded: number; failed: number; errors: any[] }> => {
     try {
-        // 1. 獲取所有現有員工 PIN 碼與 ID 的對照表
+        // 1. 獲取所有現有員工 PIN 碼與 ID 的對照表 (包含非在職)
         const { data: employees, error: empError } = await supabase
             .from('employees')
-            .select('id, name, pin')
-            .eq('is_active', true);
+            .select('id, name, pin');
 
         if (empError) throw empError;
 
@@ -1000,11 +998,10 @@ export const importMonthlySalarySchedules = async (
     };
 
     try {
-        // 1. 取得所有員工（依姓名查找）
+        // 1. 取得所有員工（依姓名查找，包含非在職）
         const { data: employees, error: empError } = await supabase
             .from('employees')
-            .select('id, name')
-            .eq('is_active', true);
+            .select('id, name');
 
         if (empError) throw empError;
 

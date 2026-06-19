@@ -131,7 +131,7 @@ const AttendanceCalendarPage: React.FC = () => {
         const { data, error } = await supabase
             .from('employees')
             .select('*')
-            .eq('is_active', true)
+            .order('is_active', { ascending: false })
             .order('name');
         if (data) {
             setEmployees(data);
@@ -1400,7 +1400,7 @@ const AttendanceCalendarPage: React.FC = () => {
                                                         }`}
                                                 >
                                                     <div className="flex items-center justify-between">
-                                                        <span>{emp.name}</span>
+                                                        <span>{emp.name}{!emp.is_active && <span className="text-xs text-red-500 ml-1">(非在職)</span>}</span>
                                                         {emp.department && (
                                                             <span className="text-xs text-slate-400">{emp.department}</span>
                                                         )}

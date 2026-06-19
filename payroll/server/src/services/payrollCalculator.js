@@ -251,12 +251,22 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
 
   // 2. Calculate Overtime Pay
   const otBase = employee.salaryType === 'hourly' ? averageHourlyRate : hourlyRate;
-  const overtimePay134 = Math.round(overtimeHours134 * otBase * 1.334);
-  const overtimePay167 = Math.round(overtimeHours167 * otBase * 1.667);
-  const overtimePay200 = Math.round(overtimeHours200 * otBase * (employee.salaryType === 'monthly' ? 1.00 : 2.00));
-  const overtimePay267 = Math.round(overtimeHours267 * otBase * 2.667);
   
-  let finalOvertimePay = overtimePay134 + overtimePay167 + overtimePay200 + overtimePay267;
+  const roundedOt134 = Math.round(overtimeHours134 * 100) / 100;
+  const roundedOt167 = Math.round(overtimeHours167 * 100) / 100;
+  const roundedOt267 = Math.round(overtimeHours267 * 100) / 100;
+  const roundedOt200 = Math.round(overtimeHours200 * 100) / 100;
+
+  const otMultiplier200 = employee.salaryType === 'monthly' ? 1.00 : 2.00;
+
+  let finalOvertimePay = Math.round(
+    otBase * (
+      roundedOt134 * 1.334 +
+      roundedOt167 * 1.667 +
+      roundedOt267 * 2.667 +
+      roundedOt200 * otMultiplier200
+    )
+  );
 
   // 3. Gross Pay (應發薪資)
   let grossPay = 0;
