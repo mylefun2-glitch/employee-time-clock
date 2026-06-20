@@ -327,15 +327,16 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
     });
   }
 
-  // Calculate Overtime Hours
-  let overtimeHours = 0;
-  let overtimeHours134 = 0;
-  let overtimeHours167 = 0;
-  let overtimeHours200 = 0;
-  let overtimeHours267 = 0;
+  // Calculate Overtime Hours in minutes first to avoid daily rounding accumulation
+  let overtimeMins134 = 0;
+  let overtimeMins167 = 0;
+  let overtimeMins200 = 0;
+  let overtimeMins267 = 0;
+  let totalOvertimeMins = 0;
 
   otLeaves.forEach(l => {
-    const otHrs = parseFloat((l.days * 8).toFixed(2));
+    const otMins = Math.round(l.days * 480);
+    const standardMins = standardHours * 60;
     const isNatHoliday = isHoliday(l.startDate) || isHoliday(l.endDate) || (l.reason && (l.reason.includes('國假') || l.reason.includes('國定假日')));
     
     let dayOfWeek = new Date(l.endDate).getDay(); 
@@ -347,41 +348,45 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
 
     if (isNatHoliday) {
       if (employee.salaryType === 'monthly') {
-        const actualHrs = Math.max(standardHours, otHrs);
-        overtimeHours += actualHrs;
-        overtimeHours200 += standardHours;
-        if (actualHrs > standardHours) {
-          overtimeHours134 += (actualHrs - standardHours);
+        const actualMins = Math.max(standardMins, otMins);
+        totalOvertimeMins += actualMins;
+        overtimeMins200 += standardMins;
+        if (actualMins > standardMins) {
+          overtimeMins134 += (actualMins - standardMins);
         }
       } else {
-        overtimeHours += otHrs;
-        overtimeHours200 += otHrs;
+        // Hourly employees: paid at 2.0x
+        totalOvertimeMins += otMins;
+        overtimeMins200 += otMins;
       }
     } else if (dayOfWeek === 0) {
-      overtimeHours += otHrs;
-      overtimeHours200 += otHrs;
+      // Sunday
+      totalOvertimeMins += otMins;
+      overtimeMins200 += otMins;
     } else if (dayOfWeek === 6) {
-      overtimeHours += otHrs;
-      const ot134 = Math.min(2, otHrs);
-      const ot167 = Math.min(6, Math.max(0, otHrs - 2));
-      const ot267 = Math.max(0, otHrs - standardHours);
-      overtimeHours134 += ot134;
-      overtimeHours167 += ot167;
-      overtimeHours267 += ot267;
+      // Saturday rest day extended overtime:
+      totalOvertimeMins += otMins;
+      const ot134Mins = Math.min(120, otMins);
+      const ot167Mins = Math.min(360, Math.max(0, otMins - 120));
+      const ot267Mins = Math.max(0, otMins - standardMins);
+      overtimeMins134 += ot134Mins;
+      overtimeMins167 += ot167Mins;
+      overtimeMins267 += ot267Mins;
     } else {
-      overtimeHours += otHrs;
-      const ot134 = Math.min(2, otHrs);
-      const ot167 = Math.max(0, otHrs - 2);
-      overtimeHours134 += ot134;
-      overtimeHours167 += ot167;
+      // Weekday overtime:
+      totalOvertimeMins += otMins;
+      const ot134Mins = Math.min(120, otMins);
+      const ot167Mins = Math.max(0, otMins - 120);
+      overtimeMins134 += ot134Mins;
+      overtimeMins167 += ot167Mins;
     }
   });
 
-  overtimeHours = parseFloat(overtimeHours.toFixed(2));
-  overtimeHours134 = parseFloat(overtimeHours134.toFixed(2));
-  overtimeHours167 = parseFloat(overtimeHours167.toFixed(2));
-  overtimeHours200 = parseFloat(overtimeHours200.toFixed(2));
-  overtimeHours267 = parseFloat(overtimeHours267.toFixed(2));
+  let overtimeHours = parseFloat((totalOvertimeMins / 60).toFixed(2));
+  let overtimeHours134 = parseFloat((overtimeMins134 / 60).toFixed(2));
+  let overtimeHours167 = parseFloat((overtimeMins167 / 60).toFixed(2));
+  let overtimeHours200 = parseFloat((overtimeMins200 / 60).toFixed(2));
+  let overtimeHours267 = parseFloat((overtimeMins267 / 60).toFixed(2));
 
   // Hourly supplement hours
   let leaveHoursHalf = 0;
@@ -1066,11 +1071,16 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         });
       }
 
-      // Calculate Overtime Hours from OT conversion leaves
-      otLeaves.forEach(l => {
-        const otHrs = parseFloat((l.days * 8).toFixed(2));
+      // Calculate Overtime Hours in minutes first to avoid daily rounding accumulation
+      let overtimeMins134 = 0;
+      let overtimeMins167 = 0;
+      let overtimeMins200 = 0;
+      let overtimeMins267 = 0;
+      let totalOvertimeMins = 0;
 
-        // Determine day type
+      otLeaves.forEach(l => {
+        const otMins = Math.round(l.days * 480);
+        const standardMins = standardHours * 60;
         const isNatHoliday = isHoliday(l.startDate) || isHoliday(l.endDate) || (l.reason && (l.reason.includes('國假') || l.reason.includes('國定假日')));
         
         let dayOfWeek = new Date(l.endDate).getDay(); 
@@ -1083,46 +1093,45 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         if (isNatHoliday) {
           // National Holiday overtime pay logic:
           if (currentEmp.salaryType === 'monthly') {
-            const actualHrs = Math.max(standardHours, otHrs);
-            overtimeHours += actualHrs;
-            overtimeHours200 += standardHours; // Paid at 1.0x additional
-            if (actualHrs > standardHours) {
-              overtimeHours134 += (actualHrs - standardHours); // Paid at 1.334x for hours beyond standardHours
+            const actualMins = Math.max(standardMins, otMins);
+            totalOvertimeMins += actualMins;
+            overtimeMins200 += standardMins;
+            if (actualMins > standardMins) {
+              overtimeMins134 += (actualMins - standardMins);
             }
           } else {
             // Hourly employees: paid at 2.0x
-            overtimeHours += otHrs;
-            overtimeHours200 += otHrs;
+            totalOvertimeMins += otMins;
+            overtimeMins200 += otMins;
           }
         } else if (dayOfWeek === 0) {
           // Sunday
-          overtimeHours += otHrs;
-          overtimeHours200 += otHrs;
+          totalOvertimeMins += otMins;
+          overtimeMins200 += otMins;
         } else if (dayOfWeek === 6) {
           // Saturday rest day extended overtime:
-          overtimeHours += otHrs;
-          const ot134 = Math.min(2, otHrs);
-          const ot167 = Math.min(6, Math.max(0, otHrs - 2));
-          const ot267 = Math.max(0, otHrs - standardHours);
-          overtimeHours134 += ot134;
-          overtimeHours167 += ot167;
-          overtimeHours267 += ot267;
+          totalOvertimeMins += otMins;
+          const ot134Mins = Math.min(120, otMins);
+          const ot167Mins = Math.min(360, Math.max(0, otMins - 120));
+          const ot267Mins = Math.max(0, otMins - standardMins);
+          overtimeMins134 += ot134Mins;
+          overtimeMins167 += ot167Mins;
+          overtimeMins267 += ot267Mins;
         } else {
           // Weekday overtime:
-          overtimeHours += otHrs;
-          const ot134 = Math.min(2, otHrs);
-          const ot167 = Math.max(0, otHrs - 2);
-          overtimeHours134 += ot134;
-          overtimeHours167 += ot167;
+          totalOvertimeMins += otMins;
+          const ot134Mins = Math.min(120, otMins);
+          const ot167Mins = Math.max(0, otMins - 120);
+          overtimeMins134 += ot134Mins;
+          overtimeMins167 += ot167Mins;
         }
       });
 
-      // Round overtime fields to 2 decimal places
-      overtimeHours = parseFloat(overtimeHours.toFixed(2));
-      overtimeHours134 = parseFloat(overtimeHours134.toFixed(2));
-      overtimeHours167 = parseFloat(overtimeHours167.toFixed(2));
-      overtimeHours200 = parseFloat(overtimeHours200.toFixed(2));
-      overtimeHours267 = parseFloat(overtimeHours267.toFixed(2));
+      overtimeHours = parseFloat((totalOvertimeMins / 60).toFixed(2));
+      overtimeHours134 = parseFloat((overtimeMins134 / 60).toFixed(2));
+      overtimeHours167 = parseFloat((overtimeMins167 / 60).toFixed(2));
+      overtimeHours200 = parseFloat((overtimeMins200 / 60).toFixed(2));
+      overtimeHours267 = parseFloat((overtimeMins267 / 60).toFixed(2));
 
       // Calculate workDays and regularHours from attendance records
       if (currentEmp.salaryType === 'hourly') {
