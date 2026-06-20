@@ -76,7 +76,26 @@ app.get('/api/health', (req, res) => {
 });
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: 'fix-nhi-1' });
+  res.json({ version: 'fix-nhi-2' });
+});
+
+app.get('/api/test-bonus', async (req, res) => {
+  try {
+    const { calculatePayroll } = await import('./services/payrollCalculator.js');
+    const result = calculatePayroll(
+      { baseSalary: 45000, salaryType: 'monthly', healthInsuranceGrade: 0, laborInsuranceGrade: 0 },
+      { bonus: 20000 },
+      { minimum_wage_monthly: '29500' }
+    );
+    res.json({ 
+      healthInsuranceGrade: result.healthInsuranceGrade,
+      laborInsuranceGrade: result.laborInsuranceGrade,
+      totalMonthlyShouldBe65000: result.grossPay,
+      fullResult: result 
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/test-nhi-calc', async (req, res) => {
