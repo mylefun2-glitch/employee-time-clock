@@ -809,10 +809,10 @@ export default function PayrollDetail() {
                         <span className="font-mono">{formatCurr(record.allowanceManager)}</span>
                       </div>
                     )}
-                    {record.overtimePay > 0 && (
+                    {record.bonus > 0 && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                        <span>加班費</span>
-                        <span className="font-mono">{formatCurr(record.overtimePay)}</span>
+                        <span>發放獎金 (績效獎金)</span>
+                        <span className="font-mono">{formatCurr(record.bonus)}</span>
                       </div>
                     )}
                     {record.otherAllowance > 0 && (
@@ -827,10 +827,10 @@ export default function PayrollDetail() {
                         <span className="font-mono">{formatCurr(record.mealAllowance)}</span>
                       </div>
                     )}
-                    {record.bonus > 0 && (
+                    {record.overtimePay > 0 && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                        <span>發放獎金 (績效獎金)</span>
-                        <span className="font-mono">{formatCurr(record.bonus)}</span>
+                        <span>加班費</span>
+                        <span className="font-mono">{formatCurr(record.overtimePay)}</span>
                       </div>
                     )}
                     {record.retroPay > 0 && (
