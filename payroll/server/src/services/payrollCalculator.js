@@ -264,9 +264,9 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
 
   let finalOvertimePay = Math.round(
     otBase * (
-      roundedOt134 * 1.34 +
-      roundedOt167 * 1.67 +
-      roundedOt267 * 2.67 +
+      roundedOt134 * 1.334 +
+      roundedOt167 * 1.667 +
+      roundedOt267 * 2.667 +
       roundedOt200 * otMultiplier200
     )
   );

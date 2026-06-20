@@ -116,7 +116,7 @@ export default function Header() {
               <span style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--color-neutral-800)' }}>薪資系統初始發佈 (2026-06-06)</span>
             </div>
             <ul style={{ listStyleType: 'disc', paddingLeft: 'var(--space-5)', margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-neutral-600)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <li><strong>台灣勞動法規結算引擎</strong>：支持加班費（1.34x/1.67x）、勞保、健保、雇主額外負擔成本、預扣所得稅及自提勞退的精確計算。</li>
+              <li><strong>台灣勞動法規結算引擎</strong>：支持加班費（1.334x/1.667x）、勞保、健保、雇主額外負擔成本、預扣所得稅及自提勞退的精確計算。</li>
               <li><strong>PDF 薪資單導出</strong>：支持單人薪資單生成與預覽，以及整月多名員工薪資明細一鍵合併批次下載。</li>
               <li><strong>財務分析報表</strong>：提供月度彙總表、年度成本走勢圖、部門佔比、勞健保申報清單與 CSV 檔案導出。</li>
             </ul>
