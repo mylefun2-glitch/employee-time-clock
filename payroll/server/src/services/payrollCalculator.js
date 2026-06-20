@@ -280,7 +280,7 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
   }
 
   // 4. Calculate Insurance and Pension (Deductions)
-  const insuranceResult = calculateAllInsurance(empOverride, settings, laborInsuranceDays, isMidMonthResigned);
+  const insuranceResult = calculateAllInsurance(empOverride, settings, laborInsuranceDays, isMidMonthResigned, bonus);
 
   const laborInsuranceEmployee = employee.laborInsuranceEmployee !== undefined
     ? employee.laborInsuranceEmployee

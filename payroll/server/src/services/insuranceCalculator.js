@@ -239,7 +239,7 @@ export function calculateLaborPension(pensionGrade, voluntaryRate = 0, rates = {
  * @param {object} settings - System settings for rate overrides (optional)
  * @returns {object} Combined insurance calculation results
  */
-export function calculateAllInsurance(employee, settings = {}, days = 30, isMidMonthResigned = false) {
+export function calculateAllInsurance(employee, settings = {}, days = 30, isMidMonthResigned = false, bonus = 0) {
   // Determine insured salaries - use employee's preset or look up from salary
   // Hourly employees do not use baseSalary for totalMonthly calculation because baseSalary is hourly rate.
   const totalMonthly = (employee.salaryType === 'hourly' ? 0 : employee.baseSalary) +
@@ -247,7 +247,8 @@ export function calculateAllInsurance(employee, settings = {}, days = 30, isMidM
                        (employee.allowanceAA || 0) +
                        (employee.allowanceLicense || 0) +
                        (employee.allowanceManager || 0) +
-                       (employee.otherAllowance || 0);
+                       (employee.otherAllowance || 0) +
+                       bonus;
   
   const basicWage = parseFloat(settings.minimum_wage_monthly || settings.minimum_wage) || 29500;
 

@@ -500,7 +500,7 @@ async function fetchActiveSchedulesForMonth(y, m) {
 import PDFDocument from 'pdfkit';
 
 // Helper to calculate rolling average of M-4 to M-2 wages in memory
-function getRollingInsuranceGrades(emp, pastRecords, settings = {}) {
+function getRollingInsuranceGrades(emp, pastRecords, settings = {}, currentBonus = 0) {
   const basicWage = parseFloat(settings.minimum_wage_monthly || settings.minimum_wage) || 29500;
 
   let avgWage = 0;
@@ -513,7 +513,8 @@ function getRollingInsuranceGrades(emp, pastRecords, settings = {}) {
               (emp.allowanceAA || 0) +
               (emp.allowanceLicense || 0) +
               (emp.allowanceManager || 0) +
-              (emp.otherAllowance || 0);
+              (emp.otherAllowance || 0) +
+              currentBonus;
   }
 
   let laborGrade = emp.laborInsuranceGrade === -1
@@ -993,7 +994,8 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
 
       // Check rolling grades and update only if they changed
       const pastRecs = pastRecordsMap[emp.id] || [];
-      const grades = getRollingInsuranceGrades(currentEmp, pastRecs, settings);
+      const currentBonus = existingRecord ? (existingRecord.bonus || 0) : 0;
+      const grades = getRollingInsuranceGrades(currentEmp, pastRecs, settings, currentBonus);
       
       const hasGradeChanged = 
         grades.laborInsuranceGrade !== emp.laborInsuranceGrade ||
@@ -1067,7 +1069,6 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       });
 
       // Daily rate for leave deduction (monthly employee)
-      const currentBonus = existingRecord ? (existingRecord.bonus || 0) : 0;
       const hourlyLeaveRate = (currentEmp.baseSalary + (currentEmp.allowanceAA || 0) + (currentEmp.allowanceLicense || 0) + (currentEmp.allowanceManager || 0) + (currentEmp.otherAllowance || 0) + currentBonus) / (30 * standardHours);
 
       // Calculate leave deductions (for monthly) and supplement hours (for hourly)
