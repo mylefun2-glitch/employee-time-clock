@@ -975,9 +975,6 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
             laborOccupationalGrade: existingRecord.laborOccupationalGrade !== 0 ? existingRecord.laborOccupationalGrade : currentEmp.laborOccupationalGrade,
             baseSalary: existingRecord.baseSalary > 0 ? existingRecord.baseSalary : currentEmp.baseSalary,
             dependents: existingRecord.dependents !== undefined ? existingRecord.dependents : currentEmp.dependents,
-            laborInsuranceEmployee: existingRecord.laborInsuranceEmployee,
-            healthInsuranceEmployee: existingRecord.healthInsuranceEmployee,
-            laborPensionEmployee: existingRecord.laborPensionEmployee,
           };
         }
 
@@ -1513,9 +1510,6 @@ router.put('/:id', validateId(), async (req, res) => {
       laborDisabilityExemption: req.body.laborDisabilityExemption !== undefined ? parseFloat(req.body.laborDisabilityExemption) : existing.laborDisabilityExemption,
       healthGovSubsidy: req.body.healthGovSubsidy !== undefined ? parseFloat(req.body.healthGovSubsidy) : existing.healthGovSubsidy,
       leavePaySupplement: req.body.leavePaySupplement !== undefined ? parseFloat(req.body.leavePaySupplement) : existing.leavePaySupplement,
-      laborInsuranceEmployee: req.body.laborInsuranceEmployee !== undefined ? parseFloat(req.body.laborInsuranceEmployee) : existing.laborInsuranceEmployee,
-      healthInsuranceEmployee: req.body.healthInsuranceEmployee !== undefined ? parseFloat(req.body.healthInsuranceEmployee) : existing.healthInsuranceEmployee,
-      laborPensionEmployee: req.body.laborPensionEmployee !== undefined ? parseFloat(req.body.laborPensionEmployee) : existing.laborPensionEmployee,
     };
 
     // Prepare overridden attendance & adjustments using existing record data
@@ -1895,9 +1889,6 @@ router.post('/batch-update-adjustments', async (req, res) => {
         healthInsuranceGrade: updatedHealthGrade,
         laborPensionGrade: updatedPensionGrade,
         dependents: updatedDependents,
-        laborInsuranceEmployee: payrollRecord.laborInsuranceEmployee,
-        healthInsuranceEmployee: payrollRecord.healthInsuranceEmployee,
-        laborPensionEmployee: payrollRecord.laborPensionEmployee,
       };
 
       const payDetails = calculatePayroll(empOverride, attendanceSummary, settings);
