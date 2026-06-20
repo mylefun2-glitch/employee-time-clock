@@ -280,7 +280,16 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
                 overtimeHours167 += Math.min(6, Math.max(0, hrs - 2));
                 overtimeHours267 += Math.max(0, hrs - 8);
               } else {
-                regularHours += hrs;
+                if (hrs > 8) {
+                  regularHours += 8;
+                  const dailyOt = hrs - 8;
+                  overtimeHours += dailyOt;
+                  overtimeHours134 += Math.min(2, dailyOt);
+                  overtimeHours167 += Math.min(6, Math.max(0, dailyOt - 2));
+                  overtimeHours267 += Math.max(0, dailyOt - 8);
+                } else {
+                  regularHours += hrs;
+                }
               }
             }
             
@@ -587,22 +596,26 @@ router.get('/', validateYearMonth, async (req, res) => {
  */
 router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
   try {
-    const { year, month, employeeIds, settings: customSettings } = req.body;
+    const { year, month, employeeIds, settings: customSettings, skipSync } = req.body;
     const y = parseInt(year);
     const m = parseInt(month);
 
-    console.log(`[Calc] Starting optimized calculation for ${y}-${m}...`);
+    console.log(`[Calc] Starting optimized calculation for ${y}-${m}... (skipSync: ${skipSync})`);
 
-    // Sync employees from Supabase first to ensure statuses are updated
-    console.log('[Calc] Syncing employees...');
-    await syncEmployees(true).catch(err => console.error("Sync employees failed:", err));
-    console.log('[Calc] Employees synced.');
+    if (!skipSync) {
+      // Sync employees from Supabase first to ensure statuses are updated
+      console.log('[Calc] Syncing employees...');
+      await syncEmployees(true).catch(err => console.error("Sync employees failed:", err));
+      console.log('[Calc] Employees synced.');
 
-    // Sync attendance logs and approved leaves from Supabase first
-    console.log('[Calc] Syncing attendance and leaves...');
-    const singleEmpId = (employeeIds && Array.isArray(employeeIds) && employeeIds.length === 1) ? employeeIds[0] : null;
-    await syncAttendanceAndLeaves(y, m, false, singleEmpId).catch(err => console.error("Sync attendance/leaves failed:", err));
-    console.log('[Calc] Attendance and leaves synced.');
+      // Sync attendance logs and approved leaves from Supabase first
+      console.log('[Calc] Syncing attendance and leaves...');
+      const singleEmpId = (employeeIds && Array.isArray(employeeIds) && employeeIds.length === 1) ? employeeIds[0] : null;
+      await syncAttendanceAndLeaves(y, m, false, singleEmpId).catch(err => console.error("Sync attendance/leaves failed:", err));
+      console.log('[Calc] Attendance and leaves synced.');
+    } else {
+      console.log('[Calc] skipSync is true. Skipping Supabase sync for employees, attendance, and leaves.');
+    }
 
     // Fetch active schedules for this month from Supabase to override salary structures
     console.log('[Calc] Fetching active schedules for month...');
@@ -667,6 +680,8 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         .select('employee_id, service_date, shift_type, service_mins')
         .gte('service_date', monthStartStr)
         .lte('service_date', monthEndStr)
+        .order('employee_id')
+        .order('service_date')
         .range(fromIndex, fromIndex + step - 1);
         
       if (error || !data || data.length === 0) {
@@ -725,7 +740,16 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
             scheduledHoursMap[empNo].overtimeHours167 += Math.min(6, Math.max(0, hrs - 2));
             scheduledHoursMap[empNo].overtimeHours267 += Math.max(0, hrs - 8);
           } else {
-            scheduledHoursMap[empNo].regularHours += hrs;
+            if (hrs > 8) {
+              scheduledHoursMap[empNo].regularHours += 8;
+              const dailyOt = hrs - 8;
+              scheduledHoursMap[empNo].overtimeHours += dailyOt;
+              scheduledHoursMap[empNo].overtimeHours134 += Math.min(2, dailyOt);
+              scheduledHoursMap[empNo].overtimeHours167 += Math.min(6, Math.max(0, dailyOt - 2));
+              scheduledHoursMap[empNo].overtimeHours267 += Math.max(0, dailyOt - 8);
+            } else {
+              scheduledHoursMap[empNo].regularHours += hrs;
+            }
           }
         }
         
@@ -916,23 +940,28 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         };
       }
 
-      if (existingRecord && !req.body.resetSettings) {
+      if (existingRecord) {
+        if (!req.body.resetSettings) {
+          currentEmp = {
+            ...currentEmp,
+            // Preserve manual override grades from the existing payroll record if present
+            laborInsuranceGrade: existingRecord.laborInsuranceGrade !== 0 ? existingRecord.laborInsuranceGrade : currentEmp.laborInsuranceGrade,
+            healthInsuranceGrade: existingRecord.healthInsuranceGrade !== 0 ? existingRecord.healthInsuranceGrade : currentEmp.healthInsuranceGrade,
+            laborPensionGrade: existingRecord.laborPensionGrade !== 0 ? existingRecord.laborPensionGrade : currentEmp.laborPensionGrade,
+            laborOccupationalGrade: existingRecord.laborOccupationalGrade !== 0 ? existingRecord.laborOccupationalGrade : currentEmp.laborOccupationalGrade,
+            baseSalary: existingRecord.baseSalary > 0 ? existingRecord.baseSalary : currentEmp.baseSalary,
+            dependents: existingRecord.dependents !== undefined ? existingRecord.dependents : currentEmp.dependents,
+          };
+        }
+
         currentEmp = {
           ...currentEmp,
-          // Preserve manual override grades from the existing payroll record if present
-          laborInsuranceGrade: existingRecord.laborInsuranceGrade !== 0 ? existingRecord.laborInsuranceGrade : currentEmp.laborInsuranceGrade,
-          healthInsuranceGrade: existingRecord.healthInsuranceGrade !== 0 ? existingRecord.healthInsuranceGrade : currentEmp.healthInsuranceGrade,
-          laborPensionGrade: existingRecord.laborPensionGrade !== 0 ? existingRecord.laborPensionGrade : currentEmp.laborPensionGrade,
-          laborOccupationalGrade: existingRecord.laborOccupationalGrade !== 0 ? existingRecord.laborOccupationalGrade : currentEmp.laborOccupationalGrade,
-          dependents: existingRecord.dependents !== undefined ? existingRecord.dependents : currentEmp.dependents,
-          
-          // Preserve allowances and baseSalary from existing payroll record
+          // Always preserve allowances from existing payroll record because they are often imported/manually adjusted per month
           allowanceAA: existingRecord.allowanceAA,
           allowanceLicense: existingRecord.allowanceLicense,
           allowanceManager: existingRecord.allowanceManager,
           otherAllowance: existingRecord.otherAllowance,
           mealAllowance: existingRecord.mealAllowance,
-          baseSalary: existingRecord.baseSalary > 0 ? existingRecord.baseSalary : currentEmp.baseSalary,
         };
       }
 
@@ -1375,9 +1404,66 @@ router.put('/:id', validateId(), async (req, res) => {
     const settings = {};
     rawSettings.forEach(s => { settings[s.key] = s.value; });
 
+    // Fetch active schedule for this employee for that month to override salary structures
+    let currentEmp = existing.employee;
+    try {
+      const y = existing.year;
+      const m = existing.month;
+      const monthStr = String(m).padStart(2, '0');
+      const nextMonth = m === 12 ? 1 : m + 1;
+      const nextYear = m === 12 ? y + 1 : y;
+      const lastDay = new Date(nextYear, nextMonth - 1, 0).getDate();
+      const endDate = `${y}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
+
+      const { data: sbEmp } = await supabase
+        .from('employees')
+        .select('id, username, standard_daily_hours')
+        .eq('name', existing.employee.name)
+        .single();
+      
+      let employeeNo = existing.employee.employeeNo;
+      let standardHours = 8;
+      if (sbEmp) {
+        standardHours = parseFloat(sbEmp.standard_daily_hours) || 8;
+        if (sbEmp.username && sbEmp.username.includes('@')) {
+          employeeNo = sbEmp.username.split('@')[0].toUpperCase();
+        }
+
+        const { data: sbSchedules } = await supabase
+          .from('employee_schedules')
+          .select('*')
+          .eq('employee_id', sbEmp.id)
+          .lte('effective_date', endDate)
+          .order('effective_date', { ascending: false })
+          .limit(1);
+
+        if (sbSchedules && sbSchedules.length > 0) {
+          const sched = sbSchedules[0];
+          currentEmp = {
+            ...existing.employee,
+            salaryType: (sched.salary_type || 'MONTHLY').toLowerCase(),
+            baseSalary: (sched.salary_type || 'MONTHLY').toUpperCase() === 'HOURLY'
+              ? (parseFloat(sched.hourly_rate) || 0)
+              : (parseFloat(sched.base_salary) || 0),
+            allowanceManager: parseFloat(sched.allowance_manager) || 0,
+            allowanceLicense: parseFloat(sched.allowance_license) || 0,
+            otherAllowance: parseFloat(sched.other_allowance) || 0,
+            standardDailyHours: parseFloat(sched.standard_daily_hours) || 8
+          };
+          standardHours = currentEmp.standardDailyHours;
+        } else {
+          currentEmp.standardDailyHours = standardHours;
+        }
+      } else {
+        currentEmp.standardDailyHours = standardHours;
+      }
+    } catch (err) {
+      console.error('Failed to resolve active schedule in single update route:', err);
+    }
+
     // Prepare overridden employee settings
     const empOverride = {
-      ...existing.employee,
+      ...currentEmp,
       baseSalary: req.body.baseSalary !== undefined ? parseFloat(req.body.baseSalary) : existing.baseSalary,
       allowanceAA: req.body.allowanceAA !== undefined ? parseFloat(req.body.allowanceAA) : existing.allowanceAA,
       allowanceLicense: req.body.allowanceLicense !== undefined ? parseFloat(req.body.allowanceLicense) : existing.allowanceLicense,
@@ -1388,8 +1474,8 @@ router.put('/:id', validateId(), async (req, res) => {
       laborOccupationalGrade: req.body.laborOccupationalGrade !== undefined ? parseFloat(req.body.laborOccupationalGrade) : existing.laborOccupationalGrade,
       healthInsuranceGrade: req.body.healthInsuranceGrade !== undefined ? parseFloat(req.body.healthInsuranceGrade) : existing.healthInsuranceGrade,
       laborPensionGrade: req.body.laborPensionGrade !== undefined ? parseFloat(req.body.laborPensionGrade) : existing.laborPensionGrade,
-      dependents: req.body.dependents !== undefined ? parseInt(req.body.dependents) : (existing.dependents !== undefined ? existing.dependents : existing.employee.dependents),
-      voluntaryPensionRate: req.body.voluntaryPensionRate !== undefined ? parseFloat(req.body.voluntaryPensionRate) : existing.employee.voluntaryPensionRate,
+      dependents: req.body.dependents !== undefined ? parseInt(req.body.dependents) : (existing.dependents !== undefined ? existing.dependents : currentEmp.dependents),
+      voluntaryPensionRate: req.body.voluntaryPensionRate !== undefined ? parseFloat(req.body.voluntaryPensionRate) : currentEmp.voluntaryPensionRate,
       supplementaryHealthInsurance: req.body.supplementaryHealthInsurance !== undefined ? parseFloat(req.body.supplementaryHealthInsurance) : existing.supplementaryHealthInsurance,
       prevInsuranceDifference: req.body.prevInsuranceDifference !== undefined ? parseFloat(req.body.prevInsuranceDifference) : existing.prevInsuranceDifference,
       healthDisabilityExemption: req.body.healthDisabilityExemption !== undefined ? parseFloat(req.body.healthDisabilityExemption) : existing.healthDisabilityExemption,
@@ -1398,52 +1484,37 @@ router.put('/:id', validateId(), async (req, res) => {
       leavePaySupplement: req.body.leavePaySupplement !== undefined ? parseFloat(req.body.leavePaySupplement) : existing.leavePaySupplement,
     };
 
-    // Sync attendance logs and approved leaves from Supabase first (optimized for this employee)
-    await syncAttendanceAndLeaves(existing.year, existing.month, false, existing.employeeId).catch(err => console.error("Sync attendance/leaves failed:", err));
-
-    const freshAttendance = await getFreshAttendanceSummary(
-      req.prisma,
-      existing.employee,
-      existing.year,
-      existing.month,
-      {
-        baseSalary: req.body.baseSalary !== undefined ? parseFloat(req.body.baseSalary) : existing.baseSalary,
-        allowanceAA: req.body.allowanceAA !== undefined ? parseFloat(req.body.allowanceAA) : existing.allowanceAA,
-        allowanceLicense: req.body.allowanceLicense !== undefined ? parseFloat(req.body.allowanceLicense) : existing.allowanceLicense,
-        allowanceManager: req.body.allowanceManager !== undefined ? parseFloat(req.body.allowanceManager) : existing.allowanceManager,
-        otherAllowance: req.body.otherAllowance !== undefined ? parseFloat(req.body.otherAllowance) : existing.otherAllowance,
-        bonus: req.body.bonus !== undefined ? parseFloat(req.body.bonus) : existing.bonus
-      },
-      settings
-    );
-
-    // Prepare overridden attendance & adjustments
+    // Prepare overridden attendance & adjustments using existing record data
     const attendanceSummary = {
-      workDays: req.body.workDays !== undefined ? parseFloat(req.body.workDays) : freshAttendance.workDays,
-      leaveDays: req.body.leaveDays !== undefined ? parseFloat(req.body.leaveDays) : freshAttendance.leaveDays,
-      absentDays: req.body.absentDays !== undefined ? parseFloat(req.body.absentDays) : freshAttendance.absentDays,
-      regularHours: req.body.regularHours !== undefined ? parseFloat(req.body.regularHours) : freshAttendance.regularHours,
-      overtimeHours134: req.body.overtimeHours134 !== undefined ? parseFloat(req.body.overtimeHours134) : freshAttendance.overtimeHours134,
-      overtimeHours167: req.body.overtimeHours167 !== undefined ? parseFloat(req.body.overtimeHours167) : freshAttendance.overtimeHours167,
-      overtimeHours200: req.body.overtimeHours200 !== undefined ? parseFloat(req.body.overtimeHours200) : freshAttendance.overtimeHours200,
-      overtimeHours267: req.body.overtimeHours267 !== undefined ? parseFloat(req.body.overtimeHours267) : freshAttendance.overtimeHours267,
-      overtimeHours: (req.body.overtimeHours134 !== undefined ? parseFloat(req.body.overtimeHours134) : freshAttendance.overtimeHours134) +
-                     (req.body.overtimeHours167 !== undefined ? parseFloat(req.body.overtimeHours167) : freshAttendance.overtimeHours167) +
-                     (req.body.overtimeHours200 !== undefined ? parseFloat(req.body.overtimeHours200) : freshAttendance.overtimeHours200) +
-                     (req.body.overtimeHours267 !== undefined ? parseFloat(req.body.overtimeHours267) : freshAttendance.overtimeHours267),
+      year: existing.year,
+      month: existing.month,
+      workDays: req.body.workDays !== undefined ? parseFloat(req.body.workDays) : existing.workDays,
+      leaveDays: req.body.leaveDays !== undefined ? parseFloat(req.body.leaveDays) : existing.leaveDays,
+      absentDays: req.body.absentDays !== undefined ? parseFloat(req.body.absentDays) : existing.absentDays,
+      regularHours: req.body.regularHours !== undefined ? parseFloat(req.body.regularHours) : existing.regularHours,
+      overtimeHours134: req.body.overtimeHours134 !== undefined ? parseFloat(req.body.overtimeHours134) : existing.overtimeHours134,
+      overtimeHours167: req.body.overtimeHours167 !== undefined ? parseFloat(req.body.overtimeHours167) : existing.overtimeHours167,
+      overtimeHours200: req.body.overtimeHours200 !== undefined ? parseFloat(req.body.overtimeHours200) : existing.overtimeHours200,
+      overtimeHours267: req.body.overtimeHours267 !== undefined ? parseFloat(req.body.overtimeHours267) : existing.overtimeHours267,
+      overtimeHours: (req.body.overtimeHours134 !== undefined ? parseFloat(req.body.overtimeHours134) : existing.overtimeHours134) +
+                     (req.body.overtimeHours167 !== undefined ? parseFloat(req.body.overtimeHours167) : existing.overtimeHours167) +
+                     (req.body.overtimeHours200 !== undefined ? parseFloat(req.body.overtimeHours200) : existing.overtimeHours200) +
+                     (req.body.overtimeHours267 !== undefined ? parseFloat(req.body.overtimeHours267) : existing.overtimeHours267),
       bonus: req.body.bonus !== undefined ? parseFloat(req.body.bonus) : existing.bonus,
       retroPay: req.body.retroPay !== undefined ? parseFloat(req.body.retroPay) : existing.retroPay,
       otherDeductions: req.body.otherDeductions !== undefined ? parseFloat(req.body.otherDeductions) : existing.otherDeductions,
-      leaveDeduction: req.body.leaveDeduction !== undefined ? parseFloat(req.body.leaveDeduction) : freshAttendance.leaveDeduction,
-      leaveHoursHalf: freshAttendance.leaveHoursHalf,
-      leaveHoursPaid: freshAttendance.leaveHoursPaid,
+      leaveDeduction: req.body.leaveDeduction !== undefined ? parseFloat(req.body.leaveDeduction) : existing.leaveDeduction,
+      // We do not pass leaveHoursHalf and leaveHoursPaid because we want calculatePayroll 
+      // to respect the manual leavePaySupplement if it was edited.
+      leaveHoursHalf: undefined,
+      leaveHoursPaid: undefined,
       supplementaryHealthInsurance: req.body.supplementaryHealthInsurance !== undefined ? parseFloat(req.body.supplementaryHealthInsurance) : existing.supplementaryHealthInsurance,
       prevInsuranceDifference: req.body.prevInsuranceDifference !== undefined ? parseFloat(req.body.prevInsuranceDifference) : existing.prevInsuranceDifference,
       healthDisabilityExemption: req.body.healthDisabilityExemption !== undefined ? parseFloat(req.body.healthDisabilityExemption) : existing.healthDisabilityExemption,
       laborDisabilityExemption: req.body.laborDisabilityExemption !== undefined ? parseFloat(req.body.laborDisabilityExemption) : existing.laborDisabilityExemption,
       healthGovSubsidy: req.body.healthGovSubsidy !== undefined ? parseFloat(req.body.healthGovSubsidy) : existing.healthGovSubsidy,
       leavePaySupplement: req.body.leavePaySupplement !== undefined ? parseFloat(req.body.leavePaySupplement) : existing.leavePaySupplement,
-      dependents: req.body.dependents !== undefined ? parseInt(req.body.dependents) : (existing.dependents !== undefined ? existing.dependents : existing.employee.dependents),
+      dependents: req.body.dependents !== undefined ? parseInt(req.body.dependents) : (existing.dependents !== undefined ? existing.dependents : currentEmp.dependents),
     };
 
     // Recalculate
@@ -1613,6 +1684,9 @@ router.post('/batch-update-adjustments', async (req, res) => {
       await syncAttendanceAndLeaves(y, m).catch(err => console.error("Sync attendance/leaves failed:", err));
     }
 
+    // Fetch active schedules for this month from Supabase to override salary structures
+    const activeSchedules = await fetchActiveSchedulesForMonth(y, m);
+
     // Get settings
     const rawSettings = await req.prisma.systemSetting.findMany();
     const settings = {};
@@ -1638,6 +1712,36 @@ router.post('/batch-update-adjustments', async (req, res) => {
       });
 
       if (!emp) continue;
+
+      let currentEmp = emp;
+      const activeSched = activeSchedules[emp.employeeNo];
+      let standardHours = 8;
+      if (activeSched && activeSched.standardDailyHours !== undefined) {
+        standardHours = activeSched.standardDailyHours;
+      } else {
+        try {
+          const { data: sbEmp } = await supabase
+            .from('employees')
+            .select('standard_daily_hours')
+            .eq('name', emp.name)
+            .single();
+          standardHours = parseFloat(sbEmp?.standard_daily_hours) || 8;
+        } catch (err) {
+          console.error('Failed to get standard hours for fallback in adjustments', emp.name, err);
+        }
+      }
+      currentEmp.standardDailyHours = standardHours;
+
+      if (activeSched) {
+        currentEmp = {
+          ...emp,
+          salaryType: activeSched.salaryType,
+          baseSalary: activeSched.baseSalary,
+          allowanceManager: activeSched.allowanceManager,
+          allowanceLicense: activeSched.allowanceLicense,
+          otherAllowance: activeSched.otherAllowance
+        };
+      }
 
       // Find payroll record
       const payrollRecord = await req.prisma.payrollRecord.findUnique({
@@ -1673,52 +1777,56 @@ router.post('/batch-update-adjustments', async (req, res) => {
         : emp.healthGovSubsidy;
       const updatedLeaveSupp = (leavePaySupplement !== undefined && parseFloat(leavePaySupplement) !== 0)
         ? parseFloat(leavePaySupplement)
-        : emp.leavePaySupplement;
+        : currentEmp.leavePaySupplement;
 
       const updatedOtherDeductions = otherDeductions !== undefined ? parseFloat(otherDeductions) : payrollRecord.otherDeductions;
       const updatedLaborGrade = (laborInsuranceGrade !== undefined && parseFloat(laborInsuranceGrade) !== 0)
         ? parseFloat(laborInsuranceGrade)
-        : emp.laborInsuranceGrade;
+        : currentEmp.laborInsuranceGrade;
       const updatedOccupationalGrade = (laborOccupationalGrade !== undefined && parseFloat(laborOccupationalGrade) !== 0)
         ? parseFloat(laborOccupationalGrade)
-        : emp.laborOccupationalGrade;
+        : currentEmp.laborOccupationalGrade;
       const updatedHealthGrade = (healthInsuranceGrade !== undefined && parseFloat(healthInsuranceGrade) !== 0)
         ? parseFloat(healthInsuranceGrade)
-        : emp.healthInsuranceGrade;
+        : currentEmp.healthInsuranceGrade;
       const updatedPensionGrade = (laborPensionGrade !== undefined && parseFloat(laborPensionGrade) !== 0)
         ? parseFloat(laborPensionGrade)
-        : emp.laborPensionGrade;
+        : currentEmp.laborPensionGrade;
       const updatedDependents = (dependents !== undefined)
         ? parseInt(dependents)
-        : (payrollRecord.dependents !== undefined ? payrollRecord.dependents : emp.dependents);
+        : (payrollRecord.dependents !== undefined ? payrollRecord.dependents : currentEmp.dependents);
 
       const freshAttendance = await getFreshAttendanceSummary(
         req.prisma,
-        emp,
+        currentEmp,
         y,
         m,
         {
-          baseSalary: payrollRecord.baseSalary > 0 ? payrollRecord.baseSalary : emp.baseSalary,
+          baseSalary: payrollRecord.baseSalary > 0 ? payrollRecord.baseSalary : currentEmp.baseSalary,
           allowanceAA: updatedAA,
           allowanceLicense: updatedLicense,
-          allowanceManager: payrollRecord.allowanceManager || emp.allowanceManager || 0,
+          allowanceManager: payrollRecord.allowanceManager || currentEmp.allowanceManager || 0,
           otherAllowance: updatedOther,
           bonus: updatedBonus
         },
-        settings
+        settings,
+        standardHours
       );
 
       // Prepare attendance summary for recalculation
+      // Preserve existing hours from payrollRecord so manual edits and calculated hours are not lost during import.
       const attendanceSummary = {
-        workDays: req.body.overrides?.workDays !== undefined ? parseFloat(req.body.overrides.workDays) : freshAttendance.workDays,
-        leaveDays: req.body.overrides?.leaveDays !== undefined ? parseFloat(req.body.overrides.leaveDays) : freshAttendance.leaveDays,
-        absentDays: req.body.overrides?.absentDays !== undefined ? parseFloat(req.body.overrides.absentDays) : freshAttendance.absentDays,
-        overtimeHours: freshAttendance.overtimeHours,
-        overtimeHours134: freshAttendance.overtimeHours134,
-        overtimeHours167: freshAttendance.overtimeHours167,
-        overtimeHours200: freshAttendance.overtimeHours200,
-        overtimeHours267: freshAttendance.overtimeHours267,
-        regularHours: req.body.overrides?.regularHours !== undefined ? parseFloat(req.body.overrides.regularHours) : freshAttendance.regularHours,
+        year: payrollRecord.year,
+        month: payrollRecord.month,
+        workDays: req.body.overrides?.workDays !== undefined ? parseFloat(req.body.overrides.workDays) : payrollRecord.workDays,
+        leaveDays: req.body.overrides?.leaveDays !== undefined ? parseFloat(req.body.overrides.leaveDays) : payrollRecord.leaveDays,
+        absentDays: req.body.overrides?.absentDays !== undefined ? parseFloat(req.body.overrides.absentDays) : payrollRecord.absentDays,
+        overtimeHours: payrollRecord.overtimeHours,
+        overtimeHours134: payrollRecord.overtimeHours134,
+        overtimeHours167: payrollRecord.overtimeHours167,
+        overtimeHours200: payrollRecord.overtimeHours200,
+        overtimeHours267: payrollRecord.overtimeHours267,
+        regularHours: req.body.overrides?.regularHours !== undefined ? parseFloat(req.body.overrides.regularHours) : payrollRecord.regularHours,
         bonus: updatedBonus,
         retroPay: payrollRecord.retroPay,
         otherDeductions: updatedOtherDeductions,
@@ -1737,7 +1845,7 @@ router.post('/batch-update-adjustments', async (req, res) => {
       // Recalculate
       // Temporarily override employee's allowances and settings for calculation
       const empOverride = {
-        ...emp,
+        ...currentEmp,
         allowanceAA: updatedAA,
         allowanceLicense: updatedLicense,
         otherAllowance: updatedOther,

@@ -164,6 +164,40 @@ export default function PayrollDetail() {
     e.preventDefault();
     setSaving(true);
     try {
+      let laborInsuranceGrade = parseFloat(editForm.laborInsuranceGrade) || 0;
+      let laborOccupationalGrade = parseFloat(editForm.laborOccupationalGrade) || 0;
+      let healthInsuranceGrade = parseFloat(editForm.healthInsuranceGrade) || 0;
+      let laborPensionGrade = parseFloat(editForm.laborPensionGrade) || 0;
+
+      let adjustments = [];
+
+      if (laborInsuranceGrade > 45800) {
+        laborInsuranceGrade = 45800;
+        adjustments.push("勞保級距已限制最高 45,800 元");
+      }
+      if (healthInsuranceGrade > 313000) {
+        healthInsuranceGrade = 313000;
+        adjustments.push("健保級距已限制最高 313,000 元");
+      } else if (healthInsuranceGrade > 0 && healthInsuranceGrade < 29500) {
+        healthInsuranceGrade = 29500;
+        adjustments.push("健保級距已調整至下限 29,500 元");
+      }
+      if (laborPensionGrade > 150000) {
+        laborPensionGrade = 150000;
+        adjustments.push("勞退級距已限制最高 150,000 元");
+      }
+      if (laborOccupationalGrade > 72800) {
+        laborOccupationalGrade = 72800;
+        adjustments.push("職保級距已限制最高 72,800 元");
+      } else if (laborOccupationalGrade > 0 && laborOccupationalGrade < 29500) {
+        laborOccupationalGrade = 29500;
+        adjustments.push("職保級距已調整至下限 29,500 元");
+      }
+
+      if (adjustments.length > 0) {
+        alert("【防呆提示】已自動調整此筆薪資紀錄的投保級距以符合法規：\n" + adjustments.join("\n"));
+      }
+
       // Backend now automatically recalculates based on raw parameters passed!
       const res = await payrollService.updatePayroll(id, {
         baseSalary: parseFloat(editForm.baseSalary) || 0,
@@ -180,10 +214,10 @@ export default function PayrollDetail() {
         overtimeHours167: parseFloat(editForm.overtimeHours167) || 0,
         overtimeHours200: parseFloat(editForm.overtimeHours200) || 0,
         overtimeHours267: parseFloat(editForm.overtimeHours267) || 0,
-        laborInsuranceGrade: parseFloat(editForm.laborInsuranceGrade) || 0,
-        laborOccupationalGrade: parseFloat(editForm.laborOccupationalGrade) || 0,
-        healthInsuranceGrade: parseFloat(editForm.healthInsuranceGrade) || 0,
-        laborPensionGrade: parseFloat(editForm.laborPensionGrade) || 0,
+        laborInsuranceGrade,
+        laborOccupationalGrade,
+        healthInsuranceGrade,
+        laborPensionGrade,
         notes: editForm.notes,
         supplementaryHealthInsurance: parseFloat(editForm.supplementaryHealthInsurance) || 0,
         prevInsuranceDifference: parseFloat(editForm.prevInsuranceDifference) || 0,
@@ -219,6 +253,40 @@ export default function PayrollDetail() {
     setIsEditSettingsOpen(false);
     
     try {
+      let laborInsuranceGrade = parseFloat(settingsForm.laborInsuranceGrade) || 0;
+      let laborOccupationalGrade = parseFloat(settingsForm.laborOccupationalGrade) || 0;
+      let healthInsuranceGrade = parseFloat(settingsForm.healthInsuranceGrade) || 0;
+      let laborPensionGrade = parseFloat(settingsForm.laborPensionGrade) || 0;
+
+      let adjustments = [];
+
+      if (laborInsuranceGrade > 45800) {
+        laborInsuranceGrade = 45800;
+        adjustments.push("勞保級距已限制最高 45,800 元");
+      }
+      if (healthInsuranceGrade > 313000) {
+        healthInsuranceGrade = 313000;
+        adjustments.push("健保級距已限制最高 313,000 元");
+      } else if (healthInsuranceGrade > 0 && healthInsuranceGrade < 29500) {
+        healthInsuranceGrade = 29500;
+        adjustments.push("健保級距已調整至下限 29,500 元");
+      }
+      if (laborPensionGrade > 150000) {
+        laborPensionGrade = 150000;
+        adjustments.push("勞退級距已限制最高 150,000 元");
+      }
+      if (laborOccupationalGrade > 72800) {
+        laborOccupationalGrade = 72800;
+        adjustments.push("職保級距已限制最高 72,800 元");
+      } else if (laborOccupationalGrade > 0 && laborOccupationalGrade < 29500) {
+        laborOccupationalGrade = 29500;
+        adjustments.push("職保級距已調整至下限 29,500 元");
+      }
+
+      if (adjustments.length > 0) {
+        alert("【防呆提示】已自動調整此員工的預設投保級距以符合法規：\n" + adjustments.join("\n"));
+      }
+
       await employeeService.updateEmployee(employee.id, {
         salaryType: settingsForm.salaryType,
         baseSalary: parseFloat(settingsForm.baseSalary) || 0,
@@ -228,10 +296,10 @@ export default function PayrollDetail() {
         allowanceLicense: parseFloat(settingsForm.allowanceLicense) || 0,
         allowanceManager: parseFloat(settingsForm.allowanceManager) || 0,
         otherAllowance: parseFloat(settingsForm.otherAllowance) || 0,
-        laborInsuranceGrade: parseFloat(settingsForm.laborInsuranceGrade) || 0,
-        laborOccupationalGrade: parseFloat(settingsForm.laborOccupationalGrade) || 0,
-        healthInsuranceGrade: parseFloat(settingsForm.healthInsuranceGrade) || 0,
-        laborPensionGrade: parseFloat(settingsForm.laborPensionGrade) || 0,
+        laborInsuranceGrade,
+        laborOccupationalGrade,
+        healthInsuranceGrade,
+        laborPensionGrade,
         voluntaryPensionRate: parseFloat(settingsForm.voluntaryPensionRate) || 0,
         dependents: parseInt(settingsForm.dependents) || 0,
         bankName: settingsForm.bankName,

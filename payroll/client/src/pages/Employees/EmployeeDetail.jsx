@@ -88,6 +88,40 @@ export default function EmployeeDetail() {
     setIsEditModalOpen(false);
     
     try {
+      let laborInsuranceGrade = parseFloat(formData.laborInsuranceGrade) || 0;
+      let laborOccupationalGrade = parseFloat(formData.laborOccupationalGrade) || 0;
+      let healthInsuranceGrade = parseFloat(formData.healthInsuranceGrade) || 0;
+      let laborPensionGrade = parseFloat(formData.laborPensionGrade) || 0;
+
+      let adjustments = [];
+
+      if (laborInsuranceGrade > 45800) {
+        laborInsuranceGrade = 45800;
+        adjustments.push("勞保級距已限制最高 45,800 元");
+      }
+      if (healthInsuranceGrade > 313000) {
+        healthInsuranceGrade = 313000;
+        adjustments.push("健保級距已限制最高 313,000 元");
+      } else if (healthInsuranceGrade > 0 && healthInsuranceGrade < 29500) {
+        healthInsuranceGrade = 29500;
+        adjustments.push("健保級距已調整至下限 29,500 元");
+      }
+      if (laborPensionGrade > 150000) {
+        laborPensionGrade = 150000;
+        adjustments.push("勞退級距已限制最高 150,000 元");
+      }
+      if (laborOccupationalGrade > 72800) {
+        laborOccupationalGrade = 72800;
+        adjustments.push("職保級距已限制最高 72,800 元");
+      } else if (laborOccupationalGrade > 0 && laborOccupationalGrade < 29500) {
+        laborOccupationalGrade = 29500;
+        adjustments.push("職保級距已調整至下限 29,500 元");
+      }
+
+      if (adjustments.length > 0) {
+        alert("【防呆提示】已為您自動調整投保級距以符合法規：\n" + adjustments.join("\n"));
+      }
+
       await employeeService.updateEmployee(id, {
         salaryType: formData.salaryType,
         baseSalary: parseFloat(formData.baseSalary) || 0,
@@ -97,10 +131,10 @@ export default function EmployeeDetail() {
         allowanceLicense: parseFloat(formData.allowanceLicense) || 0,
         allowanceManager: parseFloat(formData.allowanceManager) || 0,
         otherAllowance: parseFloat(formData.otherAllowance) || 0,
-        laborInsuranceGrade: parseFloat(formData.laborInsuranceGrade) || 0,
-        laborOccupationalGrade: parseFloat(formData.laborOccupationalGrade) || 0,
-        healthInsuranceGrade: parseFloat(formData.healthInsuranceGrade) || 0,
-        laborPensionGrade: parseFloat(formData.laborPensionGrade) || 0,
+        laborInsuranceGrade,
+        laborOccupationalGrade,
+        healthInsuranceGrade,
+        laborPensionGrade,
         voluntaryPensionRate: parseFloat(formData.voluntaryPensionRate) || 0,
         dependents: parseInt(formData.dependents) || 0,
         bankName: formData.bankName,

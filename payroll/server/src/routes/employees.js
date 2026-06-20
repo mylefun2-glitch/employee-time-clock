@@ -103,11 +103,31 @@ router.post('/', sanitizeBody, requireFields('employeeNo', 'name', 'department',
       employeeNo, name, idNumber, gender, birthDate, phone, address, email,
       department, position, hireDate, salaryType, baseSalary,
       mealAllowance, transportAllowance, otherAllowance,
-      laborInsuranceGrade, healthInsuranceGrade, laborPensionGrade,
+      laborInsuranceGrade, healthInsuranceGrade, laborPensionGrade, laborOccupationalGrade,
       voluntaryPensionRate, dependents, bankAccount, bankName, notes,
       supplementaryHealthInsurance, prevInsuranceDifference,
       healthDisabilityExemption, laborDisabilityExemption, healthGovSubsidy, leavePaySupplement
     } = req.body;
+
+    // Fetch basic wage setting
+    const rawSettings = await req.prisma.systemSetting.findMany();
+    const settings = {};
+    rawSettings.forEach(s => { settings[s.key] = s.value; });
+    const basicWage = parseFloat(settings.minimum_wage_monthly || settings.minimum_wage) || 29500;
+
+    let adjustedLaborInsurance = parseFloat(laborInsuranceGrade) || 0;
+    if (adjustedLaborInsurance > 45800) adjustedLaborInsurance = 45800;
+
+    let adjustedHealthInsurance = parseFloat(healthInsuranceGrade) || 0;
+    if (adjustedHealthInsurance > 313000) adjustedHealthInsurance = 313000;
+    else if (adjustedHealthInsurance > 0 && adjustedHealthInsurance < basicWage) adjustedHealthInsurance = basicWage;
+
+    let adjustedLaborPension = parseFloat(laborPensionGrade) || 0;
+    if (adjustedLaborPension > 150000) adjustedLaborPension = 150000;
+
+    let adjustedLaborOccupational = parseFloat(laborOccupationalGrade) || 0;
+    if (adjustedLaborOccupational > 72800) adjustedLaborOccupational = 72800;
+    else if (adjustedLaborOccupational > 0 && adjustedLaborOccupational < basicWage) adjustedLaborOccupational = basicWage;
 
     // Check for duplicate employee number locally
     const existing = await req.prisma.employee.findUnique({ where: { employeeNo } });
@@ -171,9 +191,10 @@ router.post('/', sanitizeBody, requireFields('employeeNo', 'name', 'department',
         mealAllowance: parseFloat(mealAllowance) || 0,
         transportAllowance: parseFloat(transportAllowance) || 0,
         otherAllowance: parseFloat(otherAllowance) || 0,
-        laborInsuranceGrade: parseFloat(laborInsuranceGrade) || 0,
-        healthInsuranceGrade: parseFloat(healthInsuranceGrade) || 0,
-        laborPensionGrade: parseFloat(laborPensionGrade) || 0,
+        laborInsuranceGrade: adjustedLaborInsurance,
+        healthInsuranceGrade: adjustedHealthInsurance,
+        laborPensionGrade: adjustedLaborPension,
+        laborOccupationalGrade: adjustedLaborOccupational,
         voluntaryPensionRate: parseFloat(voluntaryPensionRate) || 0,
         dependents: parseInt(dependents) || 0,
         bankAccount: bankAccount || null,
@@ -406,6 +427,29 @@ router.put('/:id', validateId(), sanitizeBody, async (req, res) => {
         updateData[field] = parseInt(req.body[field]) || 0;
       }
     });
+
+    // Fetch system settings for basic wage
+    const rawSettings = await req.prisma.systemSetting.findMany();
+    const settings = {};
+    rawSettings.forEach(s => { settings[s.key] = s.value; });
+    const basicWage = parseFloat(settings.minimum_wage_monthly || settings.minimum_wage) || 29500;
+
+    // Apply safeguards to updateData
+    if (updateData.laborInsuranceGrade !== undefined) {
+      if (updateData.laborInsuranceGrade > 45800) updateData.laborInsuranceGrade = 45800;
+    }
+    if (updateData.healthInsuranceGrade !== undefined) {
+      if (updateData.healthInsuranceGrade > 313000) updateData.healthInsuranceGrade = 313000;
+      else if (updateData.healthInsuranceGrade > 0 && updateData.healthInsuranceGrade < basicWage) updateData.healthInsuranceGrade = basicWage;
+    }
+    if (updateData.laborPensionGrade !== undefined) {
+      if (updateData.laborPensionGrade > 150000) updateData.laborPensionGrade = 150000;
+    }
+    if (updateData.laborOccupationalGrade !== undefined) {
+      if (updateData.laborOccupationalGrade > 72800) updateData.laborOccupationalGrade = 72800;
+      else if (updateData.laborOccupationalGrade > 0 && updateData.laborOccupationalGrade < basicWage) updateData.laborOccupationalGrade = basicWage;
+    }
+
     if (bankAccount !== undefined) updateData.bankAccount = bankAccount;
     if (bankName !== undefined) updateData.bankName = bankName;
     if (notes !== undefined) updateData.notes = notes;

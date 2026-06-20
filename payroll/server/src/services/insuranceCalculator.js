@@ -179,9 +179,9 @@ export function calculateHealthInsurance(insuredSalary, dependents = 0, rates = 
   const rawSinglePremium = insuredSalary * r.healthInsuranceRate * r.healthInsuranceEmployeeShare;
   const singlePremium = Math.round(rawSinglePremium);
   
-  // Employee pays: ROUND( insuredSalary * rate * share * (1 + dependents), 0 ), capped at 3 dependents
+  // Employee pays: ROUND( insuredSalary * rate * share ) * (1 + dependents), capped at 3 dependents
   const chargedDependents = Math.min(3, dependents);
-  const employeePremium = Math.round(rawSinglePremium * (1 + chargedDependents));
+  const employeePremium = singlePremium * (1 + chargedDependents);
   
   // Employer pays: insuredSalary × 5.17% × 60% × (1 + avg dependents ratio)
   const employerPremium = Math.round(
@@ -249,29 +249,47 @@ export function calculateAllInsurance(employee, settings = {}, days = 30, isMidM
                        (employee.allowanceManager || 0) +
                        (employee.otherAllowance || 0);
   
-  const laborInsuredSalary = employee.laborInsuranceGrade === -1
+  const basicWage = parseFloat(settings.minimum_wage_monthly || settings.minimum_wage) || 29500;
+
+  let laborInsuredSalary = employee.laborInsuranceGrade === -1
     ? 0
     : (employee.laborInsuranceGrade > 0 
         ? employee.laborInsuranceGrade 
         : lookupLaborInsuranceGrade(totalMonthly));
+  if (laborInsuredSalary > 45800) {
+    laborInsuredSalary = 45800;
+  }
     
-  const healthInsuredSalary = employee.healthInsuranceGrade === -1
+  let healthInsuredSalary = employee.healthInsuranceGrade === -1
     ? 0
     : (employee.healthInsuranceGrade > 0 
         ? employee.healthInsuranceGrade 
         : lookupHealthInsuranceGrade(totalMonthly));
+  if (healthInsuredSalary > 313000) {
+    healthInsuredSalary = 313000;
+  } else if (healthInsuredSalary > 0 && healthInsuredSalary < basicWage) {
+    healthInsuredSalary = basicWage;
+  }
     
-  const pensionGrade = employee.laborPensionGrade === -1
+  let pensionGrade = employee.laborPensionGrade === -1
     ? 0
     : (employee.laborPensionGrade > 0 
         ? employee.laborPensionGrade 
         : totalMonthly);
+  if (pensionGrade > 150000) {
+    pensionGrade = 150000;
+  }
 
-  const occupationalGrade = employee.laborOccupationalGrade === -1
+  let occupationalGrade = employee.laborOccupationalGrade === -1
     ? 0
     : (employee.laborOccupationalGrade > 0
         ? employee.laborOccupationalGrade
         : (employee.laborPensionGrade > 0 ? employee.laborPensionGrade : totalMonthly));
+  if (occupationalGrade > 72800) {
+    occupationalGrade = 72800;
+  } else if (occupationalGrade > 0 && occupationalGrade < basicWage) {
+    occupationalGrade = basicWage;
+  }
 
   // Build rates from settings
   const rates = {};

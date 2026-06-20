@@ -495,7 +495,9 @@ async function fetchActiveSchedulesForMonth(y, m) {
 import PDFDocument from 'pdfkit';
 
 // Helper to calculate rolling average of M-4 to M-2 wages in memory
-function getRollingInsuranceGrades(emp, pastRecords) {
+function getRollingInsuranceGrades(emp, pastRecords, settings = {}) {
+  const basicWage = parseFloat(settings.minimum_wage_monthly || settings.minimum_wage) || 29500;
+
   let avgWage = 0;
   if (pastRecords && pastRecords.length > 0) {
     const sumWages = pastRecords.reduce((sum, r) => sum + (r.grossPay - r.mealAllowance), 0);
@@ -509,29 +511,45 @@ function getRollingInsuranceGrades(emp, pastRecords) {
               (emp.otherAllowance || 0);
   }
 
-  const laborGrade = emp.laborInsuranceGrade === -1
+  let laborGrade = emp.laborInsuranceGrade === -1
     ? -1
     : (emp.laborInsuranceGrade > 0
         ? emp.laborInsuranceGrade
         : lookupLaborInsuranceGrade(avgWage));
+  if (laborGrade > 45800) {
+    laborGrade = 45800;
+  }
 
-  const healthGrade = emp.healthInsuranceGrade === -1
+  let healthGrade = emp.healthInsuranceGrade === -1
     ? -1
     : (emp.healthInsuranceGrade > 0
         ? emp.healthInsuranceGrade
         : lookupHealthInsuranceGrade(avgWage));
+  if (healthGrade > 313000) {
+    healthGrade = 313000;
+  } else if (healthGrade > 0 && healthGrade < basicWage) {
+    healthGrade = basicWage;
+  }
 
-  const pensionGrade = emp.laborPensionGrade === -1
+  let pensionGrade = emp.laborPensionGrade === -1
     ? -1
     : (emp.laborPensionGrade > 0
         ? emp.laborPensionGrade
         : lookupHealthInsuranceGrade(avgWage));
+  if (pensionGrade > 150000) {
+    pensionGrade = 150000;
+  }
 
-  const occupationalGrade = emp.laborOccupationalGrade === -1
+  let occupationalGrade = emp.laborOccupationalGrade === -1
     ? -1
     : (emp.laborOccupationalGrade > 0
         ? emp.laborOccupationalGrade
         : lookupLaborInsuranceGrade(avgWage));
+  if (occupationalGrade > 72800) {
+    occupationalGrade = 72800;
+  } else if (occupationalGrade > 0 && occupationalGrade < basicWage) {
+    occupationalGrade = basicWage;
+  }
 
   return {
     laborInsuranceGrade: laborGrade,
@@ -967,7 +985,7 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
 
       // Check rolling grades and update only if they changed
       const pastRecs = pastRecordsMap[emp.id] || [];
-      const grades = getRollingInsuranceGrades(currentEmp, pastRecs);
+      const grades = getRollingInsuranceGrades(currentEmp, pastRecs, settings);
       
       const hasGradeChanged = 
         grades.laborInsuranceGrade !== emp.laborInsuranceGrade ||
@@ -1404,9 +1422,66 @@ router.put('/:id', validateId(), async (req, res) => {
     const settings = {};
     rawSettings.forEach(s => { settings[s.key] = s.value; });
 
+    // Fetch active schedule for this employee for that month to override salary structures
+    let currentEmp = existing.employee;
+    try {
+      const y = existing.year;
+      const m = existing.month;
+      const monthStr = String(m).padStart(2, '0');
+      const nextMonth = m === 12 ? 1 : m + 1;
+      const nextYear = m === 12 ? y + 1 : y;
+      const lastDay = new Date(nextYear, nextMonth - 1, 0).getDate();
+      const endDate = `${y}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
+
+      const { data: sbEmp } = await supabase
+        .from('employees')
+        .select('id, username, standard_daily_hours')
+        .eq('name', existing.employee.name)
+        .single();
+      
+      let employeeNo = existing.employee.employeeNo;
+      let standardHours = 8;
+      if (sbEmp) {
+        standardHours = parseFloat(sbEmp.standard_daily_hours) || 8;
+        if (sbEmp.username && sbEmp.username.includes('@')) {
+          employeeNo = sbEmp.username.split('@')[0].toUpperCase();
+        }
+
+        const { data: sbSchedules } = await supabase
+          .from('employee_schedules')
+          .select('*')
+          .eq('employee_id', sbEmp.id)
+          .lte('effective_date', endDate)
+          .order('effective_date', { ascending: false })
+          .limit(1);
+
+        if (sbSchedules && sbSchedules.length > 0) {
+          const sched = sbSchedules[0];
+          currentEmp = {
+            ...existing.employee,
+            salaryType: (sched.salary_type || 'MONTHLY').toLowerCase(),
+            baseSalary: (sched.salary_type || 'MONTHLY').toUpperCase() === 'HOURLY'
+              ? (parseFloat(sched.hourly_rate) || 0)
+              : (parseFloat(sched.base_salary) || 0),
+            allowanceManager: parseFloat(sched.allowance_manager) || 0,
+            allowanceLicense: parseFloat(sched.allowance_license) || 0,
+            otherAllowance: parseFloat(sched.other_allowance) || 0,
+            standardDailyHours: parseFloat(sched.standard_daily_hours) || 8
+          };
+          standardHours = currentEmp.standardDailyHours;
+        } else {
+          currentEmp.standardDailyHours = standardHours;
+        }
+      } else {
+        currentEmp.standardDailyHours = standardHours;
+      }
+    } catch (err) {
+      console.error('Failed to resolve active schedule in single update route:', err);
+    }
+
     // Prepare overridden employee settings
     const empOverride = {
-      ...existing.employee,
+      ...currentEmp,
       baseSalary: req.body.baseSalary !== undefined ? parseFloat(req.body.baseSalary) : existing.baseSalary,
       allowanceAA: req.body.allowanceAA !== undefined ? parseFloat(req.body.allowanceAA) : existing.allowanceAA,
       allowanceLicense: req.body.allowanceLicense !== undefined ? parseFloat(req.body.allowanceLicense) : existing.allowanceLicense,
@@ -1417,8 +1492,8 @@ router.put('/:id', validateId(), async (req, res) => {
       laborOccupationalGrade: req.body.laborOccupationalGrade !== undefined ? parseFloat(req.body.laborOccupationalGrade) : existing.laborOccupationalGrade,
       healthInsuranceGrade: req.body.healthInsuranceGrade !== undefined ? parseFloat(req.body.healthInsuranceGrade) : existing.healthInsuranceGrade,
       laborPensionGrade: req.body.laborPensionGrade !== undefined ? parseFloat(req.body.laborPensionGrade) : existing.laborPensionGrade,
-      dependents: req.body.dependents !== undefined ? parseInt(req.body.dependents) : (existing.dependents !== undefined ? existing.dependents : existing.employee.dependents),
-      voluntaryPensionRate: req.body.voluntaryPensionRate !== undefined ? parseFloat(req.body.voluntaryPensionRate) : existing.employee.voluntaryPensionRate,
+      dependents: req.body.dependents !== undefined ? parseInt(req.body.dependents) : (existing.dependents !== undefined ? existing.dependents : currentEmp.dependents),
+      voluntaryPensionRate: req.body.voluntaryPensionRate !== undefined ? parseFloat(req.body.voluntaryPensionRate) : currentEmp.voluntaryPensionRate,
       supplementaryHealthInsurance: req.body.supplementaryHealthInsurance !== undefined ? parseFloat(req.body.supplementaryHealthInsurance) : existing.supplementaryHealthInsurance,
       prevInsuranceDifference: req.body.prevInsuranceDifference !== undefined ? parseFloat(req.body.prevInsuranceDifference) : existing.prevInsuranceDifference,
       healthDisabilityExemption: req.body.healthDisabilityExemption !== undefined ? parseFloat(req.body.healthDisabilityExemption) : existing.healthDisabilityExemption,
@@ -1429,6 +1504,8 @@ router.put('/:id', validateId(), async (req, res) => {
 
     // Prepare overridden attendance & adjustments using existing record data
     const attendanceSummary = {
+      year: existing.year,
+      month: existing.month,
       workDays: req.body.workDays !== undefined ? parseFloat(req.body.workDays) : existing.workDays,
       leaveDays: req.body.leaveDays !== undefined ? parseFloat(req.body.leaveDays) : existing.leaveDays,
       absentDays: req.body.absentDays !== undefined ? parseFloat(req.body.absentDays) : existing.absentDays,
@@ -1455,7 +1532,7 @@ router.put('/:id', validateId(), async (req, res) => {
       laborDisabilityExemption: req.body.laborDisabilityExemption !== undefined ? parseFloat(req.body.laborDisabilityExemption) : existing.laborDisabilityExemption,
       healthGovSubsidy: req.body.healthGovSubsidy !== undefined ? parseFloat(req.body.healthGovSubsidy) : existing.healthGovSubsidy,
       leavePaySupplement: req.body.leavePaySupplement !== undefined ? parseFloat(req.body.leavePaySupplement) : existing.leavePaySupplement,
-      dependents: req.body.dependents !== undefined ? parseInt(req.body.dependents) : (existing.dependents !== undefined ? existing.dependents : existing.employee.dependents),
+      dependents: req.body.dependents !== undefined ? parseInt(req.body.dependents) : (existing.dependents !== undefined ? existing.dependents : currentEmp.dependents),
     };
 
     // Recalculate
@@ -1625,6 +1702,9 @@ router.post('/batch-update-adjustments', async (req, res) => {
       await syncAttendanceAndLeaves(y, m).catch(err => console.error("Sync attendance/leaves failed:", err));
     }
 
+    // Fetch active schedules for this month from Supabase to override salary structures
+    const activeSchedules = await fetchActiveSchedulesForMonth(y, m);
+
     // Get settings
     const rawSettings = await req.prisma.systemSetting.findMany();
     const settings = {};
@@ -1650,6 +1730,36 @@ router.post('/batch-update-adjustments', async (req, res) => {
       });
 
       if (!emp) continue;
+
+      let currentEmp = emp;
+      const activeSched = activeSchedules[emp.employeeNo];
+      let standardHours = 8;
+      if (activeSched && activeSched.standardDailyHours !== undefined) {
+        standardHours = activeSched.standardDailyHours;
+      } else {
+        try {
+          const { data: sbEmp } = await supabase
+            .from('employees')
+            .select('standard_daily_hours')
+            .eq('name', emp.name)
+            .single();
+          standardHours = parseFloat(sbEmp?.standard_daily_hours) || 8;
+        } catch (err) {
+          console.error('Failed to get standard hours for fallback in adjustments', emp.name, err);
+        }
+      }
+      currentEmp.standardDailyHours = standardHours;
+
+      if (activeSched) {
+        currentEmp = {
+          ...emp,
+          salaryType: activeSched.salaryType,
+          baseSalary: activeSched.baseSalary,
+          allowanceManager: activeSched.allowanceManager,
+          allowanceLicense: activeSched.allowanceLicense,
+          otherAllowance: activeSched.otherAllowance
+        };
+      }
 
       // Find payroll record
       const payrollRecord = await req.prisma.payrollRecord.findUnique({
@@ -1685,44 +1795,47 @@ router.post('/batch-update-adjustments', async (req, res) => {
         : emp.healthGovSubsidy;
       const updatedLeaveSupp = (leavePaySupplement !== undefined && parseFloat(leavePaySupplement) !== 0)
         ? parseFloat(leavePaySupplement)
-        : emp.leavePaySupplement;
+        : currentEmp.leavePaySupplement;
 
       const updatedOtherDeductions = otherDeductions !== undefined ? parseFloat(otherDeductions) : payrollRecord.otherDeductions;
       const updatedLaborGrade = (laborInsuranceGrade !== undefined && parseFloat(laborInsuranceGrade) !== 0)
         ? parseFloat(laborInsuranceGrade)
-        : emp.laborInsuranceGrade;
+        : currentEmp.laborInsuranceGrade;
       const updatedOccupationalGrade = (laborOccupationalGrade !== undefined && parseFloat(laborOccupationalGrade) !== 0)
         ? parseFloat(laborOccupationalGrade)
-        : emp.laborOccupationalGrade;
+        : currentEmp.laborOccupationalGrade;
       const updatedHealthGrade = (healthInsuranceGrade !== undefined && parseFloat(healthInsuranceGrade) !== 0)
         ? parseFloat(healthInsuranceGrade)
-        : emp.healthInsuranceGrade;
+        : currentEmp.healthInsuranceGrade;
       const updatedPensionGrade = (laborPensionGrade !== undefined && parseFloat(laborPensionGrade) !== 0)
         ? parseFloat(laborPensionGrade)
-        : emp.laborPensionGrade;
+        : currentEmp.laborPensionGrade;
       const updatedDependents = (dependents !== undefined)
         ? parseInt(dependents)
-        : (payrollRecord.dependents !== undefined ? payrollRecord.dependents : emp.dependents);
+        : (payrollRecord.dependents !== undefined ? payrollRecord.dependents : currentEmp.dependents);
 
       const freshAttendance = await getFreshAttendanceSummary(
         req.prisma,
-        emp,
+        currentEmp,
         y,
         m,
         {
-          baseSalary: payrollRecord.baseSalary > 0 ? payrollRecord.baseSalary : emp.baseSalary,
+          baseSalary: payrollRecord.baseSalary > 0 ? payrollRecord.baseSalary : currentEmp.baseSalary,
           allowanceAA: updatedAA,
           allowanceLicense: updatedLicense,
-          allowanceManager: payrollRecord.allowanceManager || emp.allowanceManager || 0,
+          allowanceManager: payrollRecord.allowanceManager || currentEmp.allowanceManager || 0,
           otherAllowance: updatedOther,
           bonus: updatedBonus
         },
-        settings
+        settings,
+        standardHours
       );
 
       // Prepare attendance summary for recalculation
       // Preserve existing hours from payrollRecord so manual edits and calculated hours are not lost during import.
       const attendanceSummary = {
+        year: payrollRecord.year,
+        month: payrollRecord.month,
         workDays: req.body.overrides?.workDays !== undefined ? parseFloat(req.body.overrides.workDays) : payrollRecord.workDays,
         leaveDays: req.body.overrides?.leaveDays !== undefined ? parseFloat(req.body.overrides.leaveDays) : payrollRecord.leaveDays,
         absentDays: req.body.overrides?.absentDays !== undefined ? parseFloat(req.body.overrides.absentDays) : payrollRecord.absentDays,
@@ -1750,7 +1863,7 @@ router.post('/batch-update-adjustments', async (req, res) => {
       // Recalculate
       // Temporarily override employee's allowances and settings for calculation
       const empOverride = {
-        ...emp,
+        ...currentEmp,
         allowanceAA: updatedAA,
         allowanceLicense: updatedLicense,
         otherAllowance: updatedOther,
