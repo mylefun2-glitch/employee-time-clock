@@ -540,7 +540,7 @@ function getRollingInsuranceGrades(emp, pastRecords, settings = {}) {
     ? -1
     : (emp.laborPensionGrade > 0
         ? emp.laborPensionGrade
-        : lookupHealthInsuranceGrade(avgWage));
+        : avgWage);
   if (pensionGrade > 150000) {
     pensionGrade = 150000;
   }
@@ -549,7 +549,7 @@ function getRollingInsuranceGrades(emp, pastRecords, settings = {}) {
     ? -1
     : (emp.laborOccupationalGrade > 0
         ? emp.laborOccupationalGrade
-        : lookupLaborInsuranceGrade(avgWage));
+        : avgWage);
   if (occupationalGrade > 72800) {
     occupationalGrade = 72800;
   } else if (occupationalGrade > 0 && occupationalGrade < basicWage) {
