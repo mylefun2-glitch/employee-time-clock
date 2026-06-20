@@ -180,16 +180,17 @@ export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}, lea
     averageHourlyRate = parseFloat(averageHourlyRate.toFixed(2));
   } else if (employee.salaryType === 'monthly') {
     const fixedMonthly = payrollRecord.baseSalary + payrollRecord.allowanceAA + payrollRecord.allowanceLicense + payrollRecord.allowanceManager + payrollRecord.otherAllowance;
-    averageHourlyRate = parseFloat((fixedMonthly / (30 * (employee.standardDailyHours || 8))).toFixed(2));
+    // Include performance bonus (績效獎金) in average hourly rate
+    averageHourlyRate = parseFloat(((fixedMonthly + payrollRecord.bonus) / (30 * (employee.standardDailyHours || 8))).toFixed(2));
   }
 
   const otList = [
     { label: '平均時薪', value: averageHourlyRate > 0 ? averageHourlyRate.toString() : '0' },
     { label: '加班倍率', value: '時數' },
-    { label: '1.334', value: payrollRecord.overtimeHours134 > 0 ? payrollRecord.overtimeHours134.toFixed(4) : '0' },
-    { label: '1.667', value: payrollRecord.overtimeHours167 > 0 ? payrollRecord.overtimeHours167.toFixed(4) : '0' },
+    { label: '1.34', value: payrollRecord.overtimeHours134 > 0 ? payrollRecord.overtimeHours134.toFixed(4) : '0' },
+    { label: '1.67', value: payrollRecord.overtimeHours167 > 0 ? payrollRecord.overtimeHours167.toFixed(4) : '0' },
     { label: employee.salaryType === 'monthly' ? '加發1.000' : '2.000', value: payrollRecord.overtimeHours200 > 0 ? payrollRecord.overtimeHours200.toFixed(4) : '0' },
-    { label: '2.667', value: payrollRecord.overtimeHours267 > 0 ? payrollRecord.overtimeHours267.toFixed(4) : '0' },
+    { label: '2.67', value: payrollRecord.overtimeHours267 > 0 ? payrollRecord.overtimeHours267.toFixed(4) : '0' },
     { label: '加班費', value: formatAmount(payrollRecord.overtimePay) }
   ];
 

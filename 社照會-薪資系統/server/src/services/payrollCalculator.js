@@ -237,7 +237,9 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
     const standardHours = employee.standardDailyHours || employee.standard_daily_hours || 8;
     const fixedMonthly = employee.baseSalary + (employee.allowanceAA || 0) + (employee.allowanceLicense || 0) + (employee.allowanceManager || 0) + (employee.otherAllowance || 0);
     hourlyRate = fixedMonthly / (30 * standardHours);
-    averageHourlyRate = hourlyRate;
+    // Include performance bonus (績效獎金) in average hourly rate
+    averageHourlyRate = (fixedMonthly + bonus) / (30 * standardHours);
+    averageHourlyRate = parseFloat(averageHourlyRate.toFixed(2));
     
     // Deductions for absent days (Taiwan: baseSalary / 30 per absent day)
     if (absentDays > 0) {
@@ -256,7 +258,7 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
   }
 
   // 2. Calculate Overtime Pay
-  const otBase = employee.salaryType === 'hourly' ? averageHourlyRate : hourlyRate;
+  const otBase = averageHourlyRate;
   
   const roundedOt134 = Math.round(overtimeHours134 * 100) / 100;
   const roundedOt167 = Math.round(overtimeHours167 * 100) / 100;
@@ -267,9 +269,9 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
 
   let finalOvertimePay = Math.round(
     otBase * (
-      roundedOt134 * 1.334 +
-      roundedOt167 * 1.667 +
-      roundedOt267 * 2.667 +
+      roundedOt134 * 1.34 +
+      roundedOt167 * 1.67 +
+      roundedOt267 * 2.67 +
       roundedOt200 * otMultiplier200
     )
   );

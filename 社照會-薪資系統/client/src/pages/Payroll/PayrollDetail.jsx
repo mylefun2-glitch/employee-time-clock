@@ -299,8 +299,9 @@ export default function PayrollDetail() {
     averageHourlyRateDisplay = ((normalWageForAverage + record.allowanceAA + record.allowanceLicense + record.bonus) / record.regularHours);
     averageHourlyRateDisplay = parseFloat(averageHourlyRateDisplay.toFixed(2));
   } else if (employee.salaryType === 'monthly') {
-    const fixedMonthly = record.baseSalary + record.allowanceAA + record.allowanceLicense + record.allowanceManager;
-    averageHourlyRateDisplay = parseFloat((fixedMonthly / 240).toFixed(2));
+    const fixedMonthly = record.baseSalary + record.allowanceAA + record.allowanceLicense + record.allowanceManager + record.otherAllowance;
+    // Include performance bonus (績效獎金) in average hourly rate
+    averageHourlyRateDisplay = parseFloat(((fixedMonthly + record.bonus) / 240).toFixed(2));
   }
 
   return (
@@ -475,14 +476,14 @@ export default function PayrollDetail() {
                   <h4 style={{ borderBottom: '1px solid var(--color-neutral-200)', paddingBottom: '4px', margin: '12px 0 4px 0', color: 'var(--color-primary-700)' }}>加班時數調整 (小時)</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
                     <Input
-                      label="1.334倍加班"
+                      label="1.34倍加班"
                       type="number"
                       step="0.01"
                       value={editForm.overtimeHours134}
                       onChange={e => setEditForm(prev => ({ ...prev, overtimeHours134: e.target.value }))}
                     />
                     <Input
-                      label="1.667倍加班"
+                      label="1.67倍加班"
                       type="number"
                       step="0.01"
                       value={editForm.overtimeHours167}
@@ -496,7 +497,7 @@ export default function PayrollDetail() {
                       onChange={e => setEditForm(prev => ({ ...prev, overtimeHours200: e.target.value }))}
                     />
                     <Input
-                      label="2.667倍加班"
+                      label="2.67倍加班"
                       type="number"
                       step="0.01"
                       value={editForm.overtimeHours267}
@@ -1075,11 +1076,11 @@ export default function PayrollDetail() {
                     <h4 style={{ borderBottom: '1px solid var(--color-neutral-200)', paddingBottom: '4px', margin: 0, color: 'var(--color-neutral-700)' }}>加班時數分流明細</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>1.334倍加班:</span>
+                        <span>1.34倍加班:</span>
                         <span className="font-mono">{formatHours(record.overtimeHours134)} 小時</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>1.667倍加班:</span>
+                        <span>1.67倍加班:</span>
                         <span className="font-mono">{formatHours(record.overtimeHours167)} 小時</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1087,7 +1088,7 @@ export default function PayrollDetail() {
                         <span className="font-mono">{formatHours(record.overtimeHours200)} 小時</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>2.667倍加班:</span>
+                        <span>2.67倍加班:</span>
                         <span className="font-mono">{formatHours(record.overtimeHours267)} 小時</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: 'var(--color-primary-700)', borderTop: '1px dashed var(--color-neutral-200)', paddingTop: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
