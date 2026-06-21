@@ -83,7 +83,7 @@ export default function Header({ onOpenMobileSidebar }) {
               transition: 'all var(--transition-fast)'
             }}
             className="version-log-btn"
-            title="v1.1.1 更新紀錄"
+            title="v1.1.2 更新紀錄"
           >
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>new_releases</span>
           </button>
@@ -115,7 +115,18 @@ export default function Header({ onOpenMobileSidebar }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', lineHeight: '1.6' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span className="badge status-approved" style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>v1.1.1</span>
+              <span className="badge status-approved" style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>v1.1.2</span>
+              <span style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--color-neutral-800)' }}>平日時數薪資計算精度優化 (2026-06-21)</span>
+            </div>
+            <ul style={{ listStyleType: 'disc', paddingLeft: 'var(--space-5)', margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-neutral-600)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <li><strong>平日工時計算精度提升</strong>：平日時數工資在計算時，工作時數（工時）計算到小數點第四位後再乘上約定時薪，以減少因早期四捨五入到小數點第二位所造成的薪資微幅誤差。</li>
+              <li><strong>加班延長工時維持不變</strong>：加班的延長工時計算公式仍維持四捨五入到小數點第二位不變。</li>
+            </ul>
+          </div>
+          <hr style={{ border: 'none', borderTop: '1px solid var(--color-neutral-200)', margin: '4px 0' }} />
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <span className="badge status-approved" style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'var(--color-neutral-200)', color: 'var(--color-neutral-600)' }}>v1.1.1</span>
               <span style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--color-neutral-800)' }}>薪資表單勾選體驗優化 (2026-06-21)</span>
             </div>
             <ul style={{ listStyleType: 'disc', paddingLeft: 'var(--space-5)', margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-neutral-600)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
