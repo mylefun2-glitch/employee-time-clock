@@ -293,7 +293,7 @@ export default function PayrollDetail() {
   // Helper to calculate Average Hourly Rate for display
   let averageHourlyRateDisplay = 0;
   if (employee.salaryType === 'hourly' && record.regularHours > 0) {
-    const regHoursRounded = parseFloat(record.regularHours.toFixed(2));
+    const regHoursRounded = parseFloat(record.regularHours.toFixed(4));
     const hourlyRate = record.baseSalary > 0 ? record.baseSalary : employee.baseSalary;
     const normalWageForAverage = Math.round(regHoursRounded * hourlyRate);
     averageHourlyRateDisplay = ((normalWageForAverage + record.allowanceAA + record.allowanceLicense + record.bonus) / record.regularHours);
@@ -782,7 +782,7 @@ export default function PayrollDetail() {
                             時數 {formatHours(record.regularHours)} H × 時薪 {formatCurr(record.baseSalary > 0 ? record.baseSalary : employee.baseSalary)}元
                           </div>
                         </div>
-                        <span className="font-mono" style={{ fontWeight: '500' }}>{formatCurr(Math.round(record.regularHours * (record.baseSalary > 0 ? record.baseSalary : employee.baseSalary)))}</span>
+                        <span className="font-mono" style={{ fontWeight: '500' }}>{formatCurr(Math.round(parseFloat(record.regularHours.toFixed(4)) * (record.baseSalary > 0 ? record.baseSalary : employee.baseSalary)))}</span>
                       </div>
                     ) : (
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
@@ -1112,7 +1112,7 @@ export default function PayrollDetail() {
                   }}>
                     <strong>加班費時薪基準 (平均時薪)：</strong> {averageHourlyRateDisplay} 元/小時<br />
                     <span style={{ color: 'var(--color-neutral-400)' }}>
-                      (計算公式：(正常工時工資 {Math.round(parseFloat(record.regularHours.toFixed(2)) * (record.baseSalary > 0 ? record.baseSalary : employee.baseSalary))} + AA加給 {record.allowanceAA} + 證照加給 {record.allowanceLicense} + 獎金 {record.bonus}) / 正常工時 {record.regularHours.toFixed(2)} H)
+                      (計算公式：(正常工時工資 {Math.round(parseFloat(record.regularHours.toFixed(4)) * (record.baseSalary > 0 ? record.baseSalary : employee.baseSalary))} + AA加給 {record.allowanceAA} + 證照加給 {record.allowanceLicense} + 獎金 {record.bonus}) / 正常工時 {record.regularHours.toFixed(4)} H)
                     </span>
                   </div>
                 )}

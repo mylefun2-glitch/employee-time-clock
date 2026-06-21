@@ -173,7 +173,7 @@ export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}, lea
   // Middle Column: Overtime
   let averageHourlyRate = 0;
   if (employee.salaryType === 'hourly' && payrollRecord.regularHours > 0) {
-    const regHoursRounded = parseFloat(payrollRecord.regularHours.toFixed(2));
+    const regHoursRounded = parseFloat(payrollRecord.regularHours.toFixed(4));
     const hourlyRate = payrollRecord.baseSalary > 0 ? payrollRecord.baseSalary : employee.baseSalary;
     const normalWageForAverage = Math.round(regHoursRounded * hourlyRate);
     averageHourlyRate = ((normalWageForAverage + payrollRecord.allowanceAA + payrollRecord.allowanceLicense + payrollRecord.otherAllowance + payrollRecord.bonus) / payrollRecord.regularHours);
@@ -262,7 +262,7 @@ export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}, lea
 
   if (employee.salaryType === 'hourly') {
     const hourlyRate = payrollRecord.baseSalary > 0 ? payrollRecord.baseSalary : employee.baseSalary;
-    const regHoursRounded = parseFloat(payrollRecord.regularHours.toFixed(2));
+    const regHoursRounded = parseFloat(payrollRecord.regularHours.toFixed(4));
     const normalWage = Math.round(regHoursRounded * hourlyRate);
     
     doc.text(`● 平均時薪 ${averageHourlyRate} = ( 正常薪資 ${normalWage} + AA加給 ${formatAmount(payrollRecord.allowanceAA)} + 證照加給 ${formatAmount(payrollRecord.allowanceLicense)} + 其他津貼 ${formatAmount(payrollRecord.otherAllowance)} + 績效接案 ${formatAmount(payrollRecord.bonus)} ) / 正常工時 ${regHoursRounded} 小時`, 50, notesY);

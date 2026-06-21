@@ -293,7 +293,7 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
               }
             }
             
-            regularHours = parseFloat(regularHours.toFixed(2));
+            regularHours = parseFloat(regularHours.toFixed(4));
             overtimeHours = parseFloat(overtimeHours.toFixed(2));
             overtimeHours134 = parseFloat(overtimeHours134.toFixed(2));
             overtimeHours167 = parseFloat(overtimeHours167.toFixed(2));
@@ -1246,8 +1246,8 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
         });
       }
 
-      // Round all hours to 2 decimal places before calculation/saving
-      regularHours = parseFloat(regularHours.toFixed(2));
+      // Round all hours to 2 decimal places before calculation/saving (regularHours to 4 decimal places)
+      regularHours = parseFloat(regularHours.toFixed(4));
       overtimeHours = parseFloat(overtimeHours.toFixed(2));
       overtimeHours134 = parseFloat(overtimeHours134.toFixed(2));
       overtimeHours167 = parseFloat(overtimeHours167.toFixed(2));
