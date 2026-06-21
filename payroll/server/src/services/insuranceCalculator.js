@@ -175,13 +175,15 @@ export function calculateLaborInsurance(insuredSalary, rates = {}, days = 30) {
 export function calculateHealthInsurance(insuredSalary, dependents = 0, rates = {}) {
   const r = { ...DEFAULT_RATES, ...rates };
   
+  // Calculate raw single premium first
+  const rawSinglePremium = insuredSalary * r.healthInsuranceRate * r.healthInsuranceEmployeeShare;
+  const singlePremium = Math.round(rawSinglePremium);
+  
   // Cap dependents at 3 for calculation
   const chargedDependents = Math.min(3, dependents);
   
-  // Employee pays: ROUND( insuredSalary * rate * share * (1 + dependents) )
-  const employeePremium = Math.round(
-    insuredSalary * r.healthInsuranceRate * r.healthInsuranceEmployeeShare * (1 + chargedDependents)
-  );
+  // Employee pays: ROUND( insuredSalary * rate * share ) * (1 + dependents)
+  const employeePremium = singlePremium * (1 + chargedDependents);
   
   // Employer pays: ROUND( insuredSalary * rate * share * (1 + avg dependents ratio) )
   const employerPremium = Math.round(
@@ -192,6 +194,8 @@ export function calculateHealthInsurance(insuredSalary, dependents = 0, rates = 
     insuredSalary,
     dependents,
     chargedDependents,
+    rawSinglePremium,
+    singlePremium,
     employeePremium,
     employerPremium,
     rate: r.healthInsuranceRate,
@@ -309,9 +313,10 @@ export function calculateAllInsurance(employee, settings = {}, days = 30, isMidM
   const healthSubsidy = parseFloat(employee.healthGovSubsidy) || 0;
   healthInsurance.basePremium = healthInsurance.employeePremium; // Save original 全戶全額保費
   
-  // 官方公式：扣除身心障礙減免與政府補助
-  // 身障減免是減免特定比例 (0, 0.25, 0.5, 1)
-  const premiumAfterExemption = Math.round(healthInsurance.employeePremium * (1 - healthExemption));
+  // 官方公式：身心障礙減免僅適用於「本人」的自付額部分，並且計算出來的減免金額要單獨四捨五入
+  // 減免金額 = ROUND( 本人單獨保費 * 減免比例 )
+  const exemptionAmount = Math.round(healthInsurance.singlePremium * healthExemption);
+  const premiumAfterExemption = Math.max(0, healthInsurance.employeePremium - exemptionAmount);
   
   // 扣除固定金額的補助 (例如夜班補助、特定方案補助等)
   healthInsurance.employeePremium = Math.max(0, premiumAfterExemption - healthSubsidy);
