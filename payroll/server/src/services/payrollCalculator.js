@@ -225,9 +225,9 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
       allowanceLicense = Math.ceil(allowanceLicense * f);
       allowanceManager = Math.ceil(allowanceManager * f);
       otherAllowance = Math.ceil(otherAllowance * f);
-      otherAllowanceExempt = Math.ceil(otherAllowanceExempt * f);
+      // otherAllowanceExempt (其他津貼-不計入平均時薪) 不因不足月而按比例發給
       
-      autoNotes = `本月因到/離職不足月，依民法以 30 日計算，在職天數為 ${proRataInfo.calendarDays} 日。底薪與固定加給/津貼按比例 ${proRataInfo.calendarDays}/30 折算並採無條件進位。`;
+      autoNotes = `本月因到/離職不足月，依民法以 30 日計算，在職天數為 ${proRataInfo.calendarDays} 日。底薪與固定加給/津貼按比例 ${proRataInfo.calendarDays}/30 折算並採無條件進位 (免計平均時薪之其他津貼除外)。`;
     } else {
       regularPay = baseSalary;
     }
