@@ -83,7 +83,7 @@ export default function Header({ onOpenMobileSidebar }) {
               transition: 'all var(--transition-fast)'
             }}
             className="version-log-btn"
-            title="v1.1.0 更新紀錄"
+            title="v1.1.1 更新紀錄"
           >
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>new_releases</span>
           </button>
@@ -115,7 +115,18 @@ export default function Header({ onOpenMobileSidebar }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', lineHeight: '1.6' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span className="badge status-approved" style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>v1.1.0</span>
+              <span className="badge status-approved" style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>v1.1.1</span>
+              <span style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--color-neutral-800)' }}>薪資表單勾選體驗優化 (2026-06-21)</span>
+            </div>
+            <ul style={{ listStyleType: 'disc', paddingLeft: 'var(--space-5)', margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-neutral-600)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <li><strong>勾選區域擴大</strong>：大幅擴展薪資結算列表中，全選及單選勾選框（Checkbox）的點擊範圍至整格儲存格。點選勾選框旁的空白區域亦能完成勾選。</li>
+              <li><strong>防止誤觸行點擊跳轉</strong>：在點選勾選欄儲存格、其他輸入框或按鈕時，主動阻斷事件冒泡，防止誤觸列表的「點擊查看明細」功能而造成頁面跳轉。</li>
+            </ul>
+          </div>
+          <hr style={{ border: 'none', borderTop: '1px solid var(--color-neutral-200)', margin: '4px 0' }} />
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <span className="badge status-approved" style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'var(--color-neutral-200)', color: 'var(--color-neutral-600)' }}>v1.1.0</span>
               <span style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--color-neutral-800)' }}>核心功能優化發佈 (2026-06-06)</span>
             </div>
             <ul style={{ listStyleType: 'disc', paddingLeft: 'var(--space-5)', margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-neutral-600)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
