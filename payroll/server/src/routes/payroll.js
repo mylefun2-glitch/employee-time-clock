@@ -1406,6 +1406,10 @@ router.get('/:id', validateId(), async (req, res) => {
       rate: getLeaveRate(l.leaveType)
     }));
 
+    if (record.employee) {
+      record.employee.standardDailyHours = await getStandardHoursForEmployee(record.employee.name, record.year, record.month);
+    }
+
     res.json({ data: { ...record, leaves: enrichedLeaves } });
   } catch (error) {
     console.error('Get payroll record error:', error);
