@@ -942,22 +942,24 @@ export default function PayrollDetail() {
                                 return getRate(l) > 0.0;
                               }) : [];
                               
-                              const totalWeightedHours = normalLeaves.reduce((sum, l) => sum + (l.days * 8 * getRate(l)), 0);
+                              const standardHrs = record.employee?.standardDailyHours || 8;
+                              const monthlyHrs = 30 * standardHrs;
+                              const totalWeightedHours = normalLeaves.reduce((sum, l) => sum + (l.days * standardHrs * getRate(l)), 0);
 
                               return (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                   <div>
-                                    <strong>公式：</strong>round( 薪資總額 / 30 / 8 × Sum(時數 × 扣薪比例) )
+                                    <strong>公式：</strong>round( 薪資總額 / 30 / {standardHrs} × Sum(時數 × 扣薪比例) )
                                   </div>
                                   <div style={{ marginTop: '2px', paddingLeft: '8px', borderLeft: '2px solid var(--color-neutral-300)' }}>
                                     <div>薪資總額 = 底薪 {formatCurr(record.baseSalary)} + 加給/獎金 {formatCurr(fixedAdd)} = {formatCurr(totalWages)}</div>
                                     {normalLeaves.length > 0 ? (
                                       <>
                                         <div style={{ marginTop: '2px' }}>
-                                          計算：round( {formatCurr(totalWages)} / 240 × ( {normalLeaves.map(l => `${l.leaveType} ${l.days * 8}H × ${getRate(l) * 100}%`).join(' + ')} ) )
+                                          計算：round( {formatCurr(totalWages)} / {monthlyHrs} × ( {normalLeaves.map(l => `${l.leaveType} ${l.days * standardHrs}H × ${getRate(l) * 100}%`).join(' + ')} ) )
                                         </div>
                                         <div style={{ marginTop: '2px', fontWeight: '500' }}>
-                                          = round( {formatCurr(totalWages)} / 240 × {totalWeightedHours}H ) = -{formatCurr(record.leaveDeduction)}
+                                          = round( {formatCurr(totalWages)} / {monthlyHrs} × {totalWeightedHours}H ) = -{formatCurr(record.leaveDeduction)}
                                         </div>
                                       </>
                                     ) : (
