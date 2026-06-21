@@ -758,10 +758,14 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
           }
         }
         
-        // Round all numbers to 2 decimal places
+        // Round numbers: regularHours to 4 decimal places, others to 2 decimal places
         for (const key of Object.keys(scheduledHoursMap[empNo])) {
           if (key !== 'workDays') {
-            scheduledHoursMap[empNo][key] = parseFloat(scheduledHoursMap[empNo][key].toFixed(2));
+            if (key === 'regularHours') {
+              scheduledHoursMap[empNo][key] = parseFloat(scheduledHoursMap[empNo][key].toFixed(4));
+            } else {
+              scheduledHoursMap[empNo][key] = parseFloat(scheduledHoursMap[empNo][key].toFixed(2));
+            }
           }
         }
       }
