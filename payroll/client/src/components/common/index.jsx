@@ -414,7 +414,19 @@ export function DataTable({ columns = [], data = [], loading, emptyMessage = 'æš
           {sortedData.map((row, rowIdx) => (
             <tr 
               key={row.id || rowIdx} 
-              onClick={() => onRowClick && onRowClick(row)}
+              onClick={(e) => {
+                if (
+                  e.target.tagName === 'INPUT' ||
+                  e.target.tagName === 'BUTTON' ||
+                  e.target.tagName === 'A' ||
+                  e.target.closest('button') ||
+                  e.target.closest('a') ||
+                  e.target.closest('input')
+                ) {
+                  return;
+                }
+                onRowClick && onRowClick(row);
+              }}
               style={{ 
                 borderBottom: '1px solid var(--color-neutral-100)',
                 cursor: onRowClick ? 'pointer' : 'default',

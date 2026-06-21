@@ -321,24 +321,79 @@ export default function PayrollList() {
   const columns = [
     {
       title: (
-        <input 
-          type="checkbox" 
-          checked={filteredPayrolls.length > 0 && selectedIds.length === filteredPayrolls.length}
-          onChange={handleSelectAll}
-          onClick={(e) => e.stopPropagation()}
-          style={{ cursor: 'pointer' }}
-        />
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            if (e.target.tagName === 'INPUT') return;
+            const nextChecked = !(filteredPayrolls.length > 0 && selectedIds.length === filteredPayrolls.length);
+            handleSelectAll({ target: { checked: nextChecked } });
+          }}
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            cursor: 'pointer',
+            padding: 'var(--space-3) var(--space-4)',
+            margin: 'calc(-1 * var(--space-3)) calc(-1 * var(--space-4))',
+            width: 'calc(100% + 2 * var(--space-4))',
+            height: 'calc(100% + 2 * var(--space-3))',
+            minWidth: '44px',
+            minHeight: '44px',
+            boxSizing: 'border-box'
+          }}
+        >
+          <input 
+            type="checkbox" 
+            checked={filteredPayrolls.length > 0 && selectedIds.length === filteredPayrolls.length}
+            onChange={handleSelectAll}
+            style={{ 
+              cursor: 'pointer',
+              width: '16px',
+              height: '16px'
+            }}
+          />
+        </div>
       ),
       key: 'select',
+      sortable: false,
       align: 'center',
       render: (_, row) => (
-        <input 
-          type="checkbox" 
-          checked={selectedIds.includes(row.id)}
-          onChange={(e) => handleSelectRow(e, row.id)}
-          onClick={(e) => e.stopPropagation()}
-          style={{ cursor: 'pointer' }}
-        />
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            if (e.target.tagName === 'INPUT') return;
+            const isChecked = selectedIds.includes(row.id);
+            if (isChecked) {
+              setSelectedIds(prev => prev.filter(item => item !== row.id));
+            } else {
+              setSelectedIds(prev => [...prev, row.id]);
+            }
+          }}
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            cursor: 'pointer',
+            padding: 'var(--space-3) var(--space-4)',
+            margin: 'calc(-1 * var(--space-3)) calc(-1 * var(--space-4))',
+            width: 'calc(100% + 2 * var(--space-4))',
+            height: 'calc(100% + 2 * var(--space-3))',
+            minWidth: '44px',
+            minHeight: '44px',
+            boxSizing: 'border-box'
+          }}
+        >
+          <input 
+            type="checkbox" 
+            checked={selectedIds.includes(row.id)}
+            onChange={(e) => handleSelectRow(e, row.id)}
+            style={{ 
+              cursor: 'pointer',
+              width: '16px',
+              height: '16px'
+            }}
+          />
+        </div>
       )
     },
     { title: '部門', key: 'department', render: (_, row) => row.employee?.department },
