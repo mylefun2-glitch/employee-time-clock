@@ -307,19 +307,48 @@ export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}, lea
     if (payrollRecord.leaveDeduction > 0 && normalLeaves.length > 0) {
       const standardHours = employee.standardDailyHours || 8;
       const totalWeightedHours = normalLeaves.reduce((sum, l) => sum + (l.days * 8 * getLeaveRate(l.leaveType)), 0);
-      const formulaText = `● 請假扣薪計算公式：round( 薪資總額 ${formatAmount(fixedAdd)} / 30 / ${standardHours} × Sum(時數 × 扣薪比例) )`;
+      const formulaText = `● 請假扣薪計算公式：round( 平均時薪 ${averageHourlyRate} × Sum(時數 × 扣薪比例) )`;
       doc.text(formulaText, 50, notesY);
       notesY += 14;
 
       const detailParts = normalLeaves.map(l => `${l.leaveType} ${l.days * 8}H × ${Math.round(getLeaveRate(l.leaveType) * 100)}%`);
-      doc.text(`  計算方式：round( ${formatAmount(fixedAdd)} / ${30 * standardHours} × (${detailParts.join(' + ')}) )`, 50, notesY);
+      doc.text(`  計算方式：round( ${averageHourlyRate} × (${detailParts.join(' + ')}) )`, 50, notesY);
       notesY += 14;
-      doc.text(`  = round( ${formatAmount(fixedAdd)} / ${30 * standardHours} × ${totalWeightedHours}H ) = -${formatAmount(payrollRecord.leaveDeduction)} 元`, 50, notesY);
+      doc.text(`  = round( ${averageHourlyRate} × ${totalWeightedHours}H ) = -${formatAmount(payrollRecord.leaveDeduction)} 元`, 50, notesY);
       notesY += 14;
     } else if (payrollRecord.leaveDeduction > 0) {
       const hours = payrollRecord.leaveDays * 8;
       doc.text(`  實際請假扣薪：${formatAmount(payrollRecord.leaveDeduction)} 元 (請假時數 ${hours}H)`, 50, notesY);
       notesY += 14;
+    }
+
+    if (payrollRecord.overtimePay > 0) {
+      const otMultiplier200 = employee.salaryType === 'monthly' ? 1.00 : 2.00;
+      const ot134Str = payrollRecord.overtimeHours134 > 0 ? `${payrollRecord.overtimeHours134}H × 1.334` : '';
+      const ot167Str = payrollRecord.overtimeHours167 > 0 ? `${payrollRecord.overtimeHours167}H × 1.667` : '';
+      const ot267Str = payrollRecord.overtimeHours267 > 0 ? `${payrollRecord.overtimeHours267}H × 2.667` : '';
+      const ot200Str = payrollRecord.overtimeHours200 > 0 ? `${payrollRecord.overtimeHours200}H × ${otMultiplier200.toFixed(3)}` : '';
+      
+      const terms = [ot134Str, ot167Str, ot200Str, ot267Str].filter(t => t);
+      
+      const sumWeightedHours = (
+        (payrollRecord.overtimeHours134 || 0) * 1.334 + 
+        (payrollRecord.overtimeHours167 || 0) * 1.667 + 
+        (payrollRecord.overtimeHours267 || 0) * 2.667 + 
+        (payrollRecord.overtimeHours200 || 0) * otMultiplier200
+      ).toFixed(3);
+
+      if (terms.length > 0) {
+        const formulaText = `● 加班費計算公式：round( 平均時薪 ${averageHourlyRate} × Sum(時數 × 倍率) )`;
+        doc.text(formulaText, 50, notesY);
+        notesY += 14;
+
+        doc.text(`  計算方式：round( ${averageHourlyRate} × (${terms.join(' + ')}) )`, 50, notesY);
+        notesY += 14;
+        
+        doc.text(`  = round( ${averageHourlyRate} × ${sumWeightedHours}H ) = ${formatAmount(payrollRecord.overtimePay)} 元`, 50, notesY);
+        notesY += 14;
+      }
     }
   }
 

@@ -15,6 +15,7 @@ export default function PayrollDetail() {
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isFormulaExpanded, setIsFormulaExpanded] = useState(false);
+  const [isOtFormulaExpanded, setIsOtFormulaExpanded] = useState(false);
   const [isEditSettingsOpen, setIsEditSettingsOpen] = useState(false);
   const [settingsForm, setSettingsForm] = useState({
     salaryType: 'monthly',
@@ -1013,9 +1014,88 @@ export default function PayrollDetail() {
                       </div>
                     )}
                     {record.overtimePay > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
-                        <span>加班費</span>
-                        <span className="font-mono">{formatCurr(record.overtimePay)}</span>
+                      <div style={{ borderBottom: '1px solid var(--color-neutral-100)', paddingBottom: 'var(--space-2)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>加班費</span>
+                          <span className="font-mono">{formatCurr(record.overtimePay)}</span>
+                        </div>
+
+                        <div style={{ marginTop: 'var(--space-1)', textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsOtFormulaExpanded(!isOtFormulaExpanded);
+                            }}
+                            style={{
+                              fontSize: 'var(--text-xs)',
+                              color: 'var(--color-primary-500)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '2px',
+                              fontWeight: '500',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <span>{isOtFormulaExpanded ? '隱藏計算公式' : '顯示計算公式'}</span>
+                            <span className="material-symbols-outlined icon-sm">
+                              {isOtFormulaExpanded ? 'expand_less' : 'expand_more'}
+                            </span>
+                          </button>
+                        </div>
+
+                        {isOtFormulaExpanded && (
+                          <div style={{
+                            backgroundColor: 'var(--color-neutral-50)',
+                            border: '1px solid var(--color-neutral-200)',
+                            borderRadius: 'var(--radius-sm)',
+                            padding: 'var(--space-2) var(--space-3)',
+                            fontSize: 'var(--text-xs)',
+                            color: 'var(--color-neutral-600)',
+                            marginTop: 'var(--space-2)',
+                            lineHeight: '1.4',
+                            textAlign: 'left'
+                          }}>
+                            {(() => {
+                              const otMultiplier200 = employee.salaryType === 'monthly' ? 1.00 : 2.00;
+                              const ot134Str = record.overtimeHours134 > 0 ? `${formatHours(record.overtimeHours134)}H × 1.334` : '';
+                              const ot167Str = record.overtimeHours167 > 0 ? `${formatHours(record.overtimeHours167)}H × 1.667` : '';
+                              const ot267Str = record.overtimeHours267 > 0 ? `${formatHours(record.overtimeHours267)}H × 2.667` : '';
+                              const ot200Str = record.overtimeHours200 > 0 ? `${formatHours(record.overtimeHours200)}H × ${otMultiplier200.toFixed(3)}` : '';
+                              
+                              const terms = [ot134Str, ot167Str, ot200Str, ot267Str].filter(t => t);
+                              
+                              const sumWeightedHours = (
+                                (record.overtimeHours134 || 0) * 1.334 + 
+                                (record.overtimeHours167 || 0) * 1.667 + 
+                                (record.overtimeHours267 || 0) * 2.667 + 
+                                (record.overtimeHours200 || 0) * otMultiplier200
+                              ).toFixed(3);
+
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <div>
+                                    <strong>公式：</strong>round( 平均時薪 {averageHourlyRateDisplay} × Sum(時數 × 倍率) )
+                                  </div>
+                                  <div style={{ marginTop: '2px', paddingLeft: '8px', borderLeft: '2px solid var(--color-neutral-300)' }}>
+                                    {terms.length > 0 ? (
+                                      <>
+                                        <div style={{ marginTop: '2px' }}>
+                                          計算：round( {averageHourlyRateDisplay} × ( {terms.join(' + ')} ) )
+                                        </div>
+                                        <div style={{ marginTop: '2px', fontWeight: '500' }}>
+                                          = round( {averageHourlyRateDisplay} × {sumWeightedHours}H ) = {formatCurr(record.overtimePay)}
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div style={{ marginTop: '2px' }}>無加班紀錄</div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
                       </div>
                     )}
                     {record.retroPay > 0 && (
@@ -1134,17 +1214,17 @@ export default function PayrollDetail() {
                               return (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                   <div>
-                                    <strong>公式：</strong>round( 薪資總額 / 30 / {standardHrs} × Sum(時數 × 扣薪比例) )
+                                    <strong>公式：</strong>round( 平均時薪 {averageHourlyRateDisplay} × Sum(時數 × 扣薪比例) )
                                   </div>
                                   <div style={{ marginTop: '2px', paddingLeft: '8px', borderLeft: '2px solid var(--color-neutral-300)' }}>
                                     <div>薪資總額 = 底薪 {formatCurr(record.baseSalary)} + 加給/獎金 {formatCurr(fixedAdd)} = {formatCurr(totalWages)}</div>
                                     {normalLeaves.length > 0 ? (
                                       <>
                                         <div style={{ marginTop: '2px' }}>
-                                          計算：round( {formatCurr(totalWages)} / {monthlyHrs} × ( {normalLeaves.map(l => `${l.leaveType} ${l.days * standardHrs}H × ${getRate(l) * 100}%`).join(' + ')} ) )
+                                          計算：round( {averageHourlyRateDisplay} × ( {normalLeaves.map(l => `${l.leaveType} ${l.days * standardHrs}H × ${getRate(l) * 100}%`).join(' + ')} ) )
                                         </div>
                                         <div style={{ marginTop: '2px', fontWeight: '500' }}>
-                                          = round( {formatCurr(totalWages)} / {monthlyHrs} × {totalWeightedHours}H ) = -{formatCurr(record.leaveDeduction)}
+                                          = round( {averageHourlyRateDisplay} × {totalWeightedHours}H ) = -{formatCurr(record.leaveDeduction)}
                                         </div>
                                       </>
                                     ) : (

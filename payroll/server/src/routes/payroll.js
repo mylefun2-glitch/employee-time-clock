@@ -64,7 +64,8 @@ async function getRecalculatedLeaveDeduction(prisma, employeeId, year, month, ba
     return rule ? parseFloat(rule.rate) : 1.0;
   };
 
-  const hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / 240;
+  let hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / 240;
+  hourlyLeaveRate = parseFloat(hourlyLeaveRate.toFixed(2));
   let totalWeightedHours = 0;
 
   leaves.forEach(l => {
@@ -413,7 +414,8 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
     const otherAllowance = overrides.otherAllowance !== undefined ? overrides.otherAllowance : (employee.otherAllowance || 0);
     const bonus = overrides.bonus !== undefined ? overrides.bonus : 0;
 
-    const hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / (30 * standardHours);
+    let hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / (30 * standardHours);
+    hourlyLeaveRate = parseFloat(hourlyLeaveRate.toFixed(2));
     let totalWeightedHours = 0;
     normalLeaves.forEach(l => {
       const hours = l.days * 8;
@@ -1070,7 +1072,8 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       });
 
       // Daily rate for leave deduction (monthly employee)
-      const hourlyLeaveRate = (currentEmp.baseSalary + (currentEmp.allowanceAA || 0) + (currentEmp.allowanceLicense || 0) + (currentEmp.allowanceManager || 0) + (currentEmp.otherAllowance || 0) + currentBonus) / (30 * standardHours);
+      let hourlyLeaveRate = (currentEmp.baseSalary + (currentEmp.allowanceAA || 0) + (currentEmp.allowanceLicense || 0) + (currentEmp.allowanceManager || 0) + (currentEmp.otherAllowance || 0) + currentBonus) / (30 * standardHours);
+      hourlyLeaveRate = parseFloat(hourlyLeaveRate.toFixed(2));
 
       // Calculate leave deductions (for monthly) and supplement hours (for hourly)
       if (currentEmp.salaryType === 'monthly') {
