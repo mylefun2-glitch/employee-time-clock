@@ -676,7 +676,7 @@ export default function PayrollDetail() {
                       onChange={e => setEditForm(prev => ({ ...prev, overtimeHours167: e.target.value }))}
                     />
                     <Input
-                      label={employee?.salaryType === 'monthly' ? "加發 1.000 倍加班 (國假/例假)" : "2.000倍加班"}
+                      label={employee?.salaryType === 'monthly' ? "加發 1 倍加班 (國假/例假)" : "2.000倍加班"}
                       type="number"
                       step="0.01"
                       value={editForm.overtimeHours200}
@@ -1061,7 +1061,8 @@ export default function PayrollDetail() {
                               const ot134Str = record.overtimeHours134 > 0 ? `${formatHours(record.overtimeHours134)}H × 1.334` : '';
                               const ot167Str = record.overtimeHours167 > 0 ? `${formatHours(record.overtimeHours167)}H × 1.667` : '';
                               const ot267Str = record.overtimeHours267 > 0 ? `${formatHours(record.overtimeHours267)}H × 2.667` : '';
-                              const ot200Str = record.overtimeHours200 > 0 ? `${formatHours(record.overtimeHours200)}H × ${otMultiplier200.toFixed(3)}` : '';
+                              const otMultiplier200Str = employee.salaryType === 'monthly' ? '1' : otMultiplier200.toFixed(3);
+                              const ot200Str = record.overtimeHours200 > 0 ? `${formatHours(record.overtimeHours200)}H × ${otMultiplier200Str}` : '';
                               
                               const terms = [ot134Str, ot167Str, ot200Str, ot267Str].filter(t => t);
                               
