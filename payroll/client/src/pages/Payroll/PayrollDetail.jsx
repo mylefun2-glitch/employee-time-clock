@@ -1078,6 +1078,17 @@ export default function PayrollDetail() {
                                     <strong>公式：</strong>round( 平均時薪 {averageHourlyRateDisplay} × Sum(時數 × 倍率) )
                                   </div>
                                   <div style={{ marginTop: '2px', paddingLeft: '8px', borderLeft: '2px solid var(--color-neutral-300)' }}>
+                                    {employee.salaryType === 'monthly' && (
+                                      <div style={{ color: 'var(--color-neutral-500)', marginBottom: '4px' }}>
+                                        平均時薪 = (底薪 {formatCurr(record.baseSalary)} 
+                                        {record.allowanceAA > 0 ? ` + AA加給 ${formatCurr(record.allowanceAA)}` : ''}
+                                        {record.allowanceLicense > 0 ? ` + 證照加給 ${formatCurr(record.allowanceLicense)}` : ''}
+                                        {record.allowanceManager > 0 ? ` + 主管加給 ${formatCurr(record.allowanceManager)}` : ''}
+                                        {record.otherAllowance > 0 ? ` + 其他津貼 ${formatCurr(record.otherAllowance)}` : ''}
+                                        {record.bonus > 0 ? ` + 績效獎金 ${formatCurr(record.bonus)}` : ''}
+                                        ) / 30 / {employee.standardDailyHours || 8} = {averageHourlyRateDisplay} 元
+                                      </div>
+                                    )}
                                     {terms.length > 0 ? (
                                       <>
                                         <div style={{ marginTop: '2px' }}>
@@ -1217,7 +1228,17 @@ export default function PayrollDetail() {
                                     <strong>公式：</strong>round( 平均時薪 {averageHourlyRateDisplay} × Sum(時數 × 扣薪比例) )
                                   </div>
                                   <div style={{ marginTop: '2px', paddingLeft: '8px', borderLeft: '2px solid var(--color-neutral-300)' }}>
-                                    <div>薪資總額 = 底薪 {formatCurr(record.baseSalary)} + 加給/獎金 {formatCurr(fixedAdd)} = {formatCurr(totalWages)}</div>
+                                    {employee.salaryType === 'monthly' && (
+                                      <div style={{ color: 'var(--color-neutral-500)', marginBottom: '4px' }}>
+                                        平均時薪 = (底薪 {formatCurr(record.baseSalary)} 
+                                        {record.allowanceAA > 0 ? ` + AA加給 ${formatCurr(record.allowanceAA)}` : ''}
+                                        {record.allowanceLicense > 0 ? ` + 證照加給 ${formatCurr(record.allowanceLicense)}` : ''}
+                                        {record.allowanceManager > 0 ? ` + 主管加給 ${formatCurr(record.allowanceManager)}` : ''}
+                                        {record.otherAllowance > 0 ? ` + 其他津貼 ${formatCurr(record.otherAllowance)}` : ''}
+                                        {record.bonus > 0 ? ` + 績效獎金 ${formatCurr(record.bonus)}` : ''}
+                                        ) / 30 / {standardHrs} = {averageHourlyRateDisplay} 元
+                                      </div>
+                                    )}
                                     {normalLeaves.length > 0 ? (
                                       <>
                                         <div style={{ marginTop: '2px' }}>
@@ -1378,6 +1399,27 @@ export default function PayrollDetail() {
                     <strong>加班費時薪基準 (平均時薪)：</strong> {averageHourlyRateDisplay} 元/小時<br />
                     <span style={{ color: 'var(--color-neutral-400)' }}>
                       (計算公式：(正常工時工資 {Math.round(parseFloat(record.regularHours.toFixed(4)) * (record.baseSalary > 0 ? record.baseSalary : employee.baseSalary))} + AA加給 {record.allowanceAA} + 證照加給 {record.allowanceLicense} + 獎金 {record.bonus}) / 正常工時 {record.regularHours.toFixed(4)} H)
+                    </span>
+                  </div>
+                )}
+                {employee.salaryType === 'monthly' && (
+                  <div style={{
+                    borderTop: '1px dashed var(--color-neutral-200)',
+                    paddingTop: 'var(--space-2)',
+                    marginTop: 'var(--space-3)',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--color-primary-700)',
+                    lineHeight: '1.4'
+                  }}>
+                    <strong>加班/請假扣薪時薪基準 (平均時薪)：</strong> {averageHourlyRateDisplay} 元/小時<br />
+                    <span style={{ color: 'var(--color-neutral-400)' }}>
+                      (計算公式：(底薪 {formatCurr(record.baseSalary)} 
+                      {record.allowanceAA > 0 ? ` + AA加給 ${formatCurr(record.allowanceAA)}` : ''}
+                      {record.allowanceLicense > 0 ? ` + 證照加給 ${formatCurr(record.allowanceLicense)}` : ''}
+                      {record.allowanceManager > 0 ? ` + 主管加給 ${formatCurr(record.allowanceManager)}` : ''}
+                      {record.otherAllowance > 0 ? ` + 其他津貼 ${formatCurr(record.otherAllowance)}` : ''}
+                      {record.bonus > 0 ? ` + 績效獎金 ${formatCurr(record.bonus)}` : ''}
+                      ) / 30 / {record.employee?.standardDailyHours || 8} H)
                     </span>
                   </div>
                 )}

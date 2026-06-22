@@ -273,6 +273,19 @@ export function drawPayrollSlip(doc, payrollRecord, employee, settings = {}, lea
       notesY += 14;
     }
   } else {
+    // 0. Average Hourly Rate Formula (平均時薪計算公式)
+    const standardHours = employee.standardDailyHours || 8;
+    const parts = [];
+    parts.push(`底薪 ${formatAmount(payrollRecord.baseSalary)}`);
+    if (payrollRecord.allowanceAA > 0) parts.push(`AA加給 ${formatAmount(payrollRecord.allowanceAA)}`);
+    if (payrollRecord.allowanceLicense > 0) parts.push(`證照加給 ${formatAmount(payrollRecord.allowanceLicense)}`);
+    if (payrollRecord.allowanceManager > 0) parts.push(`主管加給 ${formatAmount(payrollRecord.allowanceManager)}`);
+    if (payrollRecord.otherAllowance > 0) parts.push(`其他津貼 ${formatAmount(payrollRecord.otherAllowance)}`);
+    if (payrollRecord.bonus > 0) parts.push(`績效獎金 ${formatAmount(payrollRecord.bonus)}`);
+    
+    doc.text(`● 平均時薪 ${averageHourlyRate} = ( ${parts.join(' + ')} ) / 30 / ${standardHours} 小時`, 50, notesY);
+    notesY += 14;
+
     // 1. Leave Deduction Formula (請假扣薪計算公式)
     const baseVal = payrollRecord.baseSalary;
     const bonusVal = payrollRecord.bonus || 0;

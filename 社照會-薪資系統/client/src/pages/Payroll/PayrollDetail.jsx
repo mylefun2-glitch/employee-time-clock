@@ -930,10 +930,6 @@ export default function PayrollDetail() {
                           }}>
                             {(() => {
                               const getRate = (l) => l.rate !== undefined ? l.rate : (l.leaveType.includes('病') ? 0.5 : (l.leaveType.includes('特') || l.leaveType.includes('公') || l.leaveType.includes('婚') || l.leaveType.includes('喪') ? 0.0 : 1.0));
-                              const bonusVal = record.bonus || 0;
-                              const fixedAdd = (record.allowanceAA || 0) + (record.allowanceLicense || 0) + (record.allowanceManager || 0) + (record.otherAllowance || 0) + bonusVal;
-                              const totalWages = record.baseSalary + fixedAdd;
-                              
                               const normalLeaves = record.leaves ? record.leaves.filter(l => {
                                 const type = (l.leaveType || '').toLowerCase();
                                 const isOt = type === 'co' || type === 'alc' || type.includes('折算') || type.includes('折現') || type === 'ot' || type === '加班';
@@ -941,18 +937,26 @@ export default function PayrollDetail() {
                                 if (isOt || isOfficial) return false;
                                 return getRate(l) > 0.0;
                               }) : [];
-                              
                               const standardHrs = record.employee?.standardDailyHours || 8;
-                              const monthlyHrs = 30 * standardHrs;
                               const totalWeightedHours = normalLeaves.reduce((sum, l) => sum + (l.days * standardHrs * getRate(l)), 0);
 
                               return (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                   <div>
-                                    <strong>公式：</strong>round( 薪資總額 / 30 / {standardHrs} × Sum(時數 × 扣薪比例) )
+                                    <strong>公式：</strong>round( 平均時薪 {averageHourlyRateDisplay} × Sum(時數 × 扣薪比例) )
                                   </div>
                                   <div style={{ marginTop: '2px', paddingLeft: '8px', borderLeft: '2px solid var(--color-neutral-300)' }}>
-                                    <div>薪資總額 = 底薪 {formatCurr(record.baseSalary)} + 加給/獎金 {formatCurr(fixedAdd)} = {formatCurr(totalWages)}</div>
+                                    {employee.salaryType === 'monthly' && (
+                                      <div style={{ color: 'var(--color-neutral-500)', marginBottom: '4px' }}>
+                                        平均時薪 = (底薪 {formatCurr(record.baseSalary)} 
+                                        {record.allowanceAA > 0 ? ` + AA加給 ${formatCurr(record.allowanceAA)}` : ''}
+                                        {record.allowanceLicense > 0 ? ` + 證照加給 ${formatCurr(record.allowanceLicense)}` : ''}
+                                        {record.allowanceManager > 0 ? ` + 主管加給 ${formatCurr(record.allowanceManager)}` : ''}
+                                        {record.otherAllowance > 0 ? ` + 其他津貼 ${formatCurr(record.otherAllowance)}` : ''}
+                                        {record.bonus > 0 ? ` + 績效獎金 ${formatCurr(record.bonus)}` : ''}
+                                        ) / 30 / {standardHrs} = {averageHourlyRateDisplay} 元
+                                      </div>
+                                    )}
                                     {normalLeaves.length > 0 ? (
                                       <>
                                         <div style={{ marginTop: '2px' }}>
