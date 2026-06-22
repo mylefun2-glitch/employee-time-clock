@@ -64,7 +64,10 @@ async function getRecalculatedLeaveDeduction(prisma, employeeId, year, month, ba
     return rule ? parseFloat(rule.rate) : 1.0;
   };
 
-  let hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / 240;
+  const workDaysPerMonth = parseFloat(settings.work_days_per_month) || 30;
+  const workHoursPerDay = parseFloat(settings.work_hours_per_day) || 8;
+  const divisor = workDaysPerMonth * workHoursPerDay;
+  let hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / divisor;
   hourlyLeaveRate = parseFloat(hourlyLeaveRate.toFixed(2));
   let totalWeightedHours = 0;
 
@@ -414,7 +417,9 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
     const otherAllowance = overrides.otherAllowance !== undefined ? overrides.otherAllowance : (employee.otherAllowance || 0);
     const bonus = overrides.bonus !== undefined ? overrides.bonus : 0;
 
-    let hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / (30 * standardHours);
+    const workDaysPerMonth = parseFloat(settings.work_days_per_month) || 30;
+    const divisor = workDaysPerMonth * standardHours;
+    let hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / divisor;
     hourlyLeaveRate = parseFloat(hourlyLeaveRate.toFixed(2));
     let totalWeightedHours = 0;
     normalLeaves.forEach(l => {
@@ -1072,7 +1077,9 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       });
 
       // Daily rate for leave deduction (monthly employee)
-      let hourlyLeaveRate = (currentEmp.baseSalary + (currentEmp.allowanceAA || 0) + (currentEmp.allowanceLicense || 0) + (currentEmp.allowanceManager || 0) + (currentEmp.otherAllowance || 0) + currentBonus) / (30 * standardHours);
+      const workDaysPerMonth = parseFloat(settings.work_days_per_month) || 30;
+      const divisor = workDaysPerMonth * standardHours;
+      let hourlyLeaveRate = (currentEmp.baseSalary + (currentEmp.allowanceAA || 0) + (currentEmp.allowanceLicense || 0) + (currentEmp.allowanceManager || 0) + (currentEmp.otherAllowance || 0) + currentBonus) / divisor;
       hourlyLeaveRate = parseFloat(hourlyLeaveRate.toFixed(2));
 
       // Calculate leave deductions (for monthly) and supplement hours (for hourly)
@@ -1417,7 +1424,16 @@ router.get('/:id', validateId(), async (req, res) => {
       record.employee.standardDailyHours = await getStandardHoursForEmployee(record.employee.name, record.year, record.month);
     }
 
-    res.json({ data: { ...record, leaves: enrichedLeaves } });
+    res.json({
+      data: {
+        ...record,
+        leaves: enrichedLeaves,
+        systemSettings: {
+          work_days_per_month: settings.work_days_per_month || '30',
+          work_hours_per_day: settings.work_hours_per_day || '8'
+        }
+      }
+    });
   } catch (error) {
     console.error('Get payroll record error:', error);
     res.status(500).json({ error: '取得薪資明細失敗' });

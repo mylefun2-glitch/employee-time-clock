@@ -300,8 +300,11 @@ export default function PayrollDetail() {
     averageHourlyRateDisplay = parseFloat(averageHourlyRateDisplay.toFixed(2));
   } else if (employee.salaryType === 'monthly') {
     const fixedMonthly = record.baseSalary + record.allowanceAA + record.allowanceLicense + record.allowanceManager + record.otherAllowance;
+    const workDays = parseFloat(record.systemSettings?.work_days_per_month) || 30;
+    const standardHrs = employee.standardDailyHours || parseFloat(record.systemSettings?.work_hours_per_day) || 8;
+    const divisor = workDays * standardHrs;
     // Include performance bonus (績效獎金) in average hourly rate
-    averageHourlyRateDisplay = parseFloat(((fixedMonthly + record.bonus) / 240).toFixed(2));
+    averageHourlyRateDisplay = parseFloat(((fixedMonthly + record.bonus) / divisor).toFixed(2));
   }
 
   return (

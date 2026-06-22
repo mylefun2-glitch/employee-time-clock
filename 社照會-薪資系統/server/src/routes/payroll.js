@@ -64,7 +64,11 @@ async function getRecalculatedLeaveDeduction(prisma, employeeId, year, month, ba
     return rule ? parseFloat(rule.rate) : 1.0;
   };
 
-  const hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / 240;
+  const workDaysPerMonth = parseFloat(settings.work_days_per_month) || 30;
+  const workHoursPerDay = parseFloat(settings.work_hours_per_day) || 8;
+  const divisor = workDaysPerMonth * workHoursPerDay;
+  let hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / divisor;
+  hourlyLeaveRate = parseFloat(hourlyLeaveRate.toFixed(2));
   let totalWeightedHours = 0;
 
   leaves.forEach(l => {
@@ -413,7 +417,10 @@ async function getFreshAttendanceSummary(prisma, employee, year, month, override
     const otherAllowance = overrides.otherAllowance !== undefined ? overrides.otherAllowance : (employee.otherAllowance || 0);
     const bonus = overrides.bonus !== undefined ? overrides.bonus : 0;
 
-    const hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / (30 * standardHours);
+    const workDaysPerMonth = parseFloat(settings.work_days_per_month) || 30;
+    const divisor = workDaysPerMonth * standardHours;
+    let hourlyLeaveRate = (baseSalary + allowanceAA + allowanceLicense + allowanceManager + otherAllowance + bonus) / divisor;
+    hourlyLeaveRate = parseFloat(hourlyLeaveRate.toFixed(2));
     let totalWeightedHours = 0;
     normalLeaves.forEach(l => {
       const hours = l.days * 8;
@@ -1051,7 +1058,10 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
 
       // Daily rate for leave deduction (monthly employee)
       const currentBonus = existingRecord ? (existingRecord.bonus || 0) : 0;
-      const hourlyLeaveRate = (currentEmp.baseSalary + (currentEmp.allowanceAA || 0) + (currentEmp.allowanceLicense || 0) + (currentEmp.allowanceManager || 0) + (currentEmp.otherAllowance || 0) + currentBonus) / (30 * standardHours);
+      const workDaysPerMonth = parseFloat(settings.work_days_per_month) || 30;
+      const divisor = workDaysPerMonth * standardHours;
+      let hourlyLeaveRate = (currentEmp.baseSalary + (currentEmp.allowanceAA || 0) + (currentEmp.allowanceLicense || 0) + (currentEmp.allowanceManager || 0) + (currentEmp.otherAllowance || 0) + currentBonus) / divisor;
+      hourlyLeaveRate = parseFloat(hourlyLeaveRate.toFixed(2));
 
       // Calculate leave deductions (for monthly) and supplement hours (for hourly)
       if (currentEmp.salaryType === 'monthly') {

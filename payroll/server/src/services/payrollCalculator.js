@@ -232,13 +232,15 @@ export function calculatePayroll(employee, attendance = {}, settings = {}) {
       regularPay = baseSalary;
     }
     
-    // Standard hourly rate in Taiwan: (Monthly Salary + allowances) / (30 * standardHours)
+    // Hourly rate standard: (Monthly Salary + allowances) / (work_days_per_month * standardHours)
     // Note: Standard hourly rate for leave/overtime is always calculated based on original CONTRACTED monthly fixed salary.
-    const standardHours = employee.standardDailyHours || employee.standard_daily_hours || 8;
+    const workDaysPerMonth = parseFloat(settings.work_days_per_month) || 30;
+    const standardHours = employee.standardDailyHours || employee.standard_daily_hours || parseFloat(settings.work_hours_per_day) || 8;
+    const divisor = workDaysPerMonth * standardHours;
     const fixedMonthly = employee.baseSalary + (employee.allowanceAA || 0) + (employee.allowanceLicense || 0) + (employee.allowanceManager || 0) + (employee.otherAllowance || 0);
-    hourlyRate = fixedMonthly / (30 * standardHours);
+    hourlyRate = fixedMonthly / divisor;
     // Include performance bonus (績效獎金) in average hourly rate
-    averageHourlyRate = (fixedMonthly + bonus) / (30 * standardHours);
+    averageHourlyRate = (fixedMonthly + bonus) / divisor;
     averageHourlyRate = parseFloat(averageHourlyRate.toFixed(2));
     
     // Deductions for absent days (Taiwan: baseSalary / 30 per absent day)
