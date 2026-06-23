@@ -1015,7 +1015,9 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       
       currentEmp = {
         ...currentEmp,
-        ...grades
+        ...grades,
+        // Remove DB-default laborPensionEmployee so calculatePayroll uses the calculated value
+        laborPensionEmployee: undefined,
       };
 
       // Fetch attendance & leaves from memory map
@@ -1503,6 +1505,11 @@ router.put('/:id', validateId(), async (req, res) => {
     // Prepare overridden employee settings
     const empOverride = {
       ...currentEmp,
+      // Remove DB-default laborPensionEmployee so calculatePayroll uses the calculated value
+      // unless explicitly provided by the user via req.body
+      laborPensionEmployee: req.body.laborPensionEmployee !== undefined
+        ? parseFloat(req.body.laborPensionEmployee)
+        : undefined,
       baseSalary: req.body.baseSalary !== undefined ? parseFloat(req.body.baseSalary) : existing.baseSalary,
       allowanceAA: req.body.allowanceAA !== undefined ? parseFloat(req.body.allowanceAA) : existing.allowanceAA,
       allowanceLicense: req.body.allowanceLicense !== undefined ? parseFloat(req.body.allowanceLicense) : existing.allowanceLicense,
@@ -1579,6 +1586,24 @@ router.put('/:id', validateId(), async (req, res) => {
         updateData[f] = f === 'dependents' ? parseInt(req.body[f]) : parseFloat(req.body[f]) || 0;
       }
     });
+
+    // Recalculate totalDeductions and netPay after overrides to ensure consistency
+    // (manual overrides of individual deduction items must be reflected in totals)
+    if (req.body.totalDeductions === undefined) {
+      updateData.totalDeductions = Math.round(
+        (updateData.laborInsuranceEmployee || 0) +
+        (updateData.healthInsuranceEmployee || 0) +
+        (updateData.laborPensionEmployee || 0) +
+        (updateData.incomeTax || 0) +
+        (updateData.otherDeductions || 0) +
+        (updateData.leaveDeduction || 0) +
+        (updateData.supplementaryHealthInsurance || 0) +
+        (updateData.prevInsuranceDifference || 0)
+      );
+    }
+    if (req.body.netPay === undefined) {
+      updateData.netPay = Math.max(0, (updateData.grossPay || 0) - updateData.totalDeductions);
+    }
 
     const record = await req.prisma.payrollRecord.update({
       where: { id: req.params.id },
@@ -1885,6 +1910,8 @@ router.post('/batch-update-adjustments', async (req, res) => {
       // Temporarily override employee's allowances and settings for calculation
       const empOverride = {
         ...currentEmp,
+        // Remove DB-default laborPensionEmployee so calculatePayroll uses calculated value
+        laborPensionEmployee: undefined,
         allowanceAA: updatedAA,
         allowanceLicense: updatedLicense,
         otherAllowance: updatedOther,
