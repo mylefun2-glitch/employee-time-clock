@@ -238,15 +238,22 @@ const AdminLeaveStatsPage: React.FC = () => {
 
             const records: LeaveDetailRecord[] = [];
 
+            // 從 ISO 日期字串中解析起始/結束時間（轉換為本地時間 UTC+8）
+            const parseTime = (isoStr: string): string => {
+                if (!isoStr) return '—';
+                const d = new Date(isoStr);
+                if (isNaN(d.getTime())) return '—';
+                return d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Taipei' });
+            };
+
             // 處理請假申請
             (requests || []).forEach((req: any) => {
                 const lt = typeMap.get(req.leave_type_id);
                 const ltCode: string = lt?.code || 'OTHER';
                 const ltName: string = lt?.name || '其他';
 
-                // 解析起始/結束時間（資料庫通常存 date string，無時間欄位則預設班表）
-                const startTime = '08:00';
-                const endTime = '17:00';
+                const startTime = parseTime(req.start_date);
+                const endTime = parseTime(req.end_date);
 
                 records.push({
                     leave_type_name: ltName,
