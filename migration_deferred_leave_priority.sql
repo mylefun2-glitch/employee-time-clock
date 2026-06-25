@@ -4,7 +4,7 @@
 -- 加班折算補休（TOIL/COMPENSATORY）亦依相同原則，優先扣除較舊年度額度
 -- 執行日期：2026-05-11
 
-CREATE OR REPLACE FUNCTION get_employee_leave_balances(target_employee_id uuid, target_date date DEFAULT CURRENT_DATE)
+CREATE OR REPLACE FUNCTION public.get_employee_leave_balances(target_employee_id uuid, target_date date DEFAULT CURRENT_DATE)
 RETURNS json AS $$
 DECLARE
     emp_record       record;
@@ -33,6 +33,8 @@ DECLARE
     p_end          date;
     p_days         int;
     p_entitlement  decimal(10, 2);
+    p_ratio        decimal;
+    p_ratio_text   text;
     p_used         decimal(10, 2);
     p_cashout      decimal(10, 2);
     full_years     int;
@@ -128,7 +130,8 @@ BEGIN
 
         IF p_start >= '2017-01-01'::date THEN
             p_days        := 3;
-            p_entitlement := p_days * emp_std_hours;
+            SELECT ratio, detail_text INTO p_ratio, p_ratio_text FROM calculate_four_day_workweek_ratio(target_employee_id, adjusted_join_dt::date, p_start::date);
+            p_entitlement := ROUND(p_days * p_ratio * emp_std_hours, 2);
 
             raw_annual_asc := raw_annual_asc || jsonb_build_object(
                 'label', '滿 0.5 年',
@@ -153,7 +156,8 @@ BEGIN
             ELSE p_days := LEAST(16 + (i - 10), 30);  -- 勞基法§38：滿10年=16日，每增1年加1日，上限30日
             END IF;
 
-            p_entitlement := p_days * emp_std_hours;
+            SELECT ratio, detail_text INTO p_ratio, p_ratio_text FROM calculate_four_day_workweek_ratio(target_employee_id, (adjusted_join_dt + ((i - 1) * interval '1 year'))::date, p_start::date);
+            p_entitlement := ROUND(p_days * p_ratio * emp_std_hours, 2);
 
             raw_annual_asc := raw_annual_asc || jsonb_build_object(
                 'label', '滿 ' || i || ' 年',
