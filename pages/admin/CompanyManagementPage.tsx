@@ -4,7 +4,11 @@ import { getCompanyInfo, updateCompanyInfo, createCompanyInfo, CompanyInfo } fro
 import { getAllLocations, createLocation, updateLocation, deleteLocation } from '../../services/companyLocationService';
 import { CompanyLocation } from '../../services/geolocation';
 
-const CompanyManagementPage: React.FC = () => {
+interface Props {
+    isTabMode?: boolean;
+}
+
+const CompanyManagementPage: React.FC<Props> = ({ isTabMode }) => {
     const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
     const [locations, setLocations] = useState<CompanyLocation[]>([]);
     const [loading, setLoading] = useState(true);
@@ -166,14 +170,16 @@ const CompanyManagementPage: React.FC = () => {
     return (
         <div className="space-y-6 max-w-5xl mx-auto">
             {/* 頁面標題 */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                <div>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">公司管理</h1>
-                    <p className="mt-1 text-sm text-slate-500 font-medium">
-                        管理公司基本資訊和辦公地點設定
-                    </p>
+            {!isTabMode && (
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                    <div>
+                        <h1 className="text-2xl font-black text-slate-900 tracking-tight">公司管理</h1>
+                        <p className="mt-1 text-sm text-slate-500 font-medium">
+                            管理公司基本資訊和辦公地點設定
+                        </p>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* 公司基本資訊 */}
             <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">

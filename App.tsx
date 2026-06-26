@@ -14,8 +14,7 @@ const MakeupRequestsPage = lazy(() => import('./pages/admin/MakeupRequestsPage')
 const ResourceManagerPage = lazy(() => import('./pages/admin/ResourceManagerPage'));
 const RequestsPage = lazy(() => import('./pages/admin/RequestsPage'));
 const ShiftRequestsPage = lazy(() => import('./pages/admin/ShiftRequestsPage'));
-const LeaveTypesPage = lazy(() => import('./pages/admin/LeaveTypesPage'));
-const CompanyManagementPage = lazy(() => import('./pages/admin/CompanyManagementPage'));
+const SystemSettingsPage = lazy(() => import('./pages/admin/SystemSettingsPage'));
 const StatisticsPage = lazy(() => import('./pages/admin/StatisticsPage'));
 const AdminLeaveStatsPage = lazy(() => import('./pages/admin/AdminLeaveStatsPage'));
 const AttendanceCalendarPage = lazy(() => import('./pages/admin/AttendanceCalendarPage'));
@@ -60,8 +59,9 @@ const App: React.FC = () => {
                 <Route path="resources" element={<Navigate to="../resource-manager" replace />} />
                 <Route path="resource-requests" element={<Navigate to="../resource-manager" replace />} />
                 <Route path="resource-calendar" element={<Navigate to="../resource-manager" replace />} />
-                <Route path="leave-types" element={<LeaveTypesPage />} />
-                <Route path="company" element={<CompanyManagementPage />} />
+                <Route path="settings" element={<SystemSettingsPage />} />
+                <Route path="leave-types" element={<Navigate to="../settings" replace />} />
+                <Route path="company" element={<Navigate to="../settings" replace />} />
               </Route>
 
               {/* Employee Routes */}

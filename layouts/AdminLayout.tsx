@@ -49,8 +49,7 @@ const AdminLayout: React.FC = () => {
         { path: '/admin/shift-requests', label: '挪移審核', icon: 'swap_calls' },
         { path: '/admin/requests', label: '差勤/公務車', icon: 'fact_check' },
         { path: '/admin/resource-manager', label: '公務資源管理', icon: 'inventory_2' },
-        { path: '/admin/leave-types', label: '假別設定', icon: 'settings_applications' },
-        { path: '/admin/company', icon: 'business', label: '公司管理' },
+        { path: '/admin/settings', label: '系統設定', icon: 'settings' },
         { path: payrollUrl, icon: 'payments', label: '薪資系統', isExternal: true }
     ];
 

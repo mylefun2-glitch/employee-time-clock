@@ -4,7 +4,11 @@ import { LeaveType } from '../../types';
 import { Pencil, Power, Plus, X, FilterX } from 'lucide-react';
 import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 
-const LeaveTypesPage: React.FC = () => {
+interface Props {
+    isTabMode?: boolean;
+}
+
+const LeaveTypesPage: React.FC<Props> = ({ isTabMode }) => {
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -148,10 +152,14 @@ const LeaveTypesPage: React.FC = () => {
     return (
         <div className="space-y-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                <div>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">差勤類型管理</h1>
-                    <p className="text-sm text-slate-500 font-medium mt-1">管理與設定員工可申請的各類差勤項目。</p>
-                </div>
+                {!isTabMode ? (
+                    <div>
+                        <h1 className="text-2xl font-black text-slate-900 tracking-tight">差勤類型管理</h1>
+                        <p className="text-sm text-slate-500 font-medium mt-1">管理與設定員工可申請的各類差勤項目。</p>
+                    </div>
+                ) : (
+                    <div></div>
+                )}
                 <div className="flex gap-3">
                     {hasActiveFilters && (
                         <button
