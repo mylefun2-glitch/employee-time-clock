@@ -907,15 +907,43 @@ const EmployeeAttendancePage: React.FC = () => {
                                                                             {period.date_formula}
                                                                         </div>
                                                                     )}
+                                                                    {period.earning_start && period.earning_end && (
+                                                                        <div className="text-[10px] text-indigo-400 font-bold mt-1.5 ml-1 flex items-center gap-1">
+                                                                            <span className="material-symbols-outlined text-[11px]">straighten</span>
+                                                                            計算週期：{period.earning_start} ~ {period.earning_end}
+                                                                        </div>
+                                                                    )}
                                                                 </td>
                                                                 <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-slate-600">
                                                                     <div className="font-mono font-black text-slate-600 leading-none">{period.entitlement}</div>
-                                                                    {period.formula && (
+                                                                    {period.entitlement_formula && (
+                                                                        <div className="text-[10px] text-blue-500 font-bold mt-1.5 opacity-80 flex items-center justify-center gap-1">
+                                                                            <span className="material-symbols-outlined text-[11px]">calculate</span>
+                                                                            {period.entitlement_formula}
+                                                                        </div>
+                                                                    )}
+                                                                    {period.entitlement_formula && period.leave_days != null && (
+                                                                        <div className="mt-1.5 flex flex-wrap items-center justify-center gap-1">
+                                                                            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                                                                                法定 {period.leave_days}天
+                                                                            </span>
+                                                                            {period.four_day_ratio != null && period.four_day_ratio !== 1 && (
+                                                                                <span className="text-[9px] font-bold text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded-full">
+                                                                                    × {period.four_day_ratio} {period.four_day_ratio_text || ''}
+                                                                                </span>
+                                                                            )}
+                                                                            {period.weighted_avg_hours != null && (
+                                                                                <span className="text-[9px] font-bold text-cyan-500 bg-cyan-50 px-1.5 py-0.5 rounded-full">
+                                                                                    × {period.weighted_avg_hours}h/日
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                    {period.formula && !period.entitlement_formula && (
                                                                         <div className="text-[10px] text-slate-400 font-bold mt-1 opacity-70">
                                                                             {period.formula}
                                                                         </div>
                                                                     )}
-
                                                                 </td>
                                                                 <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-orange-600">
                                                                     {period.used}
@@ -1087,7 +1115,9 @@ const EmployeeAttendancePage: React.FC = () => {
                                 </p>
                                 <ul className="list-disc list-inside space-y-2 font-bold ml-1 opacity-80">
                                     <li>特休額度依據勞基法週年制計算，系統會自動在每個年資里程碑抵達時核給。</li>
-                                    <li>「期間」代表該里程碑核給時數的有效使用限制（通常為一年）。</li>
+                                    <li>「使用週期」代表該筆特休可以使用的有效期限（通常為一年）。</li>
+                                    <li>「計算週期」代表加權工時與週休三日比例的計算依據期間，即「在這段期間內工作而累積的年資」。</li>
+                                    <li>應得時數 = 法定天數 × 週休三日比例 × 加權平均每日工時，可在各筆特休明細中查看公式。</li>
                                     <li>點擊「查看詳細」可展開檢視該時段內所有的請假申請紀錄與折現異動。</li>
                                 </ul>
                             </div>

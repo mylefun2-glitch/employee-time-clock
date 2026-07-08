@@ -29,16 +29,18 @@ DECLARE
     final_comp_desc  jsonb := '[]'::jsonb;
 
     -- 通用迴圈變數
-    p_start        date;
-    p_end          date;
-    p_days         int;
-    p_entitlement  decimal(10, 2);
-    p_ratio        decimal;
-    p_ratio_text   text;
-    p_used         decimal(10, 2);
-    p_cashout      decimal(10, 2);
-    full_years     int;
-    i              int;
+    p_start              date;
+    p_end                date;
+    p_earning_start      date;
+    p_days               int;
+    p_entitlement        decimal(10, 2);
+    p_weighted_avg_hours decimal(10, 2);
+    p_ratio              decimal;
+    p_ratio_text         text;
+    p_used               decimal(10, 2);
+    p_cashout            decimal(10, 2);
+    full_years           int;
+    i                    int;
 
     -- 補休相關
     ot_type_ids        uuid[];
@@ -130,13 +132,21 @@ BEGIN
 
         IF p_start >= '2017-01-01'::date THEN
             p_days        := 3;
+            p_weighted_avg_hours := calculate_weighted_avg_hours(target_employee_id, adjusted_join_dt::date, p_start::date, emp_std_hours);
             SELECT ratio, detail_text INTO p_ratio, p_ratio_text FROM calculate_four_day_workweek_ratio(target_employee_id, adjusted_join_dt::date, p_start::date);
-            p_entitlement := ROUND(p_days * p_ratio * emp_std_hours, 2);
+            p_entitlement := ROUND(p_days * p_ratio * p_weighted_avg_hours, 2);
 
             raw_annual_asc := raw_annual_asc || jsonb_build_object(
                 'label', '滿 0.5 年',
                 'start_date', p_start, 'end_date', p_end,
-                'entitlement', p_entitlement
+                'entitlement', p_entitlement,
+                'earning_start', adjusted_join_dt,
+                'earning_end', p_start,
+                'leave_days', p_days,
+                'four_day_ratio', p_ratio,
+                'four_day_ratio_text', COALESCE(p_ratio_text, ''),
+                'weighted_avg_hours', p_weighted_avg_hours,
+                'entitlement_formula', p_days || '天 × ' || p_ratio || ' × ' || p_weighted_avg_hours || '小時 = ' || p_entitlement || '小時'
             );
 
             total_annual_entitlement := total_annual_entitlement + p_entitlement;
@@ -156,13 +166,22 @@ BEGIN
             ELSE p_days := LEAST(16 + (i - 10), 30);  -- 勞基法§38：滿10年=16日，每增1年加1日，上限30日
             END IF;
 
-            SELECT ratio, detail_text INTO p_ratio, p_ratio_text FROM calculate_four_day_workweek_ratio(target_employee_id, (adjusted_join_dt + ((i - 1) * interval '1 year'))::date, p_start::date);
-            p_entitlement := ROUND(p_days * p_ratio * emp_std_hours, 2);
+            p_earning_start := (adjusted_join_dt + ((i - 1) * interval '1 year'))::date;
+            p_weighted_avg_hours := calculate_weighted_avg_hours(target_employee_id, p_earning_start, p_start::date, emp_std_hours);
+            SELECT ratio, detail_text INTO p_ratio, p_ratio_text FROM calculate_four_day_workweek_ratio(target_employee_id, p_earning_start, p_start::date);
+            p_entitlement := ROUND(p_days * p_ratio * p_weighted_avg_hours, 2);
 
             raw_annual_asc := raw_annual_asc || jsonb_build_object(
                 'label', '滿 ' || i || ' 年',
                 'start_date', p_start, 'end_date', p_end,
-                'entitlement', p_entitlement
+                'entitlement', p_entitlement,
+                'earning_start', p_earning_start,
+                'earning_end', p_start,
+                'leave_days', p_days,
+                'four_day_ratio', p_ratio,
+                'four_day_ratio_text', COALESCE(p_ratio_text, ''),
+                'weighted_avg_hours', p_weighted_avg_hours,
+                'entitlement_formula', p_days || '天 × ' || p_ratio || ' × ' || p_weighted_avg_hours || '小時 = ' || p_entitlement || '小時'
             );
 
             total_annual_entitlement := total_annual_entitlement + p_entitlement;
@@ -245,6 +264,13 @@ BEGIN
                 'start_date',        rec->>'start_date',
                 'end_date',          rec->>'end_date',
                 'entitlement',       a_entitlement,
+                'earning_start',     rec->>'earning_start',
+                'earning_end',       rec->>'earning_end',
+                'leave_days',        (rec->>'leave_days')::int,
+                'four_day_ratio',    (rec->>'four_day_ratio')::decimal,
+                'four_day_ratio_text', rec->>'four_day_ratio_text',
+                'weighted_avg_hours', (rec->>'weighted_avg_hours')::decimal,
+                'entitlement_formula', rec->>'entitlement_formula',
                 'deferred_in',       a_deferred_in,
                 'used',              a_alloc_used,
                 'used_from_deferred', a_used_from_def,

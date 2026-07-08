@@ -221,9 +221,38 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                             <div className="text-sm text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-lg inline-block">
                                                                 {period.start_date} <span className="text-slate-300 mx-1">~</span> {period.end_date}
                                                             </div>
+                                                            {period.earning_start && period.earning_end && (
+                                                                <div className="text-[10px] text-indigo-400 font-bold mt-1.5 ml-1 flex items-center gap-1">
+                                                                    <span className="material-symbols-outlined text-[11px]">straighten</span>
+                                                                    計算週期：{period.earning_start} ~ {period.earning_end}
+                                                                </div>
+                                                            )}
                                                         </td>
                                                         <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-slate-600">
                                                             <div className="font-mono font-black text-slate-600 leading-none">{period.entitlement}</div>
+                                                            {period.entitlement_formula && (
+                                                                <div className="text-[10px] text-blue-500 font-bold mt-1.5 opacity-80 flex items-center justify-center gap-1">
+                                                                    <span className="material-symbols-outlined text-[11px]">calculate</span>
+                                                                    {period.entitlement_formula}
+                                                                </div>
+                                                            )}
+                                                            {period.entitlement_formula && period.leave_days != null && (
+                                                                <div className="mt-1.5 flex flex-wrap items-center justify-center gap-1">
+                                                                    <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                                                                        法定 {period.leave_days}天
+                                                                    </span>
+                                                                    {period.four_day_ratio != null && period.four_day_ratio !== 1 && (
+                                                                        <span className="text-[9px] font-bold text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded-full">
+                                                                            × {period.four_day_ratio} {period.four_day_ratio_text || ''}
+                                                                        </span>
+                                                                    )}
+                                                                    {period.weighted_avg_hours != null && (
+                                                                        <span className="text-[9px] font-bold text-cyan-500 bg-cyan-50 px-1.5 py-0.5 rounded-full">
+                                                                            × {period.weighted_avg_hours}h/日
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </td>
                                                         {/* 遞延（前期）欄 - 依第24-1條優先扣除 */}
                                                         <td className="px-8 py-5 whitespace-nowrap text-center">

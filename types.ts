@@ -244,6 +244,13 @@ export interface LeaveBalance {
       entitlement: number;
       formula?: string;
       date_formula?: string;
+      earning_start?: string;
+      earning_end?: string;
+      leave_days?: number;
+      four_day_ratio?: number;
+      four_day_ratio_text?: string;
+      weighted_avg_hours?: number;
+      entitlement_formula?: string;
       deferred_in?: number;
       deferred_out?: number;
       used: number;
