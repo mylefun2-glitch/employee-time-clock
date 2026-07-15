@@ -294,25 +294,39 @@ export const requestService = {
             else if (status === RequestStatus.APPROVED) {
                 // 如果目前的狀態是撤回待審，核准動作代表「核准撤回」
                 if (requestData?.status === RequestStatus.WITHDRAW_PENDING) {
-                    updates.status = RequestStatus.WITHDRAWN;
-                    updates.approved_at = new Date().toISOString();
-                    updates.approver_id = approverId;
+                    // 若需要理事長審核，且核准者不是理事長也不是管理員（管理員無 approverId）
+                    if (requestData?.requires_chairman_approval && !isChairman && approverId) {
+                        // 主管核准撤回（第一層）→ 維持 WITHDRAW_PENDING，等待理事長
+                        updates.supervisor_approved_at = new Date().toISOString();
+                        updates.supervisor_approved_by = approverId;
+                    } else {
+                        // 理事長核准 或 管理員強制核准 或 不需理事長審核 → 完成撤回
+                        updates.status = RequestStatus.WITHDRAWN;
+                        updates.approved_at = new Date().toISOString();
+                        if (approverId) {
+                            updates.approver_id = approverId;
+                            if (isChairman) {
+                                updates.chairman_approved_at = new Date().toISOString();
+                                updates.chairman_approved_by = approverId;
+                            }
+                        }
 
-                    // 如果是撤回變更申請，需要恢復原申請的變更標記（與原 withdrawRequest 邏輯一致）
-                    const { data: reqWithOriginal } = await supabase
-                        .from('leave_requests')
-                        .select('original_request_id')
-                        .eq('id', requestId)
-                        .single();
-
-                    if (reqWithOriginal?.original_request_id) {
-                        await supabase
+                        // 如果是撤回變更申請，需要恢復原申請的變更標記（與原 withdrawRequest 邏輯一致）
+                        const { data: reqWithOriginal } = await supabase
                             .from('leave_requests')
-                            .update({
-                                is_modified: false,
-                                modified_by_request_id: null
-                            })
-                            .eq('id', reqWithOriginal.original_request_id);
+                            .select('original_request_id')
+                            .eq('id', requestId)
+                            .single();
+
+                        if (reqWithOriginal?.original_request_id) {
+                            await supabase
+                                .from('leave_requests')
+                                .update({
+                                    is_modified: false,
+                                    modified_by_request_id: null
+                                })
+                                .eq('id', reqWithOriginal.original_request_id);
+                        }
                     }
                 }
                 // 如果需要理事長審核
@@ -757,7 +771,7 @@ export const requestService = {
                     deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
                 `)
                 .eq('requires_chairman_approval', true)
-                .eq('status', 'PENDING')
+                .in('status', ['PENDING', 'WITHDRAW_PENDING'])
                 .not('supervisor_approved_at', 'is', null)
                 .is('chairman_approved_at', null)
                 .or('is_modified.is.null,is_modified.eq.false')

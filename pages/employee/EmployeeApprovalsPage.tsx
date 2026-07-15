@@ -917,26 +917,43 @@ const EmployeeApprovalsPage: React.FC = () => {
 
                         {/* 操作按鈕 */}
                         <div className="flex flex-col gap-4">
-                            <button
-                                onClick={() => {
-                                    handleReviewClick(actionMenuRequest.id, 'approve');
-                                    setShowActionMenu(false);
-                                }}
-                                className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95 flex items-center justify-center gap-2"
-                            >
-                                <span className="material-symbols-outlined text-lg">verified</span>
-                                {actionMenuRequest.status === 'WITHDRAW_PENDING' ? '核准撤回' : '核准申請'}
-                            </button>
-                            <button
-                                onClick={() => {
-                                    handleReviewClick(actionMenuRequest.id, 'reject');
-                                    setShowActionMenu(false);
-                                }}
-                                className="w-full py-4 bg-white text-rose-600 border-2 border-rose-200 rounded-2xl font-black hover:bg-rose-50 transition-all active:scale-95 flex items-center justify-center gap-2"
-                            >
-                                <span className="material-symbols-outlined text-lg">block</span>
-                                拒絕申請
-                            </button>
+                            {/* 若主管已核准撤回但仍等待理事長審核，顯示提示而非按鈕 */}
+                            {actionMenuRequest.__type === 'LEAVE' && actionMenuRequest.status === 'WITHDRAW_PENDING' && actionMenuRequest.requires_chairman_approval && actionMenuRequest.supervisor_approved_at && !employee?.is_chairman ? (
+                                <div className="p-4 bg-blue-50 rounded-2xl text-center border border-blue-100">
+                                    <span className="material-symbols-outlined text-blue-500 text-3xl mb-2">hourglass_top</span>
+                                    <p className="text-blue-700 font-black text-sm">您已核准此撤回申請</p>
+                                    <p className="text-blue-500 font-medium text-xs mt-1">等待理事長審核中</p>
+                                </div>
+                            ) : (actionMenuRequest.__type === 'LEAVE' && actionMenuRequest.requires_chairman_approval && actionMenuRequest.supervisor_approved_at && !employee?.is_chairman) ? (
+                                <div className="p-4 bg-blue-50 rounded-2xl text-center border border-blue-100">
+                                    <span className="material-symbols-outlined text-blue-500 text-3xl mb-2">hourglass_top</span>
+                                    <p className="text-blue-700 font-black text-sm">您已核准此申請</p>
+                                    <p className="text-blue-500 font-medium text-xs mt-1">等待理事長審核中</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            handleReviewClick(actionMenuRequest.id, 'approve');
+                                            setShowActionMenu(false);
+                                        }}
+                                        className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        <span className="material-symbols-outlined text-lg">verified</span>
+                                        {actionMenuRequest.status === 'WITHDRAW_PENDING' ? '核准撤回' : '核准申請'}
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            handleReviewClick(actionMenuRequest.id, 'reject');
+                                            setShowActionMenu(false);
+                                        }}
+                                        className="w-full py-4 bg-white text-rose-600 border-2 border-rose-200 rounded-2xl font-black hover:bg-rose-50 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        <span className="material-symbols-outlined text-lg">block</span>
+                                        拒絕申請
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
