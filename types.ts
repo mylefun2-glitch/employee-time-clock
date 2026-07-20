@@ -110,6 +110,7 @@ export interface LeaveRequest {
   modified_by_request_id?: string;   // 如果此申請已被變更,指向新申請的 ID
   modification_reason?: string;      // 變更原因
   manual_break_hours?: number;       // 新增：手動扣除的休息時數
+  review_comment?: string;           // 審核備註
 
   // 附件相關欄位
   attachment_drive_id?: string;      // Google Drive 檔案 ID

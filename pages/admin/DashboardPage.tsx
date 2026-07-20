@@ -5,6 +5,7 @@ import { getDashboardStats, DashboardStats } from '../../services/admin';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { getCurrentUserEmployee } from '../../services/supervisorService';
+import AttendanceAnomalyDashboard from '../../components/AttendanceAnomalyDashboard';
 
 const DashboardPage: React.FC = () => {
     const { user } = useAuth();
@@ -185,6 +186,11 @@ const DashboardPage: React.FC = () => {
                         <p className="text-sm font-bold text-slate-700">{new Date().toLocaleString('zh-TW')}</p>
                     </div>
                 </div>
+            </div>
+
+            {/* Anomaly Dashboard */}
+            <div className="mt-8">
+                <AttendanceAnomalyDashboard />
             </div>
 
             {/* Stats Grid */}

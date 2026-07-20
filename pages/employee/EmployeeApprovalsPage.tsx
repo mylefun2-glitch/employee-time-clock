@@ -7,6 +7,14 @@ import { shiftService } from '../../services/shiftService';
 import { RequestStatus } from '../../types';
 import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 import { formatDateTimeRange } from '../../lib/hrUtils';
+import { differenceInHours } from 'date-fns';
+
+const getSlaStatus = (createdAt: string) => {
+    const hours = differenceInHours(new Date(), new Date(createdAt));
+    if (hours > 72) return 'overdue';
+    if (hours > 48) return 'warning';
+    return 'normal';
+};
 
 const EmployeeApprovalsPage: React.FC = () => {
     const { employee } = useEmployee();
@@ -48,6 +56,11 @@ const EmployeeApprovalsPage: React.FC = () => {
         failed: number;
         errors: string[];
     }>({ show: false, total: 0, succeeded: 0, failed: 0, errors: [] });
+
+    // 進階篩選狀態
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [showUrgentOnly, setShowUrgentOnly] = useState(false);
 
     // 表格標題篩選狀態
     const [columnFilters, setColumnFilters] = useState<{
@@ -144,7 +157,7 @@ const EmployeeApprovalsPage: React.FC = () => {
 
             if (request?.__type === 'LEAVE') {
                 const status = type === 'approve' ? RequestStatus.APPROVED : RequestStatus.REJECTED;
-                result = await requestService.updateRequestStatus(requestId, status, employee.id);
+                result = await requestService.updateRequestStatus(requestId, status, employee.id, comment);
             } else if (request?.__type === 'MAKEUP') {
                 if (type === 'approve') {
                     result = await approveMakeupRequest(requestId, employee.id, comment);
@@ -213,9 +226,29 @@ const EmployeeApprovalsPage: React.FC = () => {
                 columnFilters.department.map(v => v.trim()).includes(deptName);
             const leaveTypeMatch = columnFilters.leaveType.length === 0 ||
                 columnFilters.leaveType.map(v => v.trim()).includes(typeName);
-            return employeeMatch && deptMatch && leaveTypeMatch;
+            
+            // 進階篩選邏輯
+            const reqDate = r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '';
+            const dateMatch = (!startDate || reqDate >= startDate) && (!endDate || reqDate <= endDate);
+            
+            // 緊急篩選邏輯
+            const slaStatus = getSlaStatus(r.created_at);
+            const urgentMatch = !showUrgentOnly || slaStatus === 'warning' || slaStatus === 'overdue';
+
+            return employeeMatch && deptMatch && leaveTypeMatch && dateMatch && urgentMatch;
         });
     const pendingRequests = activeRequests.filter(r => (r.status === 'PENDING' || r.status === 'WITHDRAW_PENDING') && !(r.__type === 'LEAVE' && r.requires_chairman_approval && r.supervisor_approved_at && !employee?.is_chairman));
+
+    // 統計數據
+    const pendingTotal = activeRequests.filter(r => r.status === 'PENDING' || r.status === 'WITHDRAW_PENDING').length;
+    const overdueTotal = activeRequests.filter(r => (r.status === 'PENDING' || r.status === 'WITHDRAW_PENDING') && getSlaStatus(r.created_at) === 'overdue').length;
+    const warningTotal = activeRequests.filter(r => (r.status === 'PENDING' || r.status === 'WITHDRAW_PENDING') && getSlaStatus(r.created_at) === 'warning').length;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const processedToday = activeRequests.filter(r => 
+        (r.status === 'APPROVED' || r.status === 'REJECTED') && 
+        r.approved_at && 
+        r.approved_at.startsWith(todayStr)
+    ).length;
 
     const handleLongPressStart = (requestId: string, request: any) => {
         // 只有在待審核標籤下且未進入選擇模式時才處理長按
@@ -284,7 +317,8 @@ const EmployeeApprovalsPage: React.FC = () => {
                 const result = await requestService.batchUpdateRequestStatus(
                     leaveIds,
                     status,
-                    employee.id
+                    employee.id,
+                    comment
                 );
                 totalSucceeded += result.succeeded;
                 totalFailed += result.failed;
@@ -369,9 +403,30 @@ const EmployeeApprovalsPage: React.FC = () => {
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">審核差勤</h1>
-                <p className="text-slate-500 text-sm font-medium mt-1">目前有 <span className="text-blue-600 font-black">{allRequests.filter(r => r.status === 'PENDING' || r.status === 'WITHDRAW_PENDING').length}</span> 筆待處理申請</p>
+                <p className="text-slate-500 text-sm font-medium mt-1">
+                    目前有 <span className="text-blue-600 font-black">{pendingTotal}</span> 筆待處理申請
+                </p>
             </div>
 
+            {/* 審核儀表板統計 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-1">
+                    <span className="text-slate-500 font-bold text-sm">待處理總數</span>
+                    <span className="text-2xl font-black text-slate-900">{pendingTotal}</span>
+                </div>
+                <div className="bg-red-50 p-4 rounded-2xl border border-red-100 shadow-sm flex flex-col gap-1">
+                    <span className="text-red-600 font-bold text-sm">逾時案件 (72h+)</span>
+                    <span className="text-2xl font-black text-red-600">{overdueTotal}</span>
+                </div>
+                <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 shadow-sm flex flex-col gap-1">
+                    <span className="text-amber-600 font-bold text-sm">緊急案件 (48h+)</span>
+                    <span className="text-2xl font-black text-amber-600">{warningTotal}</span>
+                </div>
+                <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 shadow-sm flex flex-col gap-1">
+                    <span className="text-emerald-600 font-bold text-sm">今日已處理</span>
+                    <span className="text-2xl font-black text-emerald-600">{processedToday}</span>
+                </div>
+            </div>
 
             {/* Filter Tabs */}
             <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -397,6 +452,51 @@ const EmployeeApprovalsPage: React.FC = () => {
                         </span>
                     </button>
                 ))}
+            </div>
+
+            {/* 進階篩選列 */}
+            <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-slate-600">申請日期:</span>
+                    <input 
+                        type="date" 
+                        value={startDate} 
+                        onChange={e => setStartDate(e.target.value)}
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                    <span className="text-slate-400">-</span>
+                    <input 
+                        type="date" 
+                        value={endDate} 
+                        onChange={e => setEndDate(e.target.value)}
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                </div>
+                
+                {filter === 'PENDING' && (
+                    <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+                        <input 
+                            type="checkbox" 
+                            checked={showUrgentOnly}
+                            onChange={e => setShowUrgentOnly(e.target.checked)}
+                            className="w-4 h-4 rounded border-slate-300 text-red-500 focus:ring-red-500/20"
+                        />
+                        <span className="text-sm font-bold text-red-600">只顯示緊急/逾時</span>
+                    </label>
+                )}
+                
+                {(startDate || endDate || showUrgentOnly) && (
+                    <button 
+                        onClick={() => {
+                            setStartDate('');
+                            setEndDate('');
+                            setShowUrgentOnly(false);
+                        }}
+                        className="text-xs font-bold text-slate-500 hover:text-slate-700 underline"
+                    >
+                        清除篩選
+                    </button>
+                )}
             </div>
 
             {/* 批量操作工具列 */}
@@ -571,6 +671,16 @@ const EmployeeApprovalsPage: React.FC = () => {
                                                     {request.__type === 'LEAVE' && request.requires_chairman_approval && request.supervisor_approved_at && (
                                                         <span className="px-2 py-0.5 bg-blue-100 text-blue-600 text-[10px] rounded-full font-black border border-blue-200">
                                                             呈理事長簽核
+                                                        </span>
+                                                    )}
+                                                    {request.status === 'PENDING' && getSlaStatus(request.created_at) === 'overdue' && (
+                                                        <span className="px-2 py-0.5 bg-red-100 text-red-600 text-[10px] rounded-full font-black border border-red-200" title="逾時審核">
+                                                            逾時
+                                                        </span>
+                                                    )}
+                                                    {request.status === 'PENDING' && getSlaStatus(request.created_at) === 'warning' && (
+                                                        <span className="px-2 py-0.5 bg-amber-100 text-amber-600 text-[10px] rounded-full font-black border border-amber-200" title="即將逾期">
+                                                            緊急
                                                         </span>
                                                     )}
                                                 </div>

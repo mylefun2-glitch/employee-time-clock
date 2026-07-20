@@ -269,7 +269,8 @@ export const requestService = {
     async updateRequestStatus(
         requestId: string,
         status: RequestStatus,
-        approverId?: string
+        approverId?: string,
+        comment?: string
     ): Promise<{ success: boolean; error?: string }> {
         try {
             // 先獲取申請資訊，確認是否包含 car_id 和是否需要理事長審核
@@ -294,6 +295,9 @@ export const requestService = {
             }
 
             const updates: any = {};
+            if (comment !== undefined) {
+                updates.review_comment = comment;
+            }
 
             // 處理拒絕狀態：無論哪一層審核拒絕，都直接設為 REJECTED
             if (status === RequestStatus.REJECTED) {
@@ -435,7 +439,8 @@ export const requestService = {
     async batchUpdateRequestStatus(
         requestIds: string[],
         status: RequestStatus,
-        approverId?: string
+        approverId?: string,
+        comment?: string
     ): Promise<{
         success: boolean;
         total: number;
@@ -456,7 +461,7 @@ export const requestService = {
 
             // 使用 Promise.allSettled 並行處理所有請求
             const results = await Promise.allSettled(
-                requestIds.map(id => this.updateRequestStatus(id, status, approverId))
+                requestIds.map(id => this.updateRequestStatus(id, status, approverId, comment))
             );
 
             // 統計結果
