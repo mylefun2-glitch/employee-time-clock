@@ -23,3 +23,21 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Temporary deploy and test scripts
+*.cjs
+check*.ts
+diag*.ts
+test*.ts
+backfill*.ts
+cleanup*.ts
+restore*.ts
+surgical*.ts
+sync*.ts
+verify*.ts
+find*.ts
+req.ts
+payroll/server/
+test_insurance.js
+
+

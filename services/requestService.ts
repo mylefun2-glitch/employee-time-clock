@@ -238,6 +238,31 @@ export const requestService = {
     },
 
     /**
+     * 更新請假申請的職務代理人
+     */
+    async updateDeputy(
+        requestId: string,
+        deputyId: string | null
+    ): Promise<{ success: boolean; error?: string }> {
+        try {
+            const { error } = await supabase
+                .from('leave_requests')
+                .update({ deputy_id: deputyId })
+                .eq('id', requestId);
+
+            if (error) {
+                console.error('Error updating deputy:', error);
+                return { success: false, error: error.message };
+            }
+
+            return { success: true };
+        } catch (err: any) {
+            console.error('Unexpected error updating deputy:', err);
+            return { success: false, error: err.message || '更新職務代理人失敗' };
+        }
+    },
+
+    /**
      * 更新請假申請狀態（核准/拒絕）
      * 支援多層級審核：主管 -> 理事長
      */

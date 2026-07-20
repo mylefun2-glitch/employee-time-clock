@@ -6,6 +6,7 @@ import LoadingScreen from './components/LoadingScreen';
 
 // 動態匯入頁面與佈局 (Code Splitting)
 const KioskPage = lazy(() => import('./pages/KioskPage'));
+const FaceKioskPage = lazy(() => import('./pages/FaceKioskPage'));
 const LoginPage = lazy(() => import('./pages/admin/LoginPage'));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const DashboardPage = lazy(() => import('./pages/admin/DashboardPage'));
@@ -40,6 +41,7 @@ const App: React.FC = () => {
             <Routes>
               {/* Public Kiosk Route */}
               <Route path="/" element={<KioskPage />} />
+              <Route path="/face" element={<FaceKioskPage />} />
 
               {/* Admin Routes */}
               <Route path="/admin/login" element={<LoginPage />} />

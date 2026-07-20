@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Download, Upload, Plus } from 'lucide-react';
 import { requestService } from '../../services/requestService';
+import { supabase } from '../../lib/supabase';
 import { LeaveRequest, RequestStatus } from '../../types';
 import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 import EmployeeSelectModal from '../../components/admin/EmployeeSelectModal';
@@ -23,6 +24,14 @@ const RequestsPage: React.FC = () => {
     const [isEmployeeSelectOpen, setIsEmployeeSelectOpen] = useState(false);
     const [selectedEmployeeIdForRequest, setSelectedEmployeeIdForRequest] = useState<string | null>(null);
 
+    // 修改代理人狀態
+    const [showDeputyEdit, setShowDeputyEdit] = useState(false);
+    const [deputyEditRequestId, setDeputyEditRequestId] = useState<string | null>(null);
+    const [deputyEditCurrentName, setDeputyEditCurrentName] = useState<string>('');
+    const [deputyEmployees, setDeputyEmployees] = useState<any[]>([]);
+    const [selectedNewDeputyId, setSelectedNewDeputyId] = useState<string>('');
+    const [isUpdatingDeputy, setIsUpdatingDeputy] = useState(false);
+
     // 表格標題篩選狀態
     const [columnFilters, setColumnFilters] = useState<{
         employee: string[];
@@ -30,12 +39,14 @@ const RequestsPage: React.FC = () => {
         leaveType: string[];
         status: RequestStatus[];
         hasCar: string[];
+        deputy: string[];
     }>({
         employee: [],
         department: [],
         leaveType: [],
         status: [],
-        hasCar: []
+        hasCar: [],
+        deputy: []
     });
 
     useEffect(() => {
@@ -167,6 +178,53 @@ const RequestsPage: React.FC = () => {
         }
     };
 
+    // 打開修改代理人 Modal
+    const openDeputyEdit = async (request: any) => {
+        setDeputyEditRequestId(request.id);
+        setDeputyEditCurrentName(request.deputy?.name || '未指定');
+        setSelectedNewDeputyId(request.deputy_id || '');
+
+        // 載入所有活動員工（排除申請人本人）
+        try {
+            const { data } = await supabase
+                .from('employees')
+                .select('id, name, department')
+                .eq('is_active', true)
+                .neq('id', request.employee_id || '')
+                .order('name');
+            setDeputyEmployees(data || []);
+        } catch (err) {
+            console.error('Error loading employees for deputy edit:', err);
+            setDeputyEmployees([]);
+        }
+
+        setShowDeputyEdit(true);
+    };
+
+    // 執行修改代理人
+    const handleUpdateDeputy = async () => {
+        if (!deputyEditRequestId) return;
+
+        setIsUpdatingDeputy(true);
+        try {
+            const deputyId = (selectedNewDeputyId && selectedNewDeputyId !== 'NONE') ? selectedNewDeputyId : null;
+            const result = await requestService.updateDeputy(deputyEditRequestId, deputyId);
+
+            if (result.success) {
+                alert('職務代理人已更新！');
+                setShowDeputyEdit(false);
+                setDeputyEditRequestId(null);
+                await loadRequests();
+            } else {
+                alert(`更新失敗：${result.error}`);
+            }
+        } catch (err: any) {
+            alert('更新代理人時發生錯誤');
+        } finally {
+            setIsUpdatingDeputy(false);
+        }
+    };
+
     const getStatusBadge = (status: RequestStatus) => {
         const styles = {
             [RequestStatus.PENDING]: 'bg-yellow-100 text-yellow-800',
@@ -234,9 +292,12 @@ const RequestsPage: React.FC = () => {
             columnFilters.status.includes(req.status);
         const hasCarMatch = columnFilters.hasCar.length === 0 ||
             columnFilters.hasCar.includes((req as any).car ? '有' : '無');
+        const deputyName = ((req as any).deputy?.name || '未指定').trim();
+        const deputyMatch = columnFilters.deputy.length === 0 ||
+            columnFilters.deputy.map(v => v.trim()).includes(deputyName);
 
         return statusMatch && deptMatch && employeeMatch && deptColumnMatch &&
-            leaveTypeMatch && statusColumnMatch && hasCarMatch;
+            leaveTypeMatch && statusColumnMatch && hasCarMatch && deputyMatch;
     });
 
     // 計算各部門的申請數量
@@ -600,6 +661,14 @@ const RequestsPage: React.FC = () => {
                                     onChange={(values) => setColumnFilters({ ...columnFilters, hasCar: values })}
                                     className="w-16"
                                 />
+                                <TableHeaderFilter
+                                    columnKey="deputy"
+                                    label="代理人"
+                                    values={requests.map((r: any) => r.deputy?.name || '未指定')}
+                                    selectedValues={columnFilters.deputy}
+                                    onChange={(values) => setColumnFilters({ ...columnFilters, deputy: values })}
+                                    className="w-20"
+                                />
                                 <th className="px-2.5 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest min-w-[120px] max-w-[180px]">事由</th>
                                 <TableHeaderFilter<RequestStatus>
                                     columnKey="status"
@@ -626,7 +695,7 @@ const RequestsPage: React.FC = () => {
                         <tbody className="bg-white divide-y divide-slate-50">
                             {filteredRequests.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                                    <td colSpan={12} className="px-6 py-12 text-center text-slate-500">
                                         {requests.length === 0 ? '目前沒有申請記錄' : '沒有符合篩選條件的申請'}
                                     </td>
                                 </tr>
@@ -676,6 +745,24 @@ const RequestsPage: React.FC = () => {
                                                 ) : (
                                                     <span className="text-slate-300">-</span>
                                                 )}
+                                            </td>
+                                            <td className="px-2.5 py-4 whitespace-nowrap text-sm">
+                                                <div className="flex items-center gap-1">
+                                                    {request.deputy ? (
+                                                        <span className="font-bold text-slate-700">{request.deputy.name}</span>
+                                                    ) : (
+                                                        <span className="text-slate-300">未指定</span>
+                                                    )}
+                                                    {request.status !== RequestStatus.WITHDRAWN && (
+                                                        <button
+                                                            onClick={() => openDeputyEdit(request)}
+                                                            className="ml-1 p-0.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-all"
+                                                            title="變更代理人"
+                                                        >
+                                                            <span className="material-symbols-outlined text-sm">edit</span>
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-2.5 py-4 text-sm text-slate-500 max-w-[150px] truncate">
                                                 {request.reason}
@@ -761,6 +848,73 @@ const RequestsPage: React.FC = () => {
                     }}
                     isAdmin={true}
                 />
+            )}
+
+            {/* Deputy Edit Modal */}
+            {showDeputyEdit && (
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                    onClick={() => setShowDeputyEdit(false)}
+                >
+                    <div
+                        className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600 border border-purple-100">
+                                <span className="material-symbols-outlined text-3xl">person_pin</span>
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-slate-900">變更職務代理人</h3>
+                                <p className="text-xs text-slate-500 font-medium">目前：{deputyEditCurrentName}</p>
+                            </div>
+                        </div>
+
+                        <div className="mb-6">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">新代理人</label>
+                            <div className="relative">
+                                <select
+                                    value={selectedNewDeputyId}
+                                    onChange={(e) => setSelectedNewDeputyId(e.target.value)}
+                                    className="w-full p-3 pl-10 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:ring-2 focus:ring-purple-200 focus:border-purple-400 outline-none transition-all font-bold appearance-none cursor-pointer"
+                                >
+                                    <option value="">請選擇代理人</option>
+                                    <option value="NONE">無代理人</option>
+                                    {deputyEmployees.map((emp) => (
+                                        <option key={emp.id} value={emp.id}>
+                                            {emp.name} - {emp.department}
+                                        </option>
+                                    ))}
+                                </select>
+                                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">person_pin</span>
+                                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">expand_more</span>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowDeputyEdit(false)}
+                                className="flex-1 px-6 py-3.5 bg-slate-100 text-slate-700 rounded-xl font-black hover:bg-slate-200 transition-colors"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleUpdateDeputy}
+                                disabled={isUpdatingDeputy || (!selectedNewDeputyId)}
+                                className="flex-1 px-6 py-3.5 bg-purple-600 text-white rounded-xl font-black hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {isUpdatingDeputy ? (
+                                    <>
+                                        <span className="animate-spin material-symbols-outlined text-sm">progress_activity</span>
+                                        更新中...
+                                    </>
+                                ) : (
+                                    '確認變更'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div >
     );
