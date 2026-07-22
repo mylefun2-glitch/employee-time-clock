@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import CompanyManagementPage from './CompanyManagementPage';
 import LeaveTypesPage from './LeaveTypesPage';
-import { Settings, Building2, CalendarDays } from 'lucide-react';
+import HolidayManagementPage from './HolidayManagementPage';
+import { Settings, Building2, CalendarDays, PartyPopper } from 'lucide-react';
 
 const SystemSettingsPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'company' | 'leave-types'>('company');
+    const [activeTab, setActiveTab] = useState<'company' | 'leave-types' | 'holidays'>('company');
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto">
@@ -16,7 +17,7 @@ const SystemSettingsPage: React.FC = () => {
                         系統設定
                     </h1>
                     <p className="mt-1 text-sm text-slate-500 font-medium">
-                        管理公司基本資訊、辦公地點與差勤假別
+                        管理公司基本資訊、辦公地點、差勤假別與國定假日
                     </p>
                 </div>
             </div>
@@ -45,12 +46,24 @@ const SystemSettingsPage: React.FC = () => {
                     <CalendarDays className="h-4 w-4" />
                     假別設定
                 </button>
+                <button
+                    onClick={() => setActiveTab('holidays')}
+                    className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition-all text-sm whitespace-nowrap ${
+                        activeTab === 'holidays'
+                            ? 'bg-blue-50 text-blue-700 shadow-sm'
+                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                    }`}
+                >
+                    <PartyPopper className="h-4 w-4" />
+                    假日管理
+                </button>
             </div>
 
             {/* 頁籤內容 */}
             <div className="animate-in fade-in duration-300">
                 {activeTab === 'company' && <CompanyManagementPage isTabMode={true} />}
                 {activeTab === 'leave-types' && <LeaveTypesPage isTabMode={true} />}
+                {activeTab === 'holidays' && <HolidayManagementPage isTabMode={true} />}
             </div>
         </div>
     );
