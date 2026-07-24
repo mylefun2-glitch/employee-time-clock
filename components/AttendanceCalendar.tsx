@@ -514,9 +514,9 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
     };
 
     return (
-        <div className="space-y-6 print:space-y-4 print:p-0">
-            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm print:shadow-none print:border-none print:p-0">
-                <div className="flex flex-row items-center justify-between w-full gap-4">
+        <div className="w-full space-y-6 print:space-y-4 print:p-0">
+            <div className="w-full bg-white p-4 sm:p-6 rounded-[2rem] border border-slate-100 shadow-sm print:shadow-none print:border-none print:p-0">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-3 sm:gap-4">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center print:hidden">
                             <CalendarIcon className="text-blue-600 h-5 w-5" />
@@ -531,7 +531,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 print:hidden">
+                    <div className="flex flex-wrap items-center gap-2 print:hidden w-full sm:w-auto">
                         <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
                             <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600">
                                 <ChevronLeft className="h-4 w-4" />
@@ -570,22 +570,22 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 </div>
             </div>
 
-            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-lg overflow-hidden">
-                <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50">
+            <div className="w-full bg-white rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-100 shadow-lg overflow-x-auto">
+                <div className="min-w-[560px] grid grid-cols-7 border-b border-slate-100 bg-slate-50/50">
                     {weekDays.map(day => (
-                        <div key={day} className="py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest border-r last:border-r-0 border-slate-100">
+                        <div key={day} className="py-2 sm:py-4 text-center text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest border-r last:border-r-0 border-slate-100">
                             {day}
                         </div>
                     ))}
                 </div>
-                <div className="divide-y divide-slate-100">
+                <div className="min-w-[560px] divide-y divide-slate-100">
                     {weeks.map((week, weekIndex) => (
                         <div key={`week-${weekIndex}`} className="grid grid-cols-7">
                             {week.map(day => {
                                 const isCurrentMonth = day.getMonth() === currentDate.getMonth();
                                 if (!isCurrentMonth) {
                                     return (
-                                        <div key={day.toISOString()} className="min-h-[80px] bg-slate-50/20 border-r last:border-r-0 border-slate-100" />
+                                        <div key={day.toISOString()} className="min-h-[60px] sm:min-h-[80px] bg-slate-50/20 border-r last:border-r-0 border-slate-100" />
                                     );
                                 }
 
@@ -622,7 +622,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                                     <div
                                         key={dateKey}
                                         onClick={() => handleDateClick(day)}
-                                        className={`min-h-[120px] p-3 border-r last:border-r-0 border-slate-100 flex flex-col transition-colors relative group 
+                                        className={`min-h-[90px] sm:min-h-[120px] p-1.5 sm:p-3 border-r last:border-r-0 border-slate-100 flex flex-col transition-colors relative group 
                                             ${!readOnly ? 'cursor-pointer hover:bg-slate-50' : ''}
                                             ${isRestDay ? (holidayName || (override && !override.work_start_time) ? 'bg-rose-50/40' : isSaturday ? 'bg-amber-50/40' : 'bg-slate-50/60') : ''}
                                             ${override?.work_start_time ? 'bg-blue-50/30' : ''}`}

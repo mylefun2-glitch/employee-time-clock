@@ -124,8 +124,8 @@ const FourDayWorkweekList: React.FC<FourDayWorkweekListProps> = ({ employeeId })
         <div className="space-y-6">
             <div className="flex justify-between items-center px-6">
                 <div>
-                    <h2 className="text-lg font-black text-slate-800">週休三日期間管理</h2>
-                    <p className="text-sm font-bold text-slate-500 mt-1">設定的「週休三日」期間將於計算特休餘額時生效。該期間內依據比例：0.8 折算員工能獲得的年資天數。</p>
+                    <h2 className="text-lg font-black text-slate-800">幸福日期間管理</h2>
+                    <p className="text-sm font-bold text-slate-500 mt-1">設定的「幸福日」期間將於計算特休餘額時生效。該期間內依日數比例以 8 折折算員工能獲得的年資天數。</p>
                 </div>
             </div>
 
@@ -196,7 +196,7 @@ const FourDayWorkweekList: React.FC<FourDayWorkweekListProps> = ({ employeeId })
                             {periods.length === 0 ? (
                                 <div className="p-8 text-center text-slate-500">
                                     <span className="material-symbols-outlined text-4xl mb-2 text-slate-300">calendar_add_on</span>
-                                    <p>目前沒有任何週休三日期間設定</p>
+                                    <p>目前沒有任何幸福日期間設定</p>
                                 </div>
                             ) : (
                                 <table className="w-full text-left border-collapse">
