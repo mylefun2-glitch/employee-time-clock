@@ -503,7 +503,7 @@ const AttendanceCalendarPage: React.FC = () => {
             rawDayLeaves.forEach(leave => {
                 if (leave.status?.toUpperCase() !== 'APPROVED') return;
                 const typeName = leave.leave_type?.name || '';
-                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|派案|個督|Official|Business|Visit|Meeting|Training|OT/i;
+                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|派案|個督|巡工|開案|Official|Business|Visit|Meeting|Training|OT/i;
                 const leaveKeywords = /請假|特休|事假|病假|補休|Holiday|Annual|Leave|Sick|Personal/i;
                 const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
 
@@ -568,6 +568,15 @@ const AttendanceCalendarPage: React.FC = () => {
 
             const schedIn = getDayTime(schedule.work_start_time, day)!;
             const schedOut = getDayTime(schedule.work_end_time, day)!;
+
+            // 計算公務差勤延伸至班表下班時間之後的時數（可用於抵銷彈性偏移）
+            let workExtensionAfterSchedOutMs = 0;
+            workIntervals.forEach(iv => {
+                if (iv.end.getTime() > schedOut.getTime()) {
+                    const overStart = Math.max(iv.start.getTime(), schedOut.getTime());
+                    workExtensionAfterSchedOutMs += (iv.end.getTime() - overStart);
+                }
+            });
 
             // 2. 收集打卡區間並計算當天的彈性偏移量 flexOffsetMs
             let flexOffsetMs = 0;
@@ -695,7 +704,7 @@ const AttendanceCalendarPage: React.FC = () => {
                 if (leave.status?.toUpperCase() !== 'APPROVED') return;
                 
                 const typeName = leave.leave_type?.name || '';
-                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|派案|個督|Official|Business|Visit|Meeting|Training|OT/i;
+                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|派案|個督|巡工|開案|Official|Business|Visit|Meeting|Training|OT/i;
                 const leaveKeywords = /請假|特休|事假|病假|補休|Holiday|Annual|Leave|Sick|Personal/i;
                 const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
 
@@ -805,7 +814,12 @@ const AttendanceCalendarPage: React.FC = () => {
             const targetAgreedHours = Math.max(0, baseAgreedHours - totalNonWorkLeaveHours);
 
             if (targetAgreedHours > 0) {
-                if (finalHours >= targetAgreedHours - 0.5 && finalHours < targetAgreedHours) {
+                // 彈性上班時，容差需扣除「未補回」的彈性時數
+                // 公務差勤（公出/出差等）延伸至下班後的時間可抵銷彈性偏移
+                const netUncoveredFlexMs = Math.max(0, flexOffsetMs - workExtensionAfterSchedOutMs);
+                const netUncoveredFlexHours = netUncoveredFlexMs / (1000 * 60 * 60);
+                const adjustedTolerance = Math.max(0, 0.5 - netUncoveredFlexHours);
+                if (finalHours >= targetAgreedHours - adjustedTolerance && finalHours < targetAgreedHours) {
                     finalHours = targetAgreedHours;
                 }
                 if (finalHours > targetAgreedHours && finalHours <= targetAgreedHours + 0.5) {
