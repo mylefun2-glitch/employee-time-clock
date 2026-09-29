@@ -8,11 +8,13 @@ import TimeInput24h from '../../components/ui/TimeInput24h';
 import { sortByNameStroke } from '../../lib/nameStrokeSort';
 import { deleteAttendanceLog, deleteAttendanceLogs, createAttendanceLog, updateAttendanceLog, importAttendanceLogs, getEmployeeSchedules, getMonthlySalarySchedules, importMonthlySalarySchedules, MonthlySalarySchedule, updateMonthlySalarySchedule, deleteMonthlySalarySchedule } from '../../services/admin';
 import { isNationalHoliday } from '../../lib/holidays';
+import { companyHolidayService } from '../../services/companyHolidayService';
 import ModificationRequestForm from '../../components/ModificationRequestForm';
 import LeaveRequestForm from '../../components/LeaveRequestForm';
 import { calculateLeaveHoursDetailed, calculateOTHours } from '../../lib/leaveUtils';
 import { formatDateTimeRange } from '../../lib/hrUtils';
 import { shiftService } from '../../services/shiftService';
+import { importantActivityService, ImportantActivity } from '../../services/importantActivityService';
 import { Employee, CheckType, EmployeeSchedule, ShiftRequest, EmployeeDayOverride, DayOverrideType } from '../../types';
 
 interface AttendanceLog {
@@ -61,7 +63,9 @@ const AttendanceCalendarPage: React.FC = () => {
     const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
     const [shiftRequests, setShiftRequests] = useState<ShiftRequest[]>([]);
     const [dayOverrides, setDayOverrides] = useState<EmployeeDayOverride[]>([]);
+    const [companyHolidays, setCompanyHolidays] = useState<{ holiday_date: string; name: string; is_active: boolean }[]>([]);
     const [historicalSchedules, setHistoricalSchedules] = useState<EmployeeSchedule[]>([]);
+    const [importantActivities, setImportantActivities] = useState<ImportantActivity[]>([]);
     const [loading, setLoading] = useState(false);
 
     // Deletion State
@@ -170,6 +174,9 @@ const AttendanceCalendarPage: React.FC = () => {
             setLogs(logsData || []);
             setLeaves(leavesData || []);
 
+            const holidays = await companyHolidayService.getAll();
+            setCompanyHolidays((holidays || []).filter(h => h.is_active));
+
             // Fetch shift requests
             const shifts = await shiftService.getEmployeeShiftRequests(selectedEmployeeId);
             setShiftRequests(shifts || []);
@@ -181,6 +188,15 @@ const AttendanceCalendarPage: React.FC = () => {
                 format(endOfMonth(currentDate), 'yyyy-MM-dd')
             );
             setDayOverrides(overrides || []);
+
+            const employee = employees.find(e => e.id === selectedEmployeeId);
+            const employeeDepartment = employee?.department || (await supabase.from('employees').select('department').eq('id', selectedEmployeeId).single()).data?.department || '';
+            const activities = await importantActivityService.getForEmployee(
+                employeeDepartment,
+                format(startOfMonth(currentDate), 'yyyy-MM-dd'),
+                format(endOfMonth(currentDate), 'yyyy-MM-dd')
+            );
+            setImportantActivities(activities);
 
             // Fetch historical schedules
             const schedules = await getEmployeeSchedules(selectedEmployeeId);
@@ -462,11 +478,12 @@ const AttendanceCalendarPage: React.FC = () => {
     }, [weeks, currentDate]);
 
     const monthData = useMemo(() => {
-        const data: { [key: string]: { logs: AttendanceLog[], leaves: LeaveRequest[], shifts: ShiftRequest[], override?: EmployeeDayOverride, hours: number, grossHours: number, breakHours: number, holidayName?: string } } = {};
+        const data: { [key: string]: { logs: AttendanceLog[], leaves: LeaveRequest[], shifts: ShiftRequest[], activities: ImportantActivity[], override?: EmployeeDayOverride, hours: number, grossHours: number, breakHours: number, holidayName?: string } } = {};
 
         days.forEach(day => {
             const dateKey = format(day, 'yyyy-MM-dd');
-            const holidayName = isNationalHoliday(day);
+            const customHoliday = companyHolidays.find(h => h.holiday_date === dateKey);
+            const holidayName = customHoliday?.name || isNationalHoliday(day);
             const dayOverride = dayOverrides.find(o => o.override_date === dateKey);
 
             const dayLogs = logs.filter(log => isSameDay(parseISO(log.timestamp), day))
@@ -478,6 +495,7 @@ const AttendanceCalendarPage: React.FC = () => {
                 s.new_rest_date === dateKey || 
                 s.target_date === dateKey
             );
+            const dayActivities = importantActivities.filter(activity => activity.activity_date === dateKey);
 
             const rawDayLeaves = leaves.filter(leave => {
                 const s = parseISO(leave.start_date);
@@ -568,15 +586,6 @@ const AttendanceCalendarPage: React.FC = () => {
 
             const schedIn = getDayTime(schedule.work_start_time, day)!;
             const schedOut = getDayTime(schedule.work_end_time, day)!;
-
-            // 計算公務差勤延伸至班表下班時間之後的時數（可用於抵銷彈性偏移）
-            let workExtensionAfterSchedOutMs = 0;
-            workIntervals.forEach(iv => {
-                if (iv.end.getTime() > schedOut.getTime()) {
-                    const overStart = Math.max(iv.start.getTime(), schedOut.getTime());
-                    workExtensionAfterSchedOutMs += (iv.end.getTime() - overStart);
-                }
-            });
 
             // 2. 收集打卡區間並計算當天的彈性偏移量 flexOffsetMs
             let flexOffsetMs = 0;
@@ -814,12 +823,7 @@ const AttendanceCalendarPage: React.FC = () => {
             const targetAgreedHours = Math.max(0, baseAgreedHours - totalNonWorkLeaveHours);
 
             if (targetAgreedHours > 0) {
-                // 彈性上班時，容差需扣除「未補回」的彈性時數
-                // 公務差勤（公出/出差等）延伸至下班後的時間可抵銷彈性偏移
-                const netUncoveredFlexMs = Math.max(0, flexOffsetMs - workExtensionAfterSchedOutMs);
-                const netUncoveredFlexHours = netUncoveredFlexMs / (1000 * 60 * 60);
-                const adjustedTolerance = Math.max(0, 0.5 - netUncoveredFlexHours);
-                if (finalHours >= targetAgreedHours - adjustedTolerance && finalHours < targetAgreedHours) {
+                if (finalHours >= targetAgreedHours - 0.5 && finalHours < targetAgreedHours) {
                     finalHours = targetAgreedHours;
                 }
                 if (finalHours > targetAgreedHours && finalHours <= targetAgreedHours + 0.5) {
@@ -838,13 +842,14 @@ const AttendanceCalendarPage: React.FC = () => {
                 grossHours: parseFloat((grossTotalMs / (1000 * 60 * 60)).toFixed(2)),
                 breakHours: parseFloat((breakTotalMs / (1000 * 60 * 60)).toFixed(2)),
                 shifts: dayShifts || [],
+                activities: dayActivities,
                 override: dayOverride,
                 holidayName 
             };
         });
 
         return data;
-    }, [days, logs, leaves, shiftRequests, dayOverrides, historicalSchedules]);
+    }, [days, logs, leaves, shiftRequests, importantActivities, dayOverrides, historicalSchedules, companyHolidays]);
 
     const departments = useMemo(() => {
         const deps = Array.from(new Set(employees.map(emp => emp.department))).sort();
@@ -1629,6 +1634,14 @@ const AttendanceCalendarPage: React.FC = () => {
                                         </div>
 
                                         <div className="flex-1 space-y-1.5">
+                                            {/* 共同活動 */}
+                                            {dayInfo?.activities?.map(activity => (
+                                                <div key={activity.id} className="px-2 py-1 rounded-md text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200 flex flex-col leading-tight" title={`${activity.title}｜${activity.start_time.slice(0, 5)}–${activity.end_time.slice(0, 5)}`}>
+                                                    <span className="truncate">📌 {activity.title}</span>
+                                                    <span className="text-[8px] font-bold">{activity.start_time.slice(0, 5)}–{activity.end_time.slice(0, 5)}</span>
+                                                </div>
+                                            ))}
+
                                             {/* Logs */}
                                             {dayInfo?.logs?.length > 0 && (
                                                 <div className="space-y-1">
@@ -2159,6 +2172,16 @@ const AttendanceCalendarPage: React.FC = () => {
                                 >
                                     <FileText className="h-5 w-5" />
                                     代理申請差勤 (請假/公出/加班)
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowQuickActionMenu(false);
+                                        navigate(`/admin/important-activities?date=${format(selectedDate, 'yyyy-MM-dd')}`);
+                                    }}
+                                    className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black shadow-lg shadow-amber-100 hover:bg-amber-600 transition-all flex items-center justify-center gap-3"
+                                >
+                                    <CalendarIcon className="h-5 w-5" />
+                                    新增共同活動
                                 </button>
                                 <button
                                     onClick={() => {

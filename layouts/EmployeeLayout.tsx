@@ -74,7 +74,7 @@ const EmployeeLayout: React.FC = () => {
         { path: '/employee/dashboard', icon: 'dashboard', label: '儀表板' },
         { path: '/employee/profile', icon: 'person', label: '個人資訊' },
         { path: '/employee/attendance', icon: 'event_note', label: '差勤統計' },
-        { path: '/employee/calendar', icon: 'calendar_month', label: '個人月曆' },
+        { path: '/employee/calendar', icon: 'calendar_month', label: '出勤月曆' },
         { path: '/employee/resource-calendar', icon: 'event_available', label: '資源日曆' },
         { path: '/employee/requests', icon: 'description', label: '申請記錄' },
     ];
@@ -83,6 +83,7 @@ const EmployeeLayout: React.FC = () => {
     if (employee.is_supervisor) {
         navItems.push({ path: '/employee/approvals', icon: 'rule', label: '審核差勤', badge: pendingApprovalCount });
         navItems.push({ path: '/employee/team-leaves', icon: 'group', label: '團隊差勤' });
+        navItems.push({ path: '/employee/important-activities', icon: 'event', label: '共同活動' });
     }
 
     // 林懇專屬：公務車借用審核

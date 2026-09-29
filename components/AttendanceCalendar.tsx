@@ -11,6 +11,8 @@ import { getEmployeeInfo } from '../services/employee';
 import { calculateLeaveHoursDetailed, calculateOTHours } from '../lib/leaveUtils';
 import { formatDateTimeRange } from '../lib/hrUtils';
 import { getEmployeeSchedules } from '../services/admin';
+import { companyHolidayService } from '../services/companyHolidayService';
+import { importantActivityService, ImportantActivity } from '../services/importantActivityService';
 import { shiftService } from '../services/shiftService';
 import { CheckType, Employee, EmployeeSchedule, EmployeeDayOverride, ShiftRequest } from '../types';
 
@@ -39,9 +41,10 @@ interface LeaveRequest {
 interface AttendanceCalendarProps {
     targetEmployeeId: string;
     readOnly?: boolean;
+    onAddActivity?: (date: string) => void;
 }
 
-const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeId, readOnly = false }) => {
+const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeId, readOnly = false, onAddActivity }) => {
     const [targetEmployee, setTargetEmployee] = useState<Employee | null>(null);
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
     const [logs, setLogs] = useState<AttendanceLog[]>([]);
@@ -49,6 +52,8 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
     const [shiftRequests, setShiftRequests] = useState<ShiftRequest[]>([]);
     const [historicalSchedules, setHistoricalSchedules] = useState<EmployeeSchedule[]>([]);
     const [dayOverrides, setDayOverrides] = useState<EmployeeDayOverride[]>([]);
+    const [companyHolidays, setCompanyHolidays] = useState<{ holiday_date: string; name: string; is_active: boolean }[]>([]);
+    const [importantActivities, setImportantActivities] = useState<ImportantActivity[]>([]);
     const [loading, setLoading] = useState(false);
     const [showMakeupForm, setShowMakeupForm] = useState(false);
     const [selectedDateStr, setSelectedDateStr] = useState<string>('');
@@ -74,6 +79,28 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             fetchData();
         }
     }, [targetEmployeeId, currentDate]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const fetchActivities = async () => {
+            if (!targetEmployeeId) return;
+            try {
+                const employee = targetEmployee || await getEmployeeInfo(targetEmployeeId) as Employee;
+                const activities = await importantActivityService.getForEmployee(
+                    employee?.id || targetEmployeeId,
+                    employee?.department || '',
+                    format(startOfMonth(currentDate), 'yyyy-MM-dd'),
+                    format(endOfMonth(currentDate), 'yyyy-MM-dd')
+                );
+                if (!cancelled) setImportantActivities(activities);
+            } catch (err) {
+                console.error('Error fetching important activities:', err);
+                if (!cancelled) setImportantActivities([]);
+            }
+        };
+        fetchActivities();
+        return () => { cancelled = true; };
+    }, [targetEmployeeId, targetEmployee, currentDate]);
 
     const fetchEmployeeInfo = async () => {
         const info = await getEmployeeInfo(targetEmployeeId);
@@ -107,6 +134,10 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
 
             setLogs(logsData || []);
             setLeaves(leavesData || []);
+
+            // 取得公司層級停班日期，讓出勤月曆與後台設定同步
+            const holidays = await companyHolidayService.getAll();
+            setCompanyHolidays((holidays || []).filter(h => h.is_active));
 
             // 獲取挪移申請 (顯示標籤用)
             const shifts = await shiftService.getEmployeeShiftRequests(targetEmployeeId);
@@ -160,6 +191,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             logs: AttendanceLog[], 
             leaves: LeaveRequest[], 
             shifts: ShiftRequest[],
+            activities: ImportantActivity[],
             override?: EmployeeDayOverride,
             hours: number, 
             holidayName?: string 
@@ -168,7 +200,8 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
         days.forEach(day => {
             const dateStr = format(day, 'yyyy-MM-dd');
             const dateKey = dateStr;
-            const holidayName = isNationalHoliday(day);
+            const customHoliday = companyHolidays.find(h => h.holiday_date === dateStr);
+            const holidayName = customHoliday?.name || isNationalHoliday(day);
             const dayOverride = dayOverrides.find(o => o.override_date === dateStr);
             
             const dayLogs = logs.filter(log => isSameDay(parseISO(log.timestamp), day))
@@ -180,6 +213,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 s.new_rest_date === dateStr || 
                 s.target_date === dateStr
             );
+            const dayActivities = importantActivities.filter(activity => activity.activity_date === dateStr);
 
             const rawDayLeaves = leaves.filter(leave => {
                 const s = parseISO(leave.start_date);
@@ -202,7 +236,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             rawDayLeaves.forEach(leave => {
                 if (leave.status?.toUpperCase() !== 'APPROVED') return;
                 const typeName = leave.leave_type?.name || '';
-                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|派案|個督|巡工|開案|Official|Business|Visit|Meeting|Training|OT/i;
+                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|派案|個督|Official|Business|Visit|Meeting|Training|OT/i;
                 const leaveKeywords = /請假|特休|事假|病假|補休|Holiday|Annual|Leave|Sick|Personal/i;
                 const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
 
@@ -228,15 +262,6 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
 
             const schedIn = getDayTime(targetEmployee?.work_start_time || '08:00', day)!;
             const schedOut = getDayTime(targetEmployee?.work_end_time || '17:00', day)!;
-
-            // 計算公務差勤延伸至班表下班時間之後的時數（可用於抵銷彈性偏移）
-            let workExtensionAfterSchedOutMs = 0;
-            workIntervals.forEach(iv => {
-                if (iv.end.getTime() > schedOut.getTime()) {
-                    const overStart = Math.max(iv.start.getTime(), schedOut.getTime());
-                    workExtensionAfterSchedOutMs += (iv.end.getTime() - overStart);
-                }
-            });
 
             // 2. 收集打卡區間並計算當天的彈性偏移量 flexOffsetMs
             let flexOffsetMs = 0;
@@ -363,7 +388,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 if (leave.status?.toUpperCase() !== 'APPROVED') return;
                 
                 const typeName = leave.leave_type?.name || '';
-                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|派案|個督|巡工|開案|Official|Business|Visit|Meeting|Training|OT/i;
+                const workKeywords = /公出|家訪|出差|會議|加班|訓練|培訓|派案|個督|Official|Business|Visit|Meeting|Training|OT/i;
                 const leaveKeywords = /請假|特休|事假|病假|補休|Holiday|Annual|Leave|Sick|Personal/i;
                 const isWorkRelated = workKeywords.test(typeName) && !leaveKeywords.test(typeName);
 
@@ -451,12 +476,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             const targetAgreedHours = Math.max(0, baseAgreedHours - totalNonWorkLeaveHours);
 
             if (targetAgreedHours > 0) {
-                // 彈性上班時，容差需扣除「未補回」的彈性時數
-                // 公務差勤（公出/出差等）延伸至下班後的時間可抵銷彈性偏移
-                const netUncoveredFlexMs = Math.max(0, flexOffsetMs - workExtensionAfterSchedOutMs);
-                const netUncoveredFlexHours = netUncoveredFlexMs / (1000 * 60 * 60);
-                const adjustedTolerance = Math.max(0, 0.5 - netUncoveredFlexHours);
-                if (finalHours >= targetAgreedHours - adjustedTolerance && finalHours < targetAgreedHours) {
+                if (finalHours >= targetAgreedHours - 0.5 && finalHours < targetAgreedHours) {
                     finalHours = targetAgreedHours;
                 }
                 if (finalHours > targetAgreedHours && finalHours <= targetAgreedHours + 0.5) {
@@ -471,6 +491,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 logs: dayLogs, 
                 leaves: dayLeaves, 
                 shifts: dayShifts || [],
+                activities: dayActivities || [],
                 override: dayOverride,
                 hours: parseFloat(dayHours.toFixed(2)), 
                 holidayName 
@@ -478,7 +499,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
         });
 
         return data;
-    }, [days, logs, leaves, targetEmployee, dayOverrides, shiftRequests, historicalSchedules]);
+    }, [days, logs, leaves, targetEmployee, dayOverrides, shiftRequests, historicalSchedules, companyHolidays, importantActivities]);
 
     const totalMonthlyHours = Object.values(monthData).reduce((acc, curr) => acc + curr.hours, 0);
     const weekDays = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
@@ -528,16 +549,16 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
     };
 
     return (
-        <div className="w-full space-y-6 print:space-y-4 print:p-0">
-            <div className="w-full bg-white p-4 sm:p-6 rounded-[2rem] border border-slate-100 shadow-sm print:shadow-none print:border-none print:p-0">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-3 sm:gap-4">
+        <div className="space-y-6 print:space-y-4 print:p-0">
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm print:shadow-none print:border-none print:p-0">
+                <div className="flex flex-row items-center justify-between w-full gap-4">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center print:hidden">
                             <CalendarIcon className="text-blue-600 h-5 w-5" />
                         </div>
                         <div>
                             <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                                {readOnly ? `${targetEmployee?.name} 的出勤月曆` : '個人出勤月曆'}
+                                {readOnly ? `${targetEmployee?.name} 的出勤月曆` : '出勤月曆'}
                             </h1>
                             <div className="hidden print:block text-sm font-bold text-slate-600">
                                 {rocYear} 年 {monthStr} 月 | {targetEmployee?.name}
@@ -545,7 +566,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 print:hidden w-full sm:w-auto">
+                    <div className="flex items-center gap-2 print:hidden">
                         <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
                             <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600">
                                 <ChevronLeft className="h-4 w-4" />
@@ -584,22 +605,22 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 </div>
             </div>
 
-            <div className="w-full bg-white rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-100 shadow-lg overflow-x-auto">
-                <div className="min-w-[560px] grid grid-cols-7 border-b border-slate-100 bg-slate-50/50">
+            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-lg overflow-hidden">
+                <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50">
                     {weekDays.map(day => (
-                        <div key={day} className="py-2 sm:py-4 text-center text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest border-r last:border-r-0 border-slate-100">
+                        <div key={day} className="py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest border-r last:border-r-0 border-slate-100">
                             {day}
                         </div>
                     ))}
                 </div>
-                <div className="min-w-[560px] divide-y divide-slate-100">
+                <div className="divide-y divide-slate-100">
                     {weeks.map((week, weekIndex) => (
                         <div key={`week-${weekIndex}`} className="grid grid-cols-7">
                             {week.map(day => {
                                 const isCurrentMonth = day.getMonth() === currentDate.getMonth();
                                 if (!isCurrentMonth) {
                                     return (
-                                        <div key={day.toISOString()} className="min-h-[60px] sm:min-h-[80px] bg-slate-50/20 border-r last:border-r-0 border-slate-100" />
+                                        <div key={day.toISOString()} className="min-h-[80px] bg-slate-50/20 border-r last:border-r-0 border-slate-100" />
                                     );
                                 }
 
@@ -636,7 +657,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                                     <div
                                         key={dateKey}
                                         onClick={() => handleDateClick(day)}
-                                        className={`min-h-[90px] sm:min-h-[120px] p-1.5 sm:p-3 border-r last:border-r-0 border-slate-100 flex flex-col transition-colors relative group 
+                                        className={`min-h-[120px] p-3 border-r last:border-r-0 border-slate-100 flex flex-col transition-colors relative group 
                                             ${!readOnly ? 'cursor-pointer hover:bg-slate-50' : ''}
                                             ${isRestDay ? (holidayName || (override && !override.work_start_time) ? 'bg-rose-50/40' : isSaturday ? 'bg-amber-50/40' : 'bg-slate-50/60') : ''}
                                             ${override?.work_start_time ? 'bg-blue-50/30' : ''}`}
@@ -685,6 +706,18 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                                         </div>
 
                                         <div className="flex-1 space-y-1.5 overflow-hidden">
+                                            {/* 共同活動 */}
+                                            {dayInfo?.activities?.map(activity => (
+                                                <div
+                                                    key={activity.id}
+                                                    className="px-2 py-1 rounded-md text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200 flex flex-col leading-tight"
+                                                    title={`${activity.title}｜${activity.start_time.slice(0, 5)}–${activity.end_time.slice(0, 5)}`}
+                                                >
+                                                    <span className="truncate">📌 {activity.title}</span>
+                                                    <span className="text-[8px] font-bold">{activity.start_time.slice(0, 5)}–{activity.end_time.slice(0, 5)}</span>
+                                                </div>
+                                            ))}
+
                                             {/* 打卡紀錄 */}
                                             <div className="flex flex-col gap-1">
                                                 {dayInfo?.logs?.map(log => (
@@ -814,6 +847,19 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                                 <span className="material-symbols-outlined text-lg">event_note</span>
                                 發起差勤申請
                             </button>
+
+                            {onAddActivity && (
+                                <button
+                                    onClick={() => {
+                                        setShowDayMenu(false);
+                                        onAddActivity(selectedDateStr);
+                                    }}
+                                    className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black shadow-lg shadow-amber-100 hover:bg-amber-600 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined text-lg">event_upcoming</span>
+                                    新增共同活動
+                                </button>
+                            )}
 
                             <button
                                 onClick={() => setShowDayMenu(false)}

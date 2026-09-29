@@ -98,6 +98,7 @@ const EmployeeCalendarPage: React.FC = () => {
             <AttendanceCalendar 
                 targetEmployeeId={targetId} 
                 readOnly={!isSelf} 
+                onAddActivity={employee.is_supervisor && isSelf ? (date) => navigate(`/employee/important-activities?date=${date}`) : undefined}
             />
         </div>
     );

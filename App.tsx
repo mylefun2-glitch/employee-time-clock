@@ -6,7 +6,6 @@ import LoadingScreen from './components/LoadingScreen';
 
 // 動態匯入頁面與佈局 (Code Splitting)
 const KioskPage = lazy(() => import('./pages/KioskPage'));
-const FaceKioskPage = lazy(() => import('./pages/FaceKioskPage'));
 const LoginPage = lazy(() => import('./pages/admin/LoginPage'));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const DashboardPage = lazy(() => import('./pages/admin/DashboardPage'));
@@ -19,6 +18,7 @@ const SystemSettingsPage = lazy(() => import('./pages/admin/SystemSettingsPage')
 const StatisticsPage = lazy(() => import('./pages/admin/StatisticsPage'));
 const AdminLeaveStatsPage = lazy(() => import('./pages/admin/AdminLeaveStatsPage'));
 const AttendanceCalendarPage = lazy(() => import('./pages/admin/AttendanceCalendarPage'));
+const ImportantActivitiesPage = lazy(() => import('./pages/admin/ImportantActivitiesPage'));
 
 const EmployeeLayout = lazy(() => import('./layouts/EmployeeLayout'));
 const EmployeeLoginPage = lazy(() => import('./pages/employee/EmployeeLoginPage'));
@@ -36,12 +36,14 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <EmployeeProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
           <Suspense fallback={<LoadingScreen />}>
             <Routes>
-              {/* Public Kiosk Route */}
+              {/* Public PIN keypad entry. Face ID/Passkey is retired and is not exposed at the entry URL. */}
               <Route path="/" element={<KioskPage />} />
-              <Route path="/face" element={<FaceKioskPage />} />
+              <Route path="/kiosk" element={<KioskPage />} />
+              <Route path="/face" element={<Navigate to="/" replace />} />
+              <Route path="/enroll" element={<Navigate to="/" replace />} />
 
               {/* Admin Routes */}
               <Route path="/admin/login" element={<LoginPage />} />
@@ -52,6 +54,7 @@ const App: React.FC = () => {
                 <Route path="stats" element={<StatisticsPage />} />
                 <Route path="leave-stats" element={<AdminLeaveStatsPage />} />
                 <Route path="attendance-calendar" element={<AttendanceCalendarPage />} />
+                <Route path="important-activities" element={<ImportantActivitiesPage />} />
                 <Route path="makeup-requests" element={<MakeupRequestsPage />} />
                 <Route path="shift-requests" element={<ShiftRequestsPage />} />
                 <Route path="requests" element={<RequestsPage />} />
@@ -75,6 +78,7 @@ const App: React.FC = () => {
                 <Route path="requests" element={<EmployeeRequestsPage />} />
                 <Route path="attendance" element={<EmployeeAttendancePage />} />
                 <Route path="calendar" element={<EmployeeCalendarPage />} />
+                <Route path="important-activities" element={<ImportantActivitiesPage />} />
                 <Route path="resource-calendar" element={<EmployeeResourceCalendarPage />} />
                 <Route path="approvals" element={<EmployeeApprovalsPage />} />
                 <Route path="team-leaves" element={<ManagerTeamLeavePage />} />
