@@ -22,6 +22,7 @@ interface AttendanceLog {
     employee_id: string;
     check_type: CheckType;
     timestamp: string;
+    is_makeup?: boolean;
     note?: string;
 }
 
@@ -112,6 +113,7 @@ const AttendanceCalendarPage: React.FC = () => {
     const [selectedLeaveForModification, setSelectedLeaveForModification] = useState<LeaveRequest | null>(null);
     const [selectedLeaveForAction, setSelectedLeaveForAction] = useState<LeaveRequest | null>(null);
     const [selectedMakeup, setSelectedMakeup] = useState<MakeupRequest | null>(null);
+    const [selectedMakeupLog, setSelectedMakeupLog] = useState<AttendanceLog | null>(null);
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
     const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
@@ -1316,6 +1318,14 @@ const AttendanceCalendarPage: React.FC = () => {
         }
     };
 
+    // 既有資料沒有申請與打卡紀錄的外鍵；僅依日期、時間及上下班類型列出可能對應的核准申請。
+    const approvedRequestsForLog = (log: AttendanceLog) => makeupRequests.filter(request =>
+        request.status === 'APPROVED' &&
+        request.request_date === format(parseISO(log.timestamp), 'yyyy-MM-dd') &&
+        request.request_time.slice(0, 5) === format(parseISO(log.timestamp), 'HH:mm') &&
+        request.check_type === log.check_type
+    );
+
     return (
         <div className="space-y-6 print:space-y-4 print:p-0">
             {/* 隱藏瀏覽器預設的列印頁首頁尾 (如網址、日期) 並自動縮放 */}
@@ -1701,6 +1711,14 @@ const AttendanceCalendarPage: React.FC = () => {
                                                                     </span>
                                                                 )}
                                                                     {format(parseISO(log.timestamp), 'HH:mm')}
+                                                                    {log.is_makeup && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={e => { e.stopPropagation(); setSelectedMakeupLog(log); }}
+                                                                            className="px-1 rounded border border-current text-[9px] font-bold"
+                                                                            title="補登打卡；點選查看可能對應的核准申請"
+                                                                        >補登</button>
+                                                                    )}
                                                                 </div>
                                                                 <div className="flex items-center">
                                                                     <button
@@ -1730,7 +1748,11 @@ const AttendanceCalendarPage: React.FC = () => {
                                             )}
 
                                             {/* 補登申請狀態；待審不視為實際打卡，已核准的紀錄仍由上方打卡欄顯示 */}
-                                            {dayInfo?.makeups?.map(request => (
+                                            {dayInfo?.makeups?.filter(request => request.status !== 'APPROVED' ||
+                                                !dayInfo.logs.some(log => log.is_makeup &&
+                                                    log.check_type === request.check_type &&
+                                                    format(parseISO(log.timestamp), 'HH:mm') === request.request_time.slice(0, 5))
+                                            ).map(request => (
                                                 <button
                                                     key={request.id}
                                                     type="button"
@@ -2271,6 +2293,23 @@ const AttendanceCalendarPage: React.FC = () => {
             )}
 
             {/* Action Menu Modal */}
+            {selectedMakeupLog && (
+               <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4" onClick={() => setSelectedMakeupLog(null)}>
+                   <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
+                       <h2 className="text-lg font-black text-slate-900">補登打卡紀錄</h2>
+                       <p className="text-sm text-slate-700">{format(parseISO(selectedMakeupLog.timestamp), 'yyyy-MM-dd HH:mm')}　{selectedMakeupLog.check_type === CheckType.IN ? '上班' : '下班'}</p>
+                       <p className="text-xs text-slate-500">以下按日期、時間與上下班類型對照；舊紀錄未直接連結申請編號。</p>
+                       {approvedRequestsForLog(selectedMakeupLog).map(request => (
+                           <button key={request.id} type="button" className="w-full text-left px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-sm text-emerald-800"
+                               onClick={() => { setSelectedMakeupLog(null); setSelectedMakeup(request); }}>
+                               查看核准申請：{request.request_date} {request.request_time.slice(0, 5)}
+                           </button>
+                       ))}
+                       {approvedRequestsForLog(selectedMakeupLog).length === 0 && <p className="text-sm text-slate-600">查無同時段核准申請，請至補登申請紀錄進一步核對。</p>}
+                       <button type="button" onClick={() => setSelectedMakeupLog(null)} className="w-full py-2 bg-slate-100 rounded-xl font-bold">關閉</button>
+                   </div>
+               </div>
+            )}
             {selectedMakeup && (
                 <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4" onClick={() => setSelectedMakeup(null)}>
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
