@@ -38,6 +38,16 @@ interface LeaveRequest {
     };
 }
 
+interface MakeupRequest {
+    id: string;
+    request_date: string;
+    request_time: string;
+    check_type: 'IN' | 'OUT';
+    status: string;
+    reason: string;
+    review_comment?: string | null;
+}
+
 interface AttendanceCalendarProps {
     targetEmployeeId: string;
     readOnly?: boolean;
@@ -49,6 +59,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
     const [logs, setLogs] = useState<AttendanceLog[]>([]);
     const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+    const [makeupRequests, setMakeupRequests] = useState<MakeupRequest[]>([]);
     const [shiftRequests, setShiftRequests] = useState<ShiftRequest[]>([]);
     const [historicalSchedules, setHistoricalSchedules] = useState<EmployeeSchedule[]>([]);
     const [dayOverrides, setDayOverrides] = useState<EmployeeDayOverride[]>([]);
@@ -59,6 +70,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
     const [selectedDateStr, setSelectedDateStr] = useState<string>('');
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
+    const [selectedMakeup, setSelectedMakeup] = useState<MakeupRequest | null>(null);
     const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
     const [showModificationForm, setShowModificationForm] = useState(false);
     const [isWithdrawing, setIsWithdrawing] = useState(false);
@@ -110,6 +122,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
     const fetchData = async () => {
         if (!targetEmployeeId) return;
         setLoading(true);
+        setMakeupRequests([]);
         const start = startOfMonth(currentDate).toISOString();
         const end = endOfMonth(currentDate).toISOString();
 
@@ -132,8 +145,18 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 .or('is_modified.is.null,is_modified.eq.false')
                 .or(`start_date.lte.${end},end_date.gte.${start}`);
 
+            // 用補登日期歸入月曆；申請不等同實際打卡，不參與工時計算。
+            const { data: makeupData, error: makeupError } = await supabase
+                .from('makeup_attendance_requests')
+                .select('id, request_date, request_time, check_type, status, reason, review_comment')
+                .eq('employee_id', targetEmployeeId)
+                .gte('request_date', format(startOfMonth(currentDate), 'yyyy-MM-dd'))
+                .lte('request_date', format(endOfMonth(currentDate), 'yyyy-MM-dd'));
+            if (makeupError) throw makeupError;
+
             setLogs(logsData || []);
             setLeaves(leavesData || []);
+            setMakeupRequests(makeupData || []);
 
             // 取得公司層級停班日期，讓出勤月曆與後台設定同步
             const holidays = await companyHolidayService.getAll();
@@ -191,6 +214,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             logs: AttendanceLog[], 
             leaves: LeaveRequest[], 
             shifts: ShiftRequest[],
+            makeups: MakeupRequest[],
             activities: ImportantActivity[],
             override?: EmployeeDayOverride,
             hours: number, 
@@ -214,6 +238,8 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 s.target_date === dateStr
             );
             const dayActivities = importantActivities.filter(activity => activity.activity_date === dateStr);
+            const dayMakeups = makeupRequests.filter(request => request.request_date === dateStr)
+                .sort((a, b) => a.request_time.localeCompare(b.request_time));
 
             const rawDayLeaves = leaves.filter(leave => {
                 const s = parseISO(leave.start_date);
@@ -491,6 +517,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 logs: dayLogs, 
                 leaves: dayLeaves, 
                 shifts: dayShifts || [],
+                makeups: dayMakeups,
                 activities: dayActivities || [],
                 override: dayOverride,
                 hours: parseFloat(dayHours.toFixed(2)), 
@@ -499,7 +526,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
         });
 
         return data;
-    }, [days, logs, leaves, targetEmployee, dayOverrides, shiftRequests, historicalSchedules, companyHolidays, importantActivities]);
+    }, [days, logs, leaves, makeupRequests, targetEmployee, dayOverrides, shiftRequests, historicalSchedules, companyHolidays, importantActivities]);
 
     const totalMonthlyHours = Object.values(monthData).reduce((acc, curr) => acc + curr.hours, 0);
     const weekDays = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
@@ -733,6 +760,24 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                                                 ))}
                                             </div>
 
+                                            {/* 補登審核狀態；核准後的實際打卡仍在上方顯示 */}
+                                            {dayInfo?.makeups?.map(request => (
+                                                <button
+                                                    key={request.id}
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); setSelectedMakeup(request); }}
+                                                    className={`w-full px-2 py-1 rounded-md text-[10px] font-black border flex items-center justify-between gap-1 text-left ${
+                                                        request.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                                                        request.status === 'REJECTED' ? 'bg-rose-50 text-rose-800 border-rose-200' :
+                                                        'bg-amber-50 text-amber-800 border-amber-200'
+                                                    }`}
+                                                    title={`補登${request.check_type === 'IN' ? '上班' : '下班'} ${request.request_time.slice(0, 5)}｜${request.status === 'APPROVED' ? '已核准' : request.status === 'REJECTED' ? '已駁回' : '待審核'}`}
+                                                >
+                                                    <span className="truncate">補{request.check_type === 'IN' ? '上班' : '下班'} {request.request_time.slice(0, 5)}</span>
+                                                    <span className="shrink-0">{request.status === 'APPROVED' ? '核准' : request.status === 'REJECTED' ? '駁回' : '待審'}</span>
+                                                </button>
+                                            ))}
+
                                             {/* 請假申請 */}
                                             {dayInfo?.leaves?.map(leave => (
                                                 <div
@@ -794,6 +839,18 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 * 工時計算僅供參考，系統自動扣除超過 5 小時工時中之 1 小時休息時間。
             </div>
 
+            {/* 補登申請詳情（主管查看屬員月曆時亦可檢視） */}
+            {selectedMakeup && (
+                <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4" onClick={() => setSelectedMakeup(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
+                        <h2 className="text-lg font-black text-slate-900">補登{selectedMakeup.check_type === 'IN' ? '上班' : '下班'}卡</h2>
+                        <div className="text-sm text-slate-700">{selectedMakeup.request_date} {selectedMakeup.request_time.slice(0, 5)}　{getStatusBadge(selectedMakeup.status)}</div>
+                        <p className="text-sm text-slate-600 whitespace-pre-wrap">原因：{selectedMakeup.reason || '未填寫'}</p>
+                        {selectedMakeup.review_comment && <p className="text-sm text-slate-600 whitespace-pre-wrap">審核備註：{selectedMakeup.review_comment}</p>}
+                        <button type="button" onClick={() => setSelectedMakeup(null)} className="w-full py-2 bg-slate-100 rounded-xl font-bold">關閉</button>
+                    </div>
+                </div>
+            )}
             {/* Makeup Request Form Modal */}
             {showMakeupForm && targetEmployeeId && !readOnly && (
                 <MakeupRequestForm
