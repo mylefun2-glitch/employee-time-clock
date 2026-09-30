@@ -46,6 +46,16 @@ interface LeaveRequest {
     dayHours?: number;
 }
 
+interface MakeupRequest {
+    id: string;
+    request_date: string;
+    request_time: string;
+    check_type: 'IN' | 'OUT';
+    status: string;
+    reason: string;
+    review_comment?: string | null;
+}
+
 const AttendanceCalendarPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -61,6 +71,8 @@ const AttendanceCalendarPage: React.FC = () => {
 
     const [logs, setLogs] = useState<AttendanceLog[]>([]);
     const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+    const [makeupRequests, setMakeupRequests] = useState<MakeupRequest[]>([]);
+    const [makeupLoadError, setMakeupLoadError] = useState(false);
     const [shiftRequests, setShiftRequests] = useState<ShiftRequest[]>([]);
     const [dayOverrides, setDayOverrides] = useState<EmployeeDayOverride[]>([]);
     const [companyHolidays, setCompanyHolidays] = useState<{ holiday_date: string; name: string; is_active: boolean }[]>([]);
@@ -99,6 +111,7 @@ const AttendanceCalendarPage: React.FC = () => {
     const [isSubmittingSalarySchedule, setIsSubmittingSalarySchedule] = useState(false);
     const [selectedLeaveForModification, setSelectedLeaveForModification] = useState<LeaveRequest | null>(null);
     const [selectedLeaveForAction, setSelectedLeaveForAction] = useState<LeaveRequest | null>(null);
+    const [selectedMakeup, setSelectedMakeup] = useState<MakeupRequest | null>(null);
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
     const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
@@ -147,6 +160,9 @@ const AttendanceCalendarPage: React.FC = () => {
 
     const fetchData = async () => {
         setLoading(true);
+        setMakeupRequests([]);
+        setMakeupLoadError(false);
+        setSelectedMakeup(null);
         const start = startOfMonth(currentDate).toISOString();
         const end = endOfMonth(currentDate).toISOString();
 
@@ -171,6 +187,18 @@ const AttendanceCalendarPage: React.FC = () => {
                 .or('is_modified.is.null,is_modified.eq.false')
                 .or(`start_date.lte.${end},end_date.gte.${start}`);
 
+            // 管理端月曆是獨立頁面，必須自行載入補登申請；以補登日期而非提交日期定位。
+            const { data: makeupData, error: makeupError } = await supabase
+                .from('makeup_attendance_requests')
+                .select('id, request_date, request_time, check_type, status, reason, review_comment')
+                .eq('employee_id', selectedEmployeeId)
+                .gte('request_date', format(startOfMonth(currentDate), 'yyyy-MM-dd'))
+                .lte('request_date', format(endOfMonth(currentDate), 'yyyy-MM-dd'));
+            if (makeupError) {
+                console.error('Error fetching makeup requests:', makeupError);
+                setMakeupLoadError(true);
+            }
+            setMakeupRequests(makeupData || []);
             setLogs(logsData || []);
             setLeaves(leavesData || []);
 
@@ -478,7 +506,7 @@ const AttendanceCalendarPage: React.FC = () => {
     }, [weeks, currentDate]);
 
     const monthData = useMemo(() => {
-        const data: { [key: string]: { logs: AttendanceLog[], leaves: LeaveRequest[], shifts: ShiftRequest[], activities: ImportantActivity[], override?: EmployeeDayOverride, hours: number, grossHours: number, breakHours: number, holidayName?: string } } = {};
+        const data: { [key: string]: { logs: AttendanceLog[], leaves: LeaveRequest[], makeups: MakeupRequest[], shifts: ShiftRequest[], activities: ImportantActivity[], override?: EmployeeDayOverride, hours: number, grossHours: number, breakHours: number, holidayName?: string } } = {};
 
         days.forEach(day => {
             const dateKey = format(day, 'yyyy-MM-dd');
@@ -496,6 +524,8 @@ const AttendanceCalendarPage: React.FC = () => {
                 s.target_date === dateKey
             );
             const dayActivities = importantActivities.filter(activity => activity.activity_date === dateKey);
+            const dayMakeups = makeupRequests.filter(request => request.request_date === dateKey)
+                .sort((a, b) => a.request_time.localeCompare(b.request_time));
 
             const rawDayLeaves = leaves.filter(leave => {
                 const s = parseISO(leave.start_date);
@@ -838,6 +868,7 @@ const AttendanceCalendarPage: React.FC = () => {
             data[dateKey] = { 
                 logs: dayLogs, 
                 leaves: dayLeaves, 
+                makeups: dayMakeups,
                 hours: parseFloat(hours.toFixed(2)), 
                 grossHours: parseFloat((grossTotalMs / (1000 * 60 * 60)).toFixed(2)),
                 breakHours: parseFloat((breakTotalMs / (1000 * 60 * 60)).toFixed(2)),
@@ -849,7 +880,7 @@ const AttendanceCalendarPage: React.FC = () => {
         });
 
         return data;
-    }, [days, logs, leaves, shiftRequests, importantActivities, dayOverrides, historicalSchedules, companyHolidays]);
+    }, [days, logs, leaves, makeupRequests, shiftRequests, importantActivities, dayOverrides, historicalSchedules, companyHolidays]);
 
     const departments = useMemo(() => {
         const deps = Array.from(new Set(employees.map(emp => emp.department))).sort();
@@ -1315,6 +1346,11 @@ const AttendanceCalendarPage: React.FC = () => {
                     }
                 }
             ` }} />
+            {makeupLoadError && (
+                <div role="alert" className="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm font-bold print:hidden">
+                    補登申請載入失敗，月曆中的補登狀態可能不完整，請重新整理後再試。
+                </div>
+            )}
             {/* Header & Filters */}
             <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm print:shadow-none print:border-none print:p-0 print-no-shadow print-shrink">
                 <div className="flex flex-row items-center justify-between w-full gap-4">
@@ -1692,6 +1728,24 @@ const AttendanceCalendarPage: React.FC = () => {
                                                         ))}
                                                 </div>
                                             )}
+
+                                            {/* 補登申請狀態；待審不視為實際打卡，已核准的紀錄仍由上方打卡欄顯示 */}
+                                            {dayInfo?.makeups?.map(request => (
+                                                <button
+                                                    key={request.id}
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); setSelectedMakeup(request); }}
+                                                    className={`w-full px-2 py-1 rounded-md text-[10px] font-black border flex items-center justify-between gap-1 text-left ${
+                                                        request.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                                                        request.status === 'REJECTED' ? 'bg-rose-50 text-rose-800 border-rose-200' :
+                                                        'bg-amber-50 text-amber-800 border-amber-200'
+                                                    }`}
+                                                    title={`補登${request.check_type === 'IN' ? '上班' : '下班'} ${request.request_time.slice(0, 5)}｜${request.status === 'APPROVED' ? '已核准' : request.status === 'REJECTED' ? '已駁回' : '待審核'}`}
+                                                >
+                                                    <span className="truncate">補{request.check_type === 'IN' ? '上班' : '下班'} {request.request_time.slice(0, 5)}</span>
+                                                    <span className="shrink-0">{request.status === 'APPROVED' ? '核准' : request.status === 'REJECTED' ? '駁回' : '待審'}</span>
+                                                </button>
+                                            ))}
 
                                             {/* Leaves */}
                                             {dayInfo?.leaves?.map(leave => (
@@ -2217,6 +2271,17 @@ const AttendanceCalendarPage: React.FC = () => {
             )}
 
             {/* Action Menu Modal */}
+            {selectedMakeup && (
+                <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4" onClick={() => setSelectedMakeup(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
+                        <h2 className="text-lg font-black text-slate-900">補登{selectedMakeup.check_type === 'IN' ? '上班' : '下班'}卡</h2>
+                        <p className="text-sm text-slate-700">{selectedMakeup.request_date} {selectedMakeup.request_time.slice(0, 5)}　{selectedMakeup.status === 'APPROVED' ? '已核准' : selectedMakeup.status === 'REJECTED' ? '已駁回' : '待審核'}</p>
+                        <p className="text-sm text-slate-600 whitespace-pre-wrap">原因：{selectedMakeup.reason || '未填寫'}</p>
+                        {selectedMakeup.review_comment && <p className="text-sm text-slate-600 whitespace-pre-wrap">審核備註：{selectedMakeup.review_comment}</p>}
+                        <button type="button" onClick={() => setSelectedMakeup(null)} className="w-full py-2 bg-slate-100 rounded-xl font-bold">關閉</button>
+                    </div>
+                </div>
+            )}
             {showActionMenu && selectedLeaveForAction && (
                 <div
                     className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
