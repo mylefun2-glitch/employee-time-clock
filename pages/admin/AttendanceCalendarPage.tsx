@@ -222,6 +222,7 @@ const AttendanceCalendarPage: React.FC = () => {
             const employee = employees.find(e => e.id === selectedEmployeeId);
             const employeeDepartment = employee?.department || (await supabase.from('employees').select('department').eq('id', selectedEmployeeId).single()).data?.department || '';
             const activities = await importantActivityService.getForEmployee(
+                selectedEmployeeId,
                 employeeDepartment,
                 format(startOfMonth(currentDate), 'yyyy-MM-dd'),
                 format(endOfMonth(currentDate), 'yyyy-MM-dd')
