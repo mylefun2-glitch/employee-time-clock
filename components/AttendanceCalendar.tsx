@@ -331,7 +331,8 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                             effectiveIn = actualIn;
                         } else {
                             flexOffsetMs = flexWindowMs;
-                            effectiveIn = new Date(actualIn.getTime() - flexWindowMs);
+                            // 彈性只位移應下班時間（最多 30 分鐘），不得補送未出勤的工時。
+                            effectiveIn = actualIn;
                         }
                     }
                     
@@ -504,9 +505,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             const targetAgreedHours = Math.max(0, baseAgreedHours - totalNonWorkLeaveHours);
 
             if (targetAgreedHours > 0) {
-                if (finalHours >= targetAgreedHours - 0.5 && finalHours < targetAgreedHours) {
-                    finalHours = targetAgreedHours;
-                }
+                // 工時不足不可補滿；彈性上班須以延後下班補足實際出勤。
                 if (finalHours > targetAgreedHours && finalHours <= targetAgreedHours + 0.5) {
                     finalHours = targetAgreedHours;
                 }
