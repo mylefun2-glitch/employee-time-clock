@@ -1734,9 +1734,9 @@ const AttendanceCalendarPage: React.FC = () => {
 
                                         <div className="flex-1 space-y-1.5">
                                             {/* 值班標記只在畫面呈現，不列印至出勤月曆 PDF */}
-                                            {dayInfo?.duty && <div className="print:hidden px-2 py-1 rounded-md text-[10px] font-black bg-cyan-50 text-cyan-800 border border-cyan-200 flex items-center justify-between gap-1" title={`午間值班｜實際 ${dayInfo.actualHours}H／月曆暫計 ${dayInfo.hours}H；休息 12:00–12:30、16:00–16:30`}>
+                                            {dayInfo?.duty && <div className="group/duty print:hidden px-2 py-1 rounded-md text-[10px] font-black bg-cyan-50 text-cyan-800 border border-cyan-200 flex items-center justify-between gap-1" title={`午間值班｜實際 ${dayInfo.actualHours}H／月曆暫計 ${dayInfo.hours}H；休息 12:00–12:30、16:00–16:30`}>
                                                 <span>午間值班</span>
-                                                <button type="button" className="p-0.5 rounded hover:bg-cyan-100 text-cyan-800" title="刪除午間值班" aria-label={`刪除 ${format(day, 'MM/dd')} 午間值班`}
+                                                <button type="button" className="p-0.5 rounded hover:bg-cyan-100 text-cyan-800 opacity-0 pointer-events-none group-hover/duty:opacity-100 group-hover/duty:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto" title="刪除午間值班" aria-label={`刪除 ${format(day, 'MM/dd')} 午間值班`}
                                                     onClick={e => { e.stopPropagation(); setSelectedDate(day); setShowQuickActionMenu(true); }}>
                                                     <Trash2 className="h-3 w-3" />
                                                 </button>
