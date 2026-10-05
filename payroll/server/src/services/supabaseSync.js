@@ -274,6 +274,17 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
     
     const startDate = `${year}-${monthStr}-01`;
     const endDate = `${year}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
+    // Supabase limits each REST page (usually 1,000 rows). A payroll sync must
+    // never replace a complete local month with only the first page.
+    const fetchAll = async (makeQuery) => {
+      const results = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await makeQuery().range(offset, offset + 999);
+        if (error) throw error;
+        results.push(...(data || []));
+        if (!data || data.length < 1000) return results;
+      }
+    };
 
     try {
       console.log(`Syncing attendance and leaves for ${year}-${monthStr} (${startDate} to ${endDate}) targetEmployeeId=${targetEmployeeId}...`);
@@ -315,6 +326,28 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
         if (!duties || duties.length < 1000) break;
       }
 
+      // Fetch every source page before any destructive replacement of the
+      // local month. A Supabase error must leave the previous payroll cache intact.
+      const sbEmployees = await fetchAll(() => supabase.from('employees')
+        .select('id, name, username, gmail, break_start_time, break_end_time').order('id'));
+      const sbLeaves = await fetchAll(() => {
+        let query = supabase.from('leave_requests')
+          .select('*, leave_types(code, name)')
+          .lte('start_date', `${endDate}T23:59:59+08:00`)
+          .gte('end_date', `${startDate}T00:00:00+08:00`)
+          .or('is_modified.eq.false,is_modified.is.null').order('id');
+        if (targetSbUuid) query = query.eq('employee_id', targetSbUuid);
+        return query;
+      });
+      const nextMonthDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+      const logs = await fetchAll(() => {
+        let query = supabase.from('attendance_logs').select('*')
+          .gte('timestamp', `${startDate}T00:00:00+08:00`)
+          .lt('timestamp', `${nextMonthDate}T00:00:00+08:00`).order('id');
+        if (targetSbUuid) query = query.eq('employee_id', targetSbUuid);
+        return query;
+      });
+
       // 1. Clear existing cache for this month (filtered by employee if targetEmployeeId is provided)
       const deleteAttendanceWhere = {
         date: { gte: startDate, lte: endDate }
@@ -337,13 +370,7 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
         where: deleteLeaveWhere
       });
 
-      // Fetch all employees from Supabase to match UUID to email/employeeNo
-      const { data: sbEmployees, error: sbEmpError } = await supabase
-        .from('employees')
-        .select('id, name, username, gmail, break_start_time, break_end_time');
-        
-      if (sbEmpError) throw sbEmpError;
-
+      // Match all fetched Supabase employees to local payroll employees.
       const uuidToDbId = {};
       const dbIdToSbEmp = {};
       sbEmployees.forEach(sbEmp => {
@@ -366,20 +393,6 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
       //    When a leave request is modified, Supabase keeps the original with is_modified=true
       //    and creates a new replacement record with is_modified=false.
       //    Only the replacement (is_modified=false) should be counted for payroll purposes.
-      let leaveQuery = supabase
-        .from('leave_requests')
-        .select('*, leave_types(code, name)')
-        .lte('start_date', `${endDate}T23:59:59`)
-        .gte('end_date', `${startDate}T00:00:00`)
-        .or('is_modified.eq.false,is_modified.is.null');  // Exclude superseded originals
-      
-      if (targetSbUuid) {
-        leaveQuery = leaveQuery.eq('employee_id', targetSbUuid);
-      }
-      const { data: sbLeaves, error: leaveError } = await leaveQuery;
-
-      if (leaveError) throw leaveError;
-
       const leaveRecordsData = [];
       if (sbLeaves && sbLeaves.length > 0) {
         console.log(`Syncing ${sbLeaves.length} leave requests...`);
@@ -423,20 +436,7 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
         }
       }
 
-      // 3. Fetch attendance logs from Supabase
-      let logQuery = supabase
-        .from('attendance_logs')
-        .select('*')
-        .gte('timestamp', `${startDate}T00:00:00`)
-        .lte('timestamp', `${endDate}T23:59:59`);
-      
-      if (targetSbUuid) {
-        logQuery = logQuery.eq('employee_id', targetSbUuid);
-      }
-      const { data: logs, error: logError } = await logQuery;
-
-      if (logError) throw logError;
-
+      // 3. Aggregate all previously fetched attendance logs.
       if (logs && logs.length > 0) {
         console.log(`Processing ${logs.length} raw attendance logs...`);
         

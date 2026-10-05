@@ -43,7 +43,7 @@ let source = await readFile(syncPath, 'utf8');
 source = source.replace("import { supabase } from './supabase.js';", 'const { supabase } = globalThis.__dutyPayrollMock;')
   .replace("import { PrismaClient } from '@prisma/client';", 'const PrismaClient = globalThis.__dutyPayrollMock.PrismaClient;')
   .replace("from './lunchDutyPayroll.js'", `from '${helperURL}'`);
-const state = { duty: [], leaves: [], logs: [], attendance: [], failDuty: false };
+const state = { duty: [], leaves: [], logs: [], attendance: [], failDuty: false, failLogs: false };
 const fixtureEmployee = { id: 1, employeeNo: 'TEST', email: 'test@example.org' };
 const tables = {
   employees: [{ id: 'uuid-1', username: 'test@example.org', name: 'Test', break_start_time: '12:00', break_end_time: '13:00' }],
@@ -54,14 +54,18 @@ const prisma = {
   leaveRecord: { deleteMany: async () => {}, createMany: async () => {} },
 };
 function query(table) {
+  let pageStart = 0;
+  let pageEnd = 999;
   const q = {
-    select: () => q, eq: () => q, gte: () => q, lte: () => q, or: () => q,
-    range: () => q,
+    select: () => q, eq: () => q, gte: () => q, lte: () => q, lt: () => q, or: () => q, order: () => q,
+    range: (start, end) => { pageStart = start; pageEnd = end; return q; },
     then(resolveResult, reject) {
       const data = table === 'employees' ? tables.employees :
         table === 'employee_lunch_duties' ? state.duty :
         table === 'leave_requests' ? state.leaves : state.logs;
-      return Promise.resolve({ data, error: table === 'employee_lunch_duties' && state.failDuty ? new Error('duty unavailable') : null })
+      const error = table === 'employee_lunch_duties' && state.failDuty ? new Error('duty unavailable') :
+        table === 'attendance_logs' && state.failLogs ? new Error('logs unavailable') : null;
+      return Promise.resolve({ data: data.slice(pageStart, pageEnd + 1), error })
         .then(resolveResult, reject);
     },
   };
@@ -102,6 +106,15 @@ test('credited duty hours feed the real hourly payroll calculator without a pay 
     assert.equal(duty.overtimePay, 0);
   }
 });
+test('sync reads beyond the first Supabase attendance page before replacing local rows', async () => {
+  state.duty = [{ employee_id: 'uuid-1', duty_date: '2026-10-05' }];
+  state.leaves = [];
+  state.logs = [...Array.from({ length: 1000 }, () => punch('08:00', 'IN')), punch('16:30', 'OUT')];
+  await syncAttendanceAndLeaves(2026, 10, true);
+  assert.equal(state.attendance.length, 1);
+  assert.equal(state.attendance[0].clockOut, '16:30');
+  assert.equal(state.attendance[0].regularHours, 8);
+});
 test('sync does not credit approved leave and fails closed on missing duty data', async () => {
   const row = await run('16:00', true, [{ employee_id: 'uuid-1', start_date: '2026-10-05T00:00:00+08:00', end_date: '2026-10-05T23:59:00+08:00', hours: 8, status: 'approved' }]);
   assert.equal(row.regularHours, 7);
@@ -111,4 +124,8 @@ test('sync does not credit approved leave and fails closed on missing duty data'
   await assert.rejects(syncAttendanceAndLeaves(2026, 10, true), /duty unavailable/);
   assert.deepEqual(state.attendance, before);
   state.failDuty = false;
+  state.failLogs = true;
+  await assert.rejects(syncAttendanceAndLeaves(2026, 10, true), /logs unavailable/);
+  assert.deepEqual(state.attendance, before);
+  state.failLogs = false;
 });
