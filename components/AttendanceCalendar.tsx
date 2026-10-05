@@ -767,9 +767,9 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                                         </div>
 
                                         <div className="flex-1 space-y-1.5 overflow-hidden">
-                                            {/* 午間值班與實際／認列工時 */}
-                                            {dayInfo?.duty && <div className="px-2 py-1 rounded-md text-[10px] font-black bg-cyan-50 text-cyan-800 border border-cyan-200" title="休息 12:00–12:30、16:00–16:30">
-                                                午間值班 · 實際 {dayInfo.actualHours}H／月曆暫計 {dayInfo.hours}H
+                                            {/* 值班標記只在畫面呈現，不列印至出勤月曆 PDF */}
+                                            {dayInfo?.duty && <div className="print:hidden px-2 py-1 rounded-md text-[10px] font-black bg-cyan-50 text-cyan-800 border border-cyan-200" title={`午間值班｜實際 ${dayInfo.actualHours}H／月曆暫計 ${dayInfo.hours}H；休息 12:00–12:30、16:00–16:30`}>
+                                                午間值班
                                             </div>}
                                             {/* 共同活動 */}
                                             {dayInfo?.activities?.map(activity => (
