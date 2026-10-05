@@ -637,7 +637,7 @@ router.post('/calculate', requireFields('year', 'month'), async (req, res) => {
       // Sync attendance logs and approved leaves from Supabase first
       console.log('[Calc] Syncing attendance and leaves...');
       const singleEmpId = (employeeIds && Array.isArray(employeeIds) && employeeIds.length === 1) ? employeeIds[0] : null;
-      await syncAttendanceAndLeaves(y, m, false, singleEmpId).catch(err => console.error("Sync attendance/leaves failed:", err));
+      await syncAttendanceAndLeaves(y, m, true, singleEmpId);
       console.log('[Calc] Attendance and leaves synced.');
     } else {
       console.log('[Calc] skipSync is true. Skipping Supabase sync for employees, attendance, and leaves.');
@@ -1745,7 +1745,7 @@ router.post('/batch-update-adjustments', async (req, res) => {
 
     // Sync attendance logs and approved leaves from Supabase first
     if (!skipSync) {
-      await syncAttendanceAndLeaves(y, m).catch(err => console.error("Sync attendance/leaves failed:", err));
+      await syncAttendanceAndLeaves(y, m, true);
     }
 
     // Fetch active schedules for this month from Supabase to override salary structures

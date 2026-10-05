@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
+import { lunchDutyService, LunchDuty } from '../services/lunchDutyService';
+import { DUTY_BREAKS, dutyCreditedHours } from '../lib/lunchDuty';
 import { format, startOfMonth, endOfMonth, isSameDay, parseISO, addMonths, subMonths, startOfWeek, getDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, FileText, Download, Plus } from 'lucide-react';
 import { isNationalHoliday } from '../lib/holidays';
@@ -64,6 +66,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
     const [shiftRequests, setShiftRequests] = useState<ShiftRequest[]>([]);
     const [historicalSchedules, setHistoricalSchedules] = useState<EmployeeSchedule[]>([]);
     const [dayOverrides, setDayOverrides] = useState<EmployeeDayOverride[]>([]);
+    const [lunchDuties, setLunchDuties] = useState<LunchDuty[]>([]);
     const [companyHolidays, setCompanyHolidays] = useState<{ holiday_date: string; name: string; is_active: boolean }[]>([]);
     const [importantActivities, setImportantActivities] = useState<ImportantActivity[]>([]);
     const [loading, setLoading] = useState(false);
@@ -124,6 +127,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
     const fetchData = async () => {
         if (!targetEmployeeId) return;
         setLoading(true);
+        setLunchDuties([]);
         setMakeupRequests([]);
         const start = startOfMonth(currentDate).toISOString();
         const end = endOfMonth(currentDate).toISOString();
@@ -175,6 +179,8 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 format(endOfMonth(currentDate), 'yyyy-MM-dd')
             );
             setDayOverrides(overrides || []);
+            setLunchDuties(await lunchDutyService.list(targetEmployeeId,
+                format(startOfMonth(currentDate), 'yyyy-MM-dd'), format(endOfMonth(currentDate), 'yyyy-MM-dd')));
 
             // Fetch historical schedules for accurate calculation
             const schedules = await getEmployeeSchedules(targetEmployeeId);
@@ -219,7 +225,9 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             makeups: MakeupRequest[],
             activities: ImportantActivity[],
             override?: EmployeeDayOverride,
+            duty: boolean,
             hours: number, 
+            actualHours: number,
             holidayName?: string 
         } } = {};
 
@@ -229,6 +237,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             const customHoliday = companyHolidays.find(h => h.holiday_date === dateStr);
             const holidayName = customHoliday?.name || isNationalHoliday(day);
             const dayOverride = dayOverrides.find(o => o.override_date === dateStr);
+            const duty = lunchDuties.some(d => d.duty_date === dateStr && d.enabled);
             
             const dayLogs = logs.filter(log => isSameDay(parseISO(log.timestamp), day))
                 .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -289,7 +298,12 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             };
 
             const schedIn = getDayTime(targetEmployee?.work_start_time || '08:00', day)!;
-            const schedOut = getDayTime(targetEmployee?.work_end_time || '17:00', day)!;
+            const dutySchedule = duty && targetEmployee?.department === '心安居' && !holidayName && !dayOverride &&
+                !(Array.isArray(targetEmployee?.rest_days) && targetEmployee.rest_days.includes(getDay(day))) &&
+                (targetEmployee?.work_start_time || '08:00').slice(0, 5) === '08:00' &&
+                (targetEmployee?.work_end_time || '17:00').slice(0, 5) === '17:00';
+            const schedOut = getDayTime(dutySchedule ? '16:00' : targetEmployee?.work_end_time || '17:00', day)!;
+            const dutyBreaks = dutySchedule ? DUTY_BREAKS.map(b => ({ start: getDayTime(b.start, day)!, end: getDayTime(b.end, day)! })) : null;
 
             // 2. 收集打卡區間並計算當天的彈性偏移量 flexOffsetMs
             let flexOffsetMs = 0;
@@ -467,6 +481,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 { start: getDayTime(targetEmployee?.break3_start_time || '', day)!, end: getDayTime(targetEmployee?.break3_end_time || '', day)! },
                 ...nonWorkIntervals
             ].filter(iv => iv.start && iv.end);
+            if (dutyBreaks) subtractiveIvs.splice(0, subtractiveIvs.length, ...dutyBreaks, ...nonWorkIntervals);
             const mergedSubtractive = merge(subtractiveIvs);
 
             // 4. 計算淨工時
@@ -489,7 +504,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
             // 5. 特殊規則：溢出容換與動態標竿對齊
             const fullDaySchedMs = schedOut.getTime() - schedIn.getTime();
             let fullDayBreakMs = 0;
-            const mergedBreaks = merge([
+            const mergedBreaks = merge(dutyBreaks || [
                 { start: getDayTime(targetEmployee?.break_start_time || '12:00', day)!, end: getDayTime(targetEmployee?.break_end_time || '13:00', day)! },
                 { start: getDayTime(targetEmployee?.break2_start_time || '', day)!, end: getDayTime(targetEmployee?.break2_end_time || '', day)! },
                 { start: getDayTime(targetEmployee?.break3_start_time || '', day)!, end: getDayTime(targetEmployee?.break3_end_time || '', day)! }
@@ -506,14 +521,22 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
 
             if (targetAgreedHours > 0) {
                 // 工時不足不可補滿；彈性上班須以延後下班補足實際出勤。
-                if (finalHours > targetAgreedHours && finalHours <= targetAgreedHours + 0.5) {
+                if (!dutySchedule && finalHours > targetAgreedHours && finalHours <= targetAgreedHours + 0.5) {
                     finalHours = targetAgreedHours;
                 }
             } else if (totalNonWorkLeaveHours >= baseAgreedHours) {
                 if (finalHours > 0 && finalHours <= 0.5) finalHours = 0;
             }
 
-            dayHours = parseFloat(finalHours.toFixed(2));
+            const actualHours = parseFloat(finalHours.toFixed(2));
+            const punchIn = dayLogs.find(l => l.check_type === CheckType.IN);
+            const punchOut = [...dayLogs].reverse().find(l => l.check_type === CheckType.OUT);
+            dayHours = parseFloat(dutyCreditedHours({ marked: dutySchedule,
+                scheduledStart: targetEmployee?.work_start_time || '08:00', scheduledEnd: targetEmployee?.work_end_time || '17:00',
+                punchIn: punchIn ? new Date(punchIn.timestamp) : null,
+                punchOut: punchOut ? new Date(punchOut.timestamp) : null,
+                expectedOut: new Date(schedOut.getTime() + flexOffsetMs), actualHours,
+                hasApprovedNonWorkLeave: nonWorkIntervals.length > 0 }).toFixed(2));
             data[dateKey] = { 
                 logs: dayLogs, 
                 leaves: dayLeaves, 
@@ -521,13 +544,15 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                 makeups: dayMakeups,
                 activities: dayActivities || [],
                 override: dayOverride,
+                duty,
+                actualHours,
                 hours: parseFloat(dayHours.toFixed(2)), 
                 holidayName 
             };
         });
 
         return data;
-    }, [days, logs, leaves, makeupRequests, targetEmployee, dayOverrides, shiftRequests, historicalSchedules, companyHolidays, importantActivities]);
+    }, [days, logs, leaves, makeupRequests, targetEmployee, dayOverrides, lunchDuties, shiftRequests, historicalSchedules, companyHolidays, importantActivities]);
 
     const totalMonthlyHours = Object.values(monthData).reduce((acc, curr) => acc + curr.hours, 0);
     // 既有資料沒有申請與打卡紀錄的外鍵；僅依日期、時間及上下班類型列出可能對應的核准申請。
@@ -742,6 +767,10 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                                         </div>
 
                                         <div className="flex-1 space-y-1.5 overflow-hidden">
+                                            {/* 午間值班與實際／認列工時 */}
+                                            {dayInfo?.duty && <div className="px-2 py-1 rounded-md text-[10px] font-black bg-cyan-50 text-cyan-800 border border-cyan-200" title="休息 12:00–12:30、16:00–16:30">
+                                                午間值班 · 實際 {dayInfo.actualHours}H／月曆暫計 {dayInfo.hours}H
+                                            </div>}
                                             {/* 共同活動 */}
                                             {dayInfo?.activities?.map(activity => (
                                                 <div

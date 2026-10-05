@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { lunchDutyService, LunchDuty } from '../../services/lunchDutyService';
+import { DUTY_BREAKS, dutyCreditedHours } from '../../lib/lunchDuty';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, parseISO, addMonths, subMonths, startOfWeek } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Download, FileText, Trash2, X, CheckSquare, Square, Info, Search, Plus, Pencil } from 'lucide-react';
@@ -76,6 +78,9 @@ const AttendanceCalendarPage: React.FC = () => {
     const [makeupLoadError, setMakeupLoadError] = useState(false);
     const [shiftRequests, setShiftRequests] = useState<ShiftRequest[]>([]);
     const [dayOverrides, setDayOverrides] = useState<EmployeeDayOverride[]>([]);
+    const [lunchDuties, setLunchDuties] = useState<LunchDuty[]>([]);
+    const [savingLunchDuty, setSavingLunchDuty] = useState(false);
+    const [lunchDutyError, setLunchDutyError] = useState('');
     const [companyHolidays, setCompanyHolidays] = useState<{ holiday_date: string; name: string; is_active: boolean }[]>([]);
     const [historicalSchedules, setHistoricalSchedules] = useState<EmployeeSchedule[]>([]);
     const [importantActivities, setImportantActivities] = useState<ImportantActivity[]>([]);
@@ -162,6 +167,8 @@ const AttendanceCalendarPage: React.FC = () => {
 
     const fetchData = async () => {
         setLoading(true);
+        setLunchDuties([]);
+        setLunchDutyError('');
         setMakeupRequests([]);
         setMakeupLoadError(false);
         setSelectedMakeup(null);
@@ -218,6 +225,13 @@ const AttendanceCalendarPage: React.FC = () => {
                 format(endOfMonth(currentDate), 'yyyy-MM-dd')
             );
             setDayOverrides(overrides || []);
+            try {
+                setLunchDuties(await lunchDutyService.list(selectedEmployeeId,
+                    format(startOfMonth(currentDate), 'yyyy-MM-dd'), format(endOfMonth(currentDate), 'yyyy-MM-dd')));
+            } catch (error) {
+                console.error('Error fetching lunch duties:', error);
+                setLunchDutyError('午間值班資料載入失敗；請確認資料庫已完成遷移');
+            }
 
             const employee = employees.find(e => e.id === selectedEmployeeId);
             const employeeDepartment = employee?.department || (await supabase.from('employees').select('department').eq('id', selectedEmployeeId).single()).data?.department || '';
@@ -509,13 +523,14 @@ const AttendanceCalendarPage: React.FC = () => {
     }, [weeks, currentDate]);
 
     const monthData = useMemo(() => {
-        const data: { [key: string]: { logs: AttendanceLog[], leaves: LeaveRequest[], makeups: MakeupRequest[], shifts: ShiftRequest[], activities: ImportantActivity[], override?: EmployeeDayOverride, hours: number, grossHours: number, breakHours: number, holidayName?: string } } = {};
+        const data: { [key: string]: { logs: AttendanceLog[], leaves: LeaveRequest[], makeups: MakeupRequest[], shifts: ShiftRequest[], activities: ImportantActivity[], override?: EmployeeDayOverride, duty: boolean, hours: number, actualHours: number, grossHours: number, breakHours: number, holidayName?: string } } = {};
 
         days.forEach(day => {
             const dateKey = format(day, 'yyyy-MM-dd');
             const customHoliday = companyHolidays.find(h => h.holiday_date === dateKey);
             const holidayName = customHoliday?.name || isNationalHoliday(day);
             const dayOverride = dayOverrides.find(o => o.override_date === dateKey);
+            const duty = lunchDuties.some(d => d.duty_date === dateKey && d.enabled);
 
             const dayLogs = logs.filter(log => isSameDay(parseISO(log.timestamp), day))
                 .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -618,7 +633,11 @@ const AttendanceCalendarPage: React.FC = () => {
             };
 
             const schedIn = getDayTime(schedule.work_start_time, day)!;
-            const schedOut = getDayTime(schedule.work_end_time, day)!;
+            const dutySchedule = duty && employee?.department === '心安居' && !dayOverride && !holidayName &&
+                !(Array.isArray(schedule.rest_days) && schedule.rest_days.includes(getDay(day))) &&
+                schedule.work_start_time.slice(0, 5) === '08:00' && schedule.work_end_time.slice(0, 5) === '17:00';
+            const schedOut = getDayTime(dutySchedule ? '16:00' : schedule.work_end_time, day)!;
+            const dutyBreaks = dutySchedule ? DUTY_BREAKS.map(b => ({ start: getDayTime(b.start, day)!, end: getDayTime(b.end, day)! })) : null;
 
             // 2. 收集打卡區間並計算當天的彈性偏移量 flexOffsetMs
             let flexOffsetMs = 0;
@@ -797,6 +816,7 @@ const AttendanceCalendarPage: React.FC = () => {
                 { start: getDayTime(schedule.break3_start_time, day)!, end: getDayTime(schedule.break3_end_time, day)! },
                 ...nonWorkIntervals
             ].filter(iv => iv.start && iv.end);
+            if (dutyBreaks) subtractiveIvs.splice(0, subtractiveIvs.length, ...dutyBreaks, ...nonWorkIntervals);
             const mergedSubtractive = merge(subtractiveIvs);
 
             // 4. 計算淨工時 (工作區間減去扣除區間的重疊)
@@ -810,6 +830,7 @@ const AttendanceCalendarPage: React.FC = () => {
                 { start: getDayTime(schedule.break3_start_time, day)!, end: getDayTime(schedule.break3_end_time, day)! }
             ].filter(iv => iv.start && iv.end);
             const mergedBreaksOnly = merge(breakOnlyIvs);
+            if (dutyBreaks) mergedBreaksOnly.splice(0, mergedBreaksOnly.length, ...dutyBreaks);
 
             mergedWork.forEach(w => {
                 let segmentMs = w.end.getTime() - w.start.getTime();
@@ -841,7 +862,7 @@ const AttendanceCalendarPage: React.FC = () => {
             // 5. 特殊規則：溢出容換與動態標竿對齊
             const fullDaySchedMs = schedOut.getTime() - schedIn.getTime();
             let fullDayBreakMs = 0;
-            const mergedBreaks = merge([
+            const mergedBreaks = merge(dutyBreaks || [
                 { start: getDayTime(schedule.break_start_time, day)!, end: getDayTime(schedule.break_end_time, day)! },
                 { start: getDayTime(schedule.break2_start_time, day)!, end: getDayTime(schedule.break2_end_time, day)! },
                 { start: getDayTime(schedule.break3_start_time, day)!, end: getDayTime(schedule.break3_end_time, day)! }
@@ -858,20 +879,29 @@ const AttendanceCalendarPage: React.FC = () => {
 
             if (targetAgreedHours > 0) {
                 // 工時不足不可補滿；彈性上班須以延後下班補足實際出勤。
-                if (finalHours > targetAgreedHours && finalHours <= targetAgreedHours + 0.5) {
+                if (!dutySchedule && finalHours > targetAgreedHours && finalHours <= targetAgreedHours + 0.5) {
                     finalHours = targetAgreedHours;
                 }
             } else if (totalNonWorkLeaveHours >= baseAgreedHours) {
                 if (finalHours > 0 && finalHours <= 0.5) finalHours = 0;
             }
 
-            hours = parseFloat(finalHours.toFixed(2));
+            const actualHours = parseFloat(finalHours.toFixed(2));
+            const punchIn = dayLogs.find(l => l.check_type === CheckType.IN);
+            const punchOut = [...dayLogs].reverse().find(l => l.check_type === CheckType.OUT);
+            hours = parseFloat(dutyCreditedHours({ marked: dutySchedule, scheduledStart: schedule.work_start_time,
+                scheduledEnd: schedule.work_end_time, punchIn: punchIn ? new Date(punchIn.timestamp) : null,
+                punchOut: punchOut ? new Date(punchOut.timestamp) : null,
+                expectedOut: new Date(schedOut.getTime() + flexOffsetMs), actualHours,
+                hasApprovedNonWorkLeave: nonWorkIntervals.length > 0 }).toFixed(2));
 
             data[dateKey] = { 
                 logs: dayLogs, 
                 leaves: dayLeaves, 
                 makeups: dayMakeups,
                 hours: parseFloat(hours.toFixed(2)), 
+                actualHours,
+                duty,
                 grossHours: parseFloat((grossTotalMs / (1000 * 60 * 60)).toFixed(2)),
                 breakHours: parseFloat((breakTotalMs / (1000 * 60 * 60)).toFixed(2)),
                 shifts: dayShifts || [],
@@ -882,7 +912,7 @@ const AttendanceCalendarPage: React.FC = () => {
         });
 
         return data;
-    }, [days, logs, leaves, makeupRequests, shiftRequests, importantActivities, dayOverrides, historicalSchedules, companyHolidays]);
+    }, [days, logs, leaves, makeupRequests, shiftRequests, importantActivities, dayOverrides, lunchDuties, historicalSchedules, companyHolidays, employees, selectedEmployeeId]);
 
     const departments = useMemo(() => {
         const deps = Array.from(new Set(employees.map(emp => emp.department))).sort();
@@ -1158,6 +1188,26 @@ const AttendanceCalendarPage: React.FC = () => {
         e.stopPropagation();
         setSelectedDate(day);
         setShowQuickActionMenu(true);
+    };
+
+    const toggleLunchDuty = async () => {
+        if (!selectedDate || !selectedEmployeeId || savingLunchDuty || lunchDutyError) return;
+        const employeeId = selectedEmployeeId;
+        const date = format(selectedDate, 'yyyy-MM-dd');
+        setSavingLunchDuty(true);
+        try {
+            const updated = await lunchDutyService.set(employeeId, date, !monthData[date]?.duty);
+            const rows = await lunchDutyService.list(employeeId, date, date);
+            if (rows.length !== 1 || rows[0].enabled !== updated.enabled) throw new Error('寫入後查證失敗');
+            if (employeeId === selectedEmployeeId) {
+                setLunchDuties(prev => [...prev.filter(d => d.duty_date !== date), rows[0]]);
+                setShowQuickActionMenu(false);
+            }
+        } catch (error) {
+            alert(`午間值班更新失敗：${error instanceof Error ? error.message : '未知錯誤'}`);
+        } finally {
+            setSavingLunchDuty(false);
+        }
     };
 
     const handleSubmitNewLog = async () => {
@@ -1680,6 +1730,10 @@ const AttendanceCalendarPage: React.FC = () => {
                                         </div>
 
                                         <div className="flex-1 space-y-1.5">
+                                            {/* 午間值班與實際／認列工時 */}
+                                            {dayInfo?.duty && <div className="px-2 py-1 rounded-md text-[10px] font-black bg-cyan-50 text-cyan-800 border border-cyan-200" title="休息 12:00–12:30、16:00–16:30">
+                                                午間值班 · 實際 {dayInfo.actualHours}H／月曆暫計 {dayInfo.hours}H
+                                            </div>}
                                             {/* 共同活動 */}
                                             {dayInfo?.activities?.map(activity => (
                                                 <div key={activity.id} className="px-2 py-1 rounded-md text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200 flex flex-col leading-tight" title={`${activity.title}｜${activity.start_time.slice(0, 5)}–${activity.end_time.slice(0, 5)}`}>
@@ -2226,6 +2280,12 @@ const AttendanceCalendarPage: React.FC = () => {
                             </p>
                             
                             <div className="grid grid-cols-1 gap-3">
+                                {lunchDutyError && <p role="alert" className="text-sm text-rose-600">{lunchDutyError}</p>}
+                                {employees.find(e => e.id === selectedEmployeeId)?.department === '心安居' &&
+                                    <button type="button" disabled={savingLunchDuty || !!lunchDutyError} onClick={toggleLunchDuty}
+                                        className="w-full py-4 bg-cyan-50 text-cyan-800 rounded-2xl font-black disabled:opacity-50">
+                                        {savingLunchDuty ? '儲存中…' : monthData[format(selectedDate, 'yyyy-MM-dd')]?.duty ? '取消午間值班' : '設定午間值班'}
+                                    </button>}
                                 <button
                                     onClick={() => {
                                         setShowQuickActionMenu(false);

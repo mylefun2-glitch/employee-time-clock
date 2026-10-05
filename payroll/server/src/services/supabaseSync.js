@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js';
 import { PrismaClient } from '@prisma/client';
+import { dutyPayrollHours, hasApprovedLeaveOnDate } from './lunchDutyPayroll.js';
 
 const prisma = new PrismaClient();
 
@@ -297,6 +298,23 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
         }
       }
 
+      // Read markers before clearing the local cache: a failed read must not
+      // silently turn marked duty days into ordinary days.
+      const dutyDates = new Set();
+      for (let offset = 0; ; offset += 1000) {
+        let dutyQuery = supabase.from('employee_lunch_duties')
+          .select('employee_id, duty_date')
+          .eq('enabled', true)
+          .gte('duty_date', startDate)
+          .lte('duty_date', endDate)
+          .range(offset, offset + 999);
+        if (targetSbUuid) dutyQuery = dutyQuery.eq('employee_id', targetSbUuid);
+        const { data: duties, error: dutyError } = await dutyQuery;
+        if (dutyError) throw dutyError;
+        for (const duty of duties || []) dutyDates.add(`${duty.employee_id}_${duty.duty_date}`);
+        if (!duties || duties.length < 1000) break;
+      }
+
       // 1. Clear existing cache for this month (filtered by employee if targetEmployeeId is provided)
       const deleteAttendanceWhere = {
         date: { gte: startDate, lte: endDate }
@@ -362,9 +380,9 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
 
       if (leaveError) throw leaveError;
 
+      const leaveRecordsData = [];
       if (sbLeaves && sbLeaves.length > 0) {
         console.log(`Syncing ${sbLeaves.length} leave requests...`);
-        const leaveRecordsData = [];
         for (const leave of sbLeaves) {
           const localEmpId = uuidToDbId[leave.employee_id];
           if (!localEmpId) continue;
@@ -506,6 +524,18 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
             }
             let hoursWorkedRaw = Math.max(0, outHourRaw - inHourRaw - actualBreak);
             overtimeHours = Math.max(0, hoursWorkedRaw - 8);
+            const duty = dutyPayrollHours({
+              enabled: dutyDates.has(`${sbEmp?.id}_${date}`),
+              clockIn: inTime, clockOut: outTime,
+              hasApprovedLeave: hasApprovedLeaveOnDate(leaveRecordsData, employeeId, date),
+              status,
+            });
+            if (duty) {
+              regularHours = duty.creditedRegularHours;
+              overtimeHours = duty.overtimeHours;
+              // No actual-hours column in Prisma; preserve both values in notes.
+              groupedLogs[key].dutyNote = `午間值班：實際工時 ${duty.actualHours.toFixed(4)} 小時；計薪正常工時 8 小時`;
+            }
           } else if (inTime || outTime) {
             status = 'present'; // missing punch but attended
             regularHours = 8;
@@ -519,6 +549,7 @@ export function syncAttendanceAndLeaves(year, month, force = false, targetEmploy
             regularHours,
             overtimeHours,
             status,
+            notes: groupedLogs[key].dutyNote || null,
           });
         }
         if (attendanceRecordsData.length > 0) {
