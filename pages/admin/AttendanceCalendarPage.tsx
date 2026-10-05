@@ -1194,11 +1194,14 @@ const AttendanceCalendarPage: React.FC = () => {
         if (!selectedDate || !selectedEmployeeId || savingLunchDuty || lunchDutyError) return;
         const employeeId = selectedEmployeeId;
         const date = format(selectedDate, 'yyyy-MM-dd');
+        const enabled = !monthData[date]?.duty;
+        // 刪除在月曆上代表停用標記；保留資料庫原列及稽核歷程。
+        if (!enabled && !window.confirm(`確定刪除 ${selectedEmployee?.name} ${date} 的午間值班標記？打卡紀錄不會刪除。`)) return;
         setSavingLunchDuty(true);
         try {
-            const updated = await lunchDutyService.set(employeeId, date, !monthData[date]?.duty);
+            const updated = await lunchDutyService.set(employeeId, date, enabled);
             const rows = await lunchDutyService.list(employeeId, date, date);
-            if (rows.length !== 1 || rows[0].enabled !== updated.enabled) throw new Error('寫入後查證失敗');
+            if (rows.length !== 1 || rows[0].enabled !== enabled || updated.enabled !== enabled) throw new Error('寫入後查證失敗');
             if (employeeId === selectedEmployeeId) {
                 setLunchDuties(prev => [...prev.filter(d => d.duty_date !== date), rows[0]]);
                 setShowQuickActionMenu(false);
@@ -1731,8 +1734,12 @@ const AttendanceCalendarPage: React.FC = () => {
 
                                         <div className="flex-1 space-y-1.5">
                                             {/* 值班標記只在畫面呈現，不列印至出勤月曆 PDF */}
-                                            {dayInfo?.duty && <div className="print:hidden px-2 py-1 rounded-md text-[10px] font-black bg-cyan-50 text-cyan-800 border border-cyan-200" title={`午間值班｜實際 ${dayInfo.actualHours}H／月曆暫計 ${dayInfo.hours}H；休息 12:00–12:30、16:00–16:30`}>
-                                                午間值班
+                                            {dayInfo?.duty && <div className="print:hidden px-2 py-1 rounded-md text-[10px] font-black bg-cyan-50 text-cyan-800 border border-cyan-200 flex items-center justify-between gap-1" title={`午間值班｜實際 ${dayInfo.actualHours}H／月曆暫計 ${dayInfo.hours}H；休息 12:00–12:30、16:00–16:30`}>
+                                                <span>午間值班</span>
+                                                <button type="button" className="p-0.5 rounded hover:bg-cyan-100 text-cyan-800" title="刪除午間值班" aria-label={`刪除 ${format(day, 'MM/dd')} 午間值班`}
+                                                    onClick={e => { e.stopPropagation(); setSelectedDate(day); setShowQuickActionMenu(true); }}>
+                                                    <Trash2 className="h-3 w-3" />
+                                                </button>
                                             </div>}
                                             {/* 共同活動 */}
                                             {dayInfo?.activities?.map(activity => (
@@ -2284,7 +2291,7 @@ const AttendanceCalendarPage: React.FC = () => {
                                 {employees.find(e => e.id === selectedEmployeeId)?.department === '心安居' &&
                                     <button type="button" disabled={savingLunchDuty || !!lunchDutyError} onClick={toggleLunchDuty}
                                         className="w-full py-4 bg-cyan-50 text-cyan-800 rounded-2xl font-black disabled:opacity-50">
-                                        {savingLunchDuty ? '儲存中…' : monthData[format(selectedDate, 'yyyy-MM-dd')]?.duty ? '取消午間值班' : '設定午間值班'}
+                                        {savingLunchDuty ? '儲存中…' : monthData[format(selectedDate, 'yyyy-MM-dd')]?.duty ? '刪除午間值班' : '設定午間值班'}
                                     </button>}
                                 <button
                                     onClick={() => {
