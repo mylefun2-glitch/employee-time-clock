@@ -76,7 +76,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: 'fix-nhi-2' });
+  res.json({ version: 'fix-nhi-2+lunch-duty-1' });
 });
 
 app.get('/api/test-bonus', async (req, res) => {
