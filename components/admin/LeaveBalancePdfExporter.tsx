@@ -123,7 +123,7 @@ const PeriodBlock: React.FC<PeriodBlockProps> = ({
                 <tr>
                     {[
                         { label: '年資', value: period.label, color: '#0f172a', w: '13%', bold: true },
-                        { label: '期間', value: `${fmt(period.start_date)} ～ ${fmt(period.end_date)}`, color: '#475569', w: '30%' },
+                        { label: '額度取得期', value: `${fmt(period.start_date)} ～ ${fmt(period.end_date)}`, color: '#475569', w: '30%' },
                         { label: '應得時數', value: String(period.entitlement), color: '#334155', w: '10%' },
                         { label: '已用', value: String(period.used), color: '#ea580c', w: '9%' },
                         { label: isCashout ? '折現' : '折算', value: String(period.cashout), color: '#e11d48', w: '9%' },
@@ -230,7 +230,7 @@ export const AnnualTemplate = React.forwardRef<HTMLDivElement, TemplateProps>(
                     <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px 16px' }}>
                         <div style={{ fontWeight: 900, color: '#1d4ed8', fontSize: '12px', marginBottom: '8px' }}>特休逐筆核對摘要</div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
-                            {[['歷年應得', Math.round(annualPeriods.reduce((s, p) => s + Number(p.entitlement || 0), 0) * 100) / 100], ['已分配使用', Math.round(annualPeriods.reduce((s, p) => s + p.used, 0) * 100) / 100], ['已分配折現', Math.round(annualPeriods.reduce((s, p) => s + p.cashout, 0) * 100) / 100], ['未到期餘額', Math.round(annualPeriods.reduce((s, p) => s + p.remaining, 0) * 100) / 100]].map(([l, v]) => (
+                            {[['歷年應得', Math.round(annualPeriods.reduce((s, p) => s + Number(p.entitlement || 0), 0) * 100) / 100], ['已分配使用', Math.round(annualPeriods.reduce((s, p) => s + p.used, 0) * 100) / 100], ['已分配折現', Math.round(annualPeriods.reduce((s, p) => s + p.cashout, 0) * 100) / 100], ['尚未扣用', Math.round(annualPeriods.reduce((s, p) => s + p.remaining, 0) * 100) / 100]].map(([l, v]) => (
                                 <div key={String(l)} style={{ textAlign: 'center' }}>
                                     <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>{l}</div>
                                     <div style={{ fontSize: '15px', fontWeight: 900, color: '#1d4ed8' }}>{v ?? '-'}</div>
@@ -254,6 +254,7 @@ export const AnnualTemplate = React.forwardRef<HTMLDivElement, TemplateProps>(
                 </div>
 
                 {/* 特休年資明細 */}
+                <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '5px' }}>特休依假單日期扣最早已取得且尚有時數的年資額度；前期扣完才接續下一期。「額度取得期」不是本報表的扣用截止日。</div>
                 <SectionHeader title="特休年資明細" color="#1d4ed8" />
                 {annualPeriods.length === 0
                     ? <div style={{ padding: '12px', color: '#94a3b8', fontSize: '11px' }}>尚無年資里程碑資料</div>

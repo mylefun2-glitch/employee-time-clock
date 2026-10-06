@@ -37,15 +37,19 @@ for (const period of result.periods) {
     const rows = result.buckets.get(period.label);
     assert.equal(Math.round(rows.filter(r => r.leave_type_code === 'ANNUAL').reduce((s, r) => s + r.hours, 0) * 100) / 100, period.used);
     assert.equal(Math.round(rows.filter(r => r.leave_type_code === 'ALC').reduce((s, r) => s + r.hours, 0) * 100) / 100, period.cashout);
-    const ordered = [...result.periods].sort((a,b) => a.start_date.localeCompare(b.start_date));
-    const following = ordered[ordered.findIndex(p => p.label === period.label) + 1];
-    const expiry = following?.end_date || `${Number(period.end_date.slice(0,4)) + 1}${period.end_date.slice(4)}`;
-    for (const row of rows) assert(taipeiDate(row.start_date) >= period.start_date && taipeiDate(row.start_date) < expiry, `${period.label} includes unavailable date ${row.start_date}`);
+    for (const row of rows) assert(taipeiDate(row.start_date) >= period.start_date, `${period.label} includes pre-grant date ${row.start_date}`);
+}
+const chronological = [...result.periods].sort((a,b) => a.start_date.localeCompare(b.start_date));
+for (let i = 0; i < chronological.length - 1; i++) {
+    if (chronological[i].remaining > 0) assert(chronological.slice(i + 1).every(p => p.used + p.cashout === 0), `Next grant used before ${chronological[i].label} ran out`);
 }
 assert(!result.buckets.get('滿 5 年').some(r => taipeiDate(r.start_date).startsWith('2019')));
-assert(!result.buckets.get('滿 3 年').some(r => taipeiDate(r.start_date) >= '2023-05-21'));
+assert.equal(result.periods.find(p => p.label === '滿 5 年').used, 120);
+assert.equal(result.periods.find(p => p.label === '滿 6 年').used, 33.5);
+assert(result.periods.filter(p => ['滿 7 年', '滿 8 年'].includes(p.label)).every(p => p.used === 0));
+assert(result.buckets.get('滿 3 年').every(r => taipeiDate(r.start_date) >= '2021-05-21'));
 const input = [...original, ...cashouts].reduce((s, r) => s + r.hours, 0);
 const assigned = result.periods.reduce((s, p) => s + p.used + p.cashout, 0);
 const residual = result.unallocated.reduce((s, r) => s + r.hours, 0) + result.future.reduce((s, r) => s + r.hours, 0);
 assert(Math.abs(input - assigned - residual) < 0.001, 'Records must not disappear');
-console.log(JSON.stringify({ synthetic: 'pass', real: 'pass', inputHours: input, assignedHours: assigned, unallocatedHours: residual, fiveYear2019: false, threeYear2024: false, periodUsage: result.periods.map(p => [p.label, p.used, p.cashout]) }));
+console.log(JSON.stringify({ synthetic: 'pass', real: 'pass', inputHours: input, assignedHours: assigned, unallocatedHours: residual, fiveYear2019: false, fiveYear: result.periods.find(p => p.label === '滿 5 年'), sixYear: result.periods.find(p => p.label === '滿 6 年'), periodUsage: result.periods.map(p => [p.label, p.used, p.cashout]) }));
