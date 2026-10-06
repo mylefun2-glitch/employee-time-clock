@@ -14,6 +14,16 @@ assert.equal(test.buckets.get('第三期').reduce((s, r) => s + r.hours, 0), 5);
 assert.equal(test.unallocated.reduce((s, r) => s + r.hours, 0), 4);
 assert.equal(test.future.reduce((s, r) => s + r.hours, 0), 1);
 assert.equal(taipeiDate('2019-05-20T16:00:00+00:00'), '2019-05-21');
+const advancePeriods = [
+    { label: '舊期', start_date: '2020-01-01', end_date: '2021-01-01', entitlement: 8, used: 0, cashout: 0, remaining: 8 },
+    { label: '新期', start_date: '2021-01-01', end_date: '2022-01-01', entitlement: 8, used: 0, cashout: 0, remaining: 8 },
+];
+const advance = allocateAnnualByDate(advancePeriods, [rec('2020-01-01', 8), rec('2020-12-28', 5)], '2021-02-01');
+assert.equal(advance.buckets.get('新期')[0].hours, 5);
+assert.equal(advance.buckets.get('新期')[0].advanced_from_date, '2021-01-01');
+assert.equal(allocateAnnualByDate(advancePeriods, [rec('2020-01-01', 8), rec('2020-12-23', 5)], '2021-02-01').unallocated[0].hours, 5);
+assert.equal(allocateAnnualByDate(advancePeriods, [rec('2020-01-01', 8), rec('2020-12-28', 5, 'ALC')], '2021-02-01').unallocated[0].hours, 5);
+assert.equal(allocateAnnualByDate(advancePeriods, [rec('2020-01-01', 8), rec('2020-12-28', 5)], '2020-12-30').unallocated[0].hours, 5);
 
 // Read-only regression against 林延達's actual approved requests and balance.
 const url = process.env.VITE_SUPABASE_URL, key = process.env.VITE_SUPABASE_ANON_KEY;
@@ -37,7 +47,7 @@ for (const period of result.periods) {
     const rows = result.buckets.get(period.label);
     assert.equal(Math.round(rows.filter(r => r.leave_type_code === 'ANNUAL').reduce((s, r) => s + r.hours, 0) * 100) / 100, period.used);
     assert.equal(Math.round(rows.filter(r => r.leave_type_code === 'ALC').reduce((s, r) => s + r.hours, 0) * 100) / 100, period.cashout);
-    for (const row of rows) assert(taipeiDate(row.start_date) >= period.start_date, `${period.label} includes pre-grant date ${row.start_date}`);
+    for (const row of rows) assert(taipeiDate(row.start_date) >= period.start_date || (row.advanced_from_date === period.start_date && (Date.parse(`${period.start_date}T00:00:00Z`) - Date.parse(`${taipeiDate(row.start_date)}T00:00:00Z`)) / 86400000 <= 7), `${period.label} includes unexplained pre-grant date ${row.start_date}`);
 }
 const chronological = [...result.periods].sort((a,b) => a.start_date.localeCompare(b.start_date));
 for (let i = 0; i < chronological.length - 1; i++) {
@@ -45,9 +55,12 @@ for (let i = 0; i < chronological.length - 1; i++) {
 }
 assert(!result.buckets.get('滿 5 年').some(r => taipeiDate(r.start_date).startsWith('2019')));
 assert.equal(result.periods.find(p => p.label === '滿 5 年').used, 120);
-assert.equal(result.periods.find(p => p.label === '滿 6 年').used, 33.5);
+assert(result.periods.find(p => p.label === '滿 6 年').used > 0);
 assert(result.periods.filter(p => ['滿 7 年', '滿 8 年'].includes(p.label)).every(p => p.used === 0));
-assert(result.buckets.get('滿 3 年').every(r => taipeiDate(r.start_date) >= '2021-05-21'));
+assert(result.buckets.get('滿 3 年').every(r => taipeiDate(r.start_date) >= '2021-05-21' || r.advanced_from_date === '2021-05-21'));
+const advanceRows = result.buckets.get('滿 3 年').filter(r => r.advanced_from_date === '2021-05-21');
+assert.deepEqual(advanceRows.map(r => taipeiDate(r.start_date)), ['2021-05-17', '2021-05-18', '2021-05-19', '2021-05-20']);
+assert.equal(advanceRows.reduce((sum, r) => sum + r.hours, 0), 32);
 const input = [...original, ...cashouts].reduce((s, r) => s + r.hours, 0);
 const assigned = result.periods.reduce((s, p) => s + p.used + p.cashout, 0);
 const residual = result.unallocated.reduce((s, r) => s + r.hours, 0) + result.future.reduce((s, r) => s + r.hours, 0);

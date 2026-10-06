@@ -16,6 +16,8 @@ export interface LeaveDetailRecord {
     hours: number;
     /** 報表拆分欄位，不回寫原始假單。 */
     source_hours?: number;
+    /** 報表歸屬註記：原假單早於所扣年資額度的取得日。 */
+    advanced_from_date?: string;
     record_type: 'request' | 'adjustment';
 }
 
@@ -170,6 +172,7 @@ const PeriodBlock: React.FC<PeriodBlockProps> = ({
                             <td style={{ ...td, wordBreak: 'break-all', whiteSpace: 'normal' }}>
                                 {rec.description || '—'}
                                 {rec.source_hours != null && <span style={{ display: 'block', color: '#1d4ed8', fontWeight: 700 }}>同筆拆分：原單 {rec.source_hours} H，本段 {rec.hours} H</span>}
+                                {rec.advanced_from_date && <span style={{ display: 'block', color: '#b45309', fontWeight: 700 }}>跨期預扣：假單早於本期額度取得日 {rec.advanced_from_date}</span>}
                             </td>
                             <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>
                                 {rec.hours || '—'}
@@ -257,7 +260,7 @@ export const AnnualTemplate = React.forwardRef<HTMLDivElement, TemplateProps>(
                 </div>
 
                 {/* 特休年資明細 */}
-                <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '5px' }}>特休依假單日期扣最早已取得且尚有時數的年資額度；前期扣完才接續下一期。「額度取得期」不是本報表的扣用截止日。</div>
+                <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '5px' }}>特休依假單日期扣最早已取得且尚有時數的年資額度；前期扣完才接續下一期。歷史假單若在下一期取得日前 7 天內且舊期已扣完，另標示「跨期預扣」。「額度取得期」不是本報表的扣用截止日。</div>
                 <SectionHeader title="特休年資明細" color="#1d4ed8" />
                 {annualPeriods.length === 0
                     ? <div style={{ padding: '12px', color: '#94a3b8', fontSize: '11px' }}>尚無年資里程碑資料</div>
