@@ -193,7 +193,15 @@ export const calculateLeaveHoursDetailed = (
 
             totalRawMinutes += dayRawMinutes;
             totalBreakMinutes += dayBreakMinutes;
-            totalMinutes += Math.max(0, dayRawMinutes - dayBreakMinutes);
+            // 整日差勤依該日班表的核定工時；區間淨時數仍保留供明細查核。
+            // 只有完整涵蓋班別且沒有彈性位移時才套用，部分時段／遲到早退仍按實際重疊計算。
+            const agreedMinutes = Number(schedule.standard_daily_hours) * 60;
+            const coversWholeShift = !ignoreWorkWindow && deductBreaks && flexOffset === 0
+                && actualStart.getTime() === dayWorkStart.getTime()
+                && actualEnd.getTime() === dayWorkEnd.getTime();
+            totalMinutes += coversWholeShift && Number.isFinite(agreedMinutes) && agreedMinutes > 0
+                ? agreedMinutes
+                : Math.max(0, dayRawMinutes - dayBreakMinutes);
         }
 
         currentDayHead.setDate(currentDayHead.getDate() + 1);
