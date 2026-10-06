@@ -101,7 +101,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
-            <div className="relative bg-slate-50 w-full max-w-5xl max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 fade-in duration-300">
+            <div className="relative bg-slate-50 w-full max-w-[min(96vw,90rem)] max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 fade-in duration-300">
                 {/* Header */}
                 <div className="bg-white px-8 py-6 border-b border-slate-100 flex items-center justify-between shrink-0">
                     <div>
@@ -125,7 +125,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                         <>
                             {/* Anniversary Breakdown List */}
                             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                                <div className="bg-slate-50/50 px-8 py-5 border-b border-slate-100 flex items-center gap-3">
+                                <div className="bg-slate-50/50 px-4 py-4 border-b border-slate-100 flex items-center gap-3">
                                     <span className="material-symbols-outlined text-blue-600 text-2xl">list_alt</span>
                                     <h4 className="font-black text-slate-900 text-lg">特休年資明細</h4>
                                 </div>
@@ -142,7 +142,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                     sortable
                                                     sortConfig={sortConfig}
                                                     onSort={() => handleSort('label')}
-                                                    className="px-8 py-5"
+                                                    className="px-4 py-4"
                                                 />
                                                 <TableHeaderFilter
                                                     columnKey="start_date"
@@ -153,7 +153,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                     sortable
                                                     sortConfig={sortConfig}
                                                     onSort={() => handleSort('start_date')}
-                                                    className="px-8 py-5"
+                                                    className="px-4 py-4"
                                                 />
                                                 <TableHeaderFilter
                                                     columnKey="entitlement"
@@ -164,9 +164,9 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                     sortable
                                                     sortConfig={sortConfig}
                                                     onSort={() => handleSort('entitlement')}
-                                                    className="px-8 py-5"
+                                                    className="px-4 py-4"
                                                 />
-                                                <th className="px-8 py-5 text-[10px] font-black text-indigo-500 uppercase tracking-widest whitespace-nowrap">
+                                                <th className="px-4 py-4 text-[10px] font-black text-indigo-500 uppercase tracking-widest whitespace-nowrap">
                                                     遞延（前期）
                                                 </th>
                                                 <TableHeaderFilter
@@ -178,7 +178,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                     sortable
                                                     sortConfig={sortConfig}
                                                     onSort={() => handleSort('used')}
-                                                    className="px-8 py-5"
+                                                    className="px-4 py-4"
                                                 />
                                                 <TableHeaderFilter
                                                     columnKey="cashout"
@@ -189,7 +189,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                     sortable
                                                     sortConfig={sortConfig}
                                                     onSort={() => handleSort('cashout')}
-                                                    className="px-8 py-5"
+                                                    className="px-4 py-4"
                                                 />
                                                 <TableHeaderFilter
                                                     columnKey="remaining"
@@ -200,7 +200,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                     sortable
                                                     sortConfig={sortConfig}
                                                     onSort={() => handleSort('remaining')}
-                                                    className="px-8 py-5 text-emerald-600"
+                                                    className="px-4 py-4 text-emerald-600"
                                                 />
                                             </tr>
                                         </thead>
@@ -214,10 +214,10 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                             ) : (
                                                 filteredAndSortedPeriods.map((period, idx) => (
                                                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
-                                                        <td className="px-8 py-5 whitespace-nowrap">
+                                                        <td className="px-4 py-4 whitespace-nowrap">
                                                             <span className="font-black text-slate-900">{period.label}</span>
                                                         </td>
-                                                        <td className="px-8 py-5 whitespace-nowrap">
+                                                        <td className="px-4 py-4 whitespace-nowrap">
                                                             <div className="text-sm text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-lg inline-block">
                                                                 {period.start_date} <span className="text-slate-300 mx-1">~</span> {period.end_date}
                                                             </div>
@@ -228,7 +228,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                                 </div>
                                                             )}
                                                         </td>
-                                                        <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-slate-600">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-center font-mono font-black text-slate-600">
                                                             <div className="font-mono font-black text-slate-600 leading-none">{period.entitlement}</div>
                                                             {period.entitlement_formula && (
                                                                 <div className="text-[10px] text-blue-500 font-bold mt-1.5 opacity-80 flex items-center justify-center gap-1">
@@ -255,7 +255,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                             )}
                                                         </td>
                                                         {/* 遞延（前期）欄 - 依第24-1條優先扣除 */}
-                                                        <td className="px-8 py-5 whitespace-nowrap text-center">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-center">
                                                             {period.deferred_in > 0 ? (
                                                                 <div className="inline-flex flex-col items-center gap-0.5">
                                                                     <span className="font-mono font-black text-indigo-600">+{period.deferred_in}</span>
@@ -265,16 +265,16 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                                 <span className="text-slate-300 font-mono">—</span>
                                                             )}
                                                         </td>
-                                                        <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-orange-600">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-center font-mono font-black text-orange-600">
                                                             <div>{period.used}</div>
                                                             {period.used_from_deferred > 0 && (
                                                                 <div className="text-[9px] font-bold text-indigo-400 mt-0.5">含遞延 {period.used_from_deferred}</div>
                                                             )}
                                                         </td>
-                                                        <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-rose-600">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-center font-mono font-black text-rose-600">
                                                             {period.cashout}
                                                         </td>
-                                                        <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-emerald-600">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-center font-mono font-black text-emerald-600">
                                                             <div>{period.remaining}</div>
                                                             {period.formula && (
                                                                 <div className="text-[9px] text-slate-400 font-bold mt-0.5 opacity-70 max-w-[140px]">{period.formula}</div>
@@ -290,7 +290,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
 
                             {/* Compensatory Breakdown List */}
                             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                                <div className="bg-slate-50/50 px-8 py-5 border-b border-slate-100 flex items-center gap-3">
+                                <div className="bg-slate-50/50 px-4 py-4 border-b border-slate-100 flex items-center gap-3">
                                     <span className="material-symbols-outlined text-orange-600 text-2xl">list_alt</span>
                                     <h4 className="font-black text-slate-900 text-lg">補休年度明細</h4>
                                 </div>
@@ -307,7 +307,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                     sortable
                                                     sortConfig={compSortConfig}
                                                     onSort={() => handleCompSort('label')}
-                                                    className="px-8 py-5"
+                                                    className="px-4 py-4"
                                                 />
                                                 <TableHeaderFilter
                                                     columnKey="start_date"
@@ -318,7 +318,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                     sortable
                                                     sortConfig={compSortConfig}
                                                     onSort={() => handleCompSort('start_date')}
-                                                    className="px-8 py-5"
+                                                    className="px-4 py-4"
                                                 />
                                                 <TableHeaderFilter
                                                     columnKey="entitlement"
@@ -329,9 +329,9 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                     sortable
                                                     sortConfig={compSortConfig}
                                                     onSort={() => handleCompSort('entitlement')}
-                                                    className="px-8 py-5"
+                                                    className="px-4 py-4"
                                                 />
-                                                <th className="px-8 py-5 text-[10px] font-black text-indigo-500 uppercase tracking-widest whitespace-nowrap">
+                                                <th className="px-4 py-4 text-[10px] font-black text-indigo-500 uppercase tracking-widest whitespace-nowrap">
                                                     遞延（前期）
                                                 </th>
                                                 <TableHeaderFilter
@@ -343,7 +343,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                     sortable
                                                     sortConfig={compSortConfig}
                                                     onSort={() => handleCompSort('used')}
-                                                    className="px-8 py-5"
+                                                    className="px-4 py-4"
                                                 />
                                                 <TableHeaderFilter
                                                     columnKey="cashout"
@@ -354,7 +354,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                     sortable
                                                     sortConfig={compSortConfig}
                                                     onSort={() => handleCompSort('cashout')}
-                                                    className="px-8 py-5"
+                                                    className="px-4 py-4"
                                                 />
                                                 <TableHeaderFilter
                                                     columnKey="remaining"
@@ -365,7 +365,7 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                     sortable
                                                     sortConfig={compSortConfig}
                                                     onSort={() => handleCompSort('remaining')}
-                                                    className="px-8 py-5 text-emerald-600"
+                                                    className="px-4 py-4 text-emerald-600"
                                                 />
                                             </tr>
                                         </thead>
@@ -379,19 +379,19 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                             ) : (
                                                 filteredAndSortedCompPeriods.map((period, idx) => (
                                                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
-                                                        <td className="px-8 py-5 whitespace-nowrap">
+                                                        <td className="px-4 py-4 whitespace-nowrap">
                                                             <span className="font-black text-slate-900">{period.label}</span>
                                                         </td>
-                                                        <td className="px-8 py-5 whitespace-nowrap">
+                                                        <td className="px-4 py-4 whitespace-nowrap">
                                                             <div className="text-sm text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-lg inline-block">
                                                                 {period.start_date} <span className="text-slate-300 mx-1">~</span> {period.end_date}
                                                             </div>
                                                         </td>
-                                                        <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-slate-600">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-center font-mono font-black text-slate-600">
                                                             <div className="font-mono font-black text-slate-600 leading-none">{period.entitlement}</div>
                                                         </td>
                                                         {/* 遞延（前期）欄 - 依第24-1條優先扣除 */}
-                                                        <td className="px-8 py-5 whitespace-nowrap text-center">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-center">
                                                             {period.deferred_in > 0 ? (
                                                                 <div className="inline-flex flex-col items-center gap-0.5">
                                                                     <span className="font-mono font-black text-indigo-600">+{period.deferred_in}</span>
@@ -401,16 +401,16 @@ const LeaveBalanceDetailModal: React.FC<Props> = ({ employee, onClose }) => {
                                                                 <span className="text-slate-300 font-mono">—</span>
                                                             )}
                                                         </td>
-                                                        <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-orange-600">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-center font-mono font-black text-orange-600">
                                                             <div>{period.used}</div>
                                                             {period.used_from_deferred > 0 && (
                                                                 <div className="text-[9px] font-bold text-indigo-400 mt-0.5">含遞延 {period.used_from_deferred}</div>
                                                             )}
                                                         </td>
-                                                        <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-rose-600">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-center font-mono font-black text-rose-600">
                                                             {period.cashout}
                                                         </td>
-                                                        <td className="px-8 py-5 whitespace-nowrap text-center font-mono font-black text-emerald-600">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-center font-mono font-black text-emerald-600">
                                                             <div>{period.remaining}</div>
                                                             {period.formula && (
                                                                 <div className="text-[9px] text-slate-400 font-bold mt-0.5 opacity-70 max-w-[140px]">{period.formula}</div>
