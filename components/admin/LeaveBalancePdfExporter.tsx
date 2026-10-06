@@ -2,6 +2,7 @@ import React from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { LeaveBalance, Employee } from '../../types';
+import { allocateAnnualByDate, taipeiDate } from '../../lib/annualLeaveAllocation';
 
 // ── 對外型別 ──────────────────────────────────────────────
 export interface LeaveDetailRecord {
@@ -206,10 +207,10 @@ interface TemplateProps {
 export const AnnualTemplate = React.forwardRef<HTMLDivElement, TemplateProps>(
     ({ employee, records }, ref) => {
         const lb = employee.leaveBalance;
-        const annualPeriods = lb?.annual?.periods || [];
-        const allocation = distributeRecordsFIFO(
-            annualPeriods, records, ['ANNUAL'], ['ALC']
-        );
+        const allocation = allocateAnnualByDate(lb?.annual?.periods || [], records, taipeiDate(new Date().toISOString()));
+        const annualPeriods = allocation.periods;
+        const unallocatedHours = allocation.unallocated.reduce((sum, r) => sum + r.hours, 0);
+        const futureHours = allocation.future.reduce((sum, r) => sum + r.hours, 0);
 
         return (
             <div ref={ref} style={{ width: `${W}px`, backgroundColor: '#fff', fontFamily: FONT, fontSize: '11px', color: '#1e293b', padding: '36px 44px', boxSizing: 'border-box' }}>
@@ -227,15 +228,16 @@ export const AnnualTemplate = React.forwardRef<HTMLDivElement, TemplateProps>(
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
                     {/* 特休 */}
                     <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px 16px' }}>
-                        <div style={{ fontWeight: 900, color: '#1d4ed8', fontSize: '12px', marginBottom: '8px' }}>特休額度摘要</div>
+                        <div style={{ fontWeight: 900, color: '#1d4ed8', fontSize: '12px', marginBottom: '8px' }}>特休逐筆核對摘要</div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
-                            {[['總額', lb?.annual.entitlement], ['已用', lb?.annual.used], ['折現', lb?.annual.cashout], ['剩餘', lb?.annual.remaining]].map(([l, v]) => (
+                            {[['歷年應得', Math.round(annualPeriods.reduce((s, p) => s + Number(p.entitlement || 0), 0) * 100) / 100], ['已分配使用', Math.round(annualPeriods.reduce((s, p) => s + p.used, 0) * 100) / 100], ['已分配折現', Math.round(annualPeriods.reduce((s, p) => s + p.cashout, 0) * 100) / 100], ['未到期餘額', Math.round(annualPeriods.reduce((s, p) => s + p.remaining, 0) * 100) / 100]].map(([l, v]) => (
                                 <div key={String(l)} style={{ textAlign: 'center' }}>
                                     <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>{l}</div>
                                     <div style={{ fontSize: '15px', fontWeight: 900, color: '#1d4ed8' }}>{v ?? '-'}</div>
                                 </div>
                             ))}
                         </div>
+                        {(unallocatedHours > 0 || futureHours > 0) && <div style={{ marginTop: '7px', color: '#b91c1c', fontWeight: 700, fontSize: '10px' }}>待核對未分配：{Math.round(unallocatedHours * 100) / 100} H；未來已核准（尚未扣用）：{Math.round(futureHours * 100) / 100} H</div>}
                     </div>
                     {/* 補休 */}
                     <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '8px', padding: '12px 16px' }}>
@@ -261,13 +263,21 @@ export const AnnualTemplate = React.forwardRef<HTMLDivElement, TemplateProps>(
                             <PeriodBlock
                                 key={i}
                                 period={p}
-                                records={allocation.get(p.label) || []}
+                                records={allocation.buckets.get(p.label) || []}
                                 employeeName={employee.name}
                                 accentColor="#1d4ed8"
                                 isCashout={true}
                             />
                         ))
                 }
+                {allocation.unallocated.length > 0 && <>
+                    <SectionHeader title="待核對：當日無可用額度（未分配）" color="#b91c1c" />
+                    <PeriodBlock period={{ label: '未分配', start_date: '', end_date: '', entitlement: 0, used: Math.round(allocation.unallocated.filter(r => r.leave_type_code === 'ANNUAL').reduce((s, r) => s + r.hours, 0) * 100) / 100, cashout: Math.round(allocation.unallocated.filter(r => r.leave_type_code === 'ALC').reduce((s, r) => s + r.hours, 0) * 100) / 100, remaining: 0 }} records={allocation.unallocated} employeeName={employee.name} accentColor="#b91c1c" isCashout={true} />
+                </>}
+                {allocation.future.length > 0 && <>
+                    <SectionHeader title="未來已核准（尚未扣用）" color="#475569" />
+                    <PeriodBlock period={{ label: '未來假單', start_date: '', end_date: '', entitlement: 0, used: 0, cashout: 0, remaining: 0 }} records={allocation.future} employeeName={employee.name} accentColor="#475569" isCashout={true} />
+                </>}
 
                 <div style={{ marginTop: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '6px', color: '#94a3b8', fontSize: '10px', textAlign: 'right' }}>
                     本報表由系統自動產生 · {today()} （特休部分）

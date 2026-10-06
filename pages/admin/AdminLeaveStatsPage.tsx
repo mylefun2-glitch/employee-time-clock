@@ -217,24 +217,29 @@ const AdminLeaveStatsPage: React.FC = () => {
         setPdfLoadingId(emp.id);
         try {
             // 1. 撈取假別對照表
-            const { data: leaveTypes } = await supabase.from('leave_types').select('*');
+            const { data: leaveTypes, error: typesError } = await supabase.from('leave_types').select('*');
+            if (typesError) throw typesError;
             const typeMap = new Map((leaveTypes || []).map((t: any) => [t.id, t]));
 
             // 2. 撈取已核准的請假申請（含時間欄位）
-            const { data: requests } = await supabase
+            const { data: requests, error: requestsError } = await supabase
                 .from('leave_requests')
                 .select('id, leave_type_id, start_date, end_date, reason, hours, status')
                 .eq('employee_id', emp.id)
                 .eq('status', 'APPROVED')
                 .or('is_modified.eq.false,is_modified.is.null')
                 .order('start_date', { ascending: true });
+            if (requestsError) throw requestsError;
+            const freshBalance = await getEmployeeLeaveBalances(emp.id);
+            if (!freshBalance) throw new Error('無法讀取員工差勤額度');
 
             // 3. 撈取折現/調整紀錄
-            const { data: adjustments } = await supabase
+            const { data: adjustments, error: adjustmentsError } = await supabase
                 .from('leave_balance_adjustments')
                 .select('*')
                 .eq('employee_id', emp.id)
                 .order('created_at', { ascending: true });
+            if (adjustmentsError) throw adjustmentsError;
 
             const records: LeaveDetailRecord[] = [];
 
@@ -290,7 +295,7 @@ const AdminLeaveStatsPage: React.FC = () => {
             });
 
             await exportLeaveBalancePdf({
-                employee: emp,
+                employee: { ...emp, leaveBalance: freshBalance },
                 records,
             });
         } catch (err) {
