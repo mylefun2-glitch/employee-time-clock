@@ -42,17 +42,23 @@ export function allocateAnnualByDate(periods: Period[], records: LeaveDetailReco
         if (remaining <= EPS) continue;
         if (date && date > asOf) { future.push({ ...record, hours: round(remaining) }); continue; }
         const cashout = record.leave_type_code === 'ALC';
+        const parts: { label: string | null; hours: number }[] = [];
         for (const grant of grants) {
             if (remaining <= EPS) break;
             if (!date || date < grant.period.start_date || grant.left <= EPS) continue;
             const take = Math.min(remaining, grant.left);
-            buckets.get(grant.period.label)!.push({ ...record, hours: round(take) });
+            parts.push({ label: grant.period.label, hours: round(take) });
             grant.left -= take;
             remaining -= take;
             if (cashout) grant.cashout += take;
             else grant.used += take;
         }
-        if (remaining > EPS) unallocated.push({ ...record, hours: round(remaining) });
+        if (remaining > EPS) parts.push({ label: null, hours: round(remaining) });
+        for (const part of parts) {
+            const row = { ...record, hours: part.hours, ...(parts.length > 1 ? { source_hours: round(Number(record.hours)) } : {}) };
+            if (part.label === null) unallocated.push(row);
+            else buckets.get(part.label)!.push(row);
+        }
     }
     const reportPeriods = grants.map(({ period, left, used, cashout }) => ({
         ...period,

@@ -14,6 +14,8 @@ export interface LeaveDetailRecord {
     end_time: string;
     description: string;
     hours: number;
+    /** 報表拆分欄位，不回寫原始假單。 */
+    source_hours?: number;
     record_type: 'request' | 'adjustment';
 }
 
@@ -167,6 +169,7 @@ const PeriodBlock: React.FC<PeriodBlockProps> = ({
                             <td style={td}>{rec.end_time || '—'}</td>
                             <td style={{ ...td, wordBreak: 'break-all', whiteSpace: 'normal' }}>
                                 {rec.description || '—'}
+                                {rec.source_hours != null && <span style={{ display: 'block', color: '#1d4ed8', fontWeight: 700 }}>同筆拆分：原單 {rec.source_hours} H，本段 {rec.hours} H</span>}
                             </td>
                             <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>
                                 {rec.hours || '—'}
