@@ -129,6 +129,7 @@ const StatisticsPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [activeIndex, setActiveIndex] = useState(0);
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [detail, setDetail] = useState<{ kind: 'seniority' | 'age'; range: string } | null>(null);
 
     // 複合篩選狀態
     const [filters, setFilters] = useState<{
@@ -144,6 +145,15 @@ const StatisticsPage: React.FC = () => {
     useEffect(() => {
         fetchData();
     }, [selectedMonth]);
+
+    useEffect(() => {
+        if (!detail) return;
+        const onEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setDetail(null);
+        };
+        window.addEventListener('keydown', onEscape);
+        return () => window.removeEventListener('keydown', onEscape);
+    }, [detail]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -185,14 +195,28 @@ const StatisticsPage: React.FC = () => {
         { value: 'OTHER', label: '其他' }
     ];
 
-    const getStats = (): DeptStats => {
-        const filtered = employees.filter(e => {
+    const filteredEmployees = employees.filter(e => {
             const matchesDept = filters.department.includes('ALL') || filters.department.includes(e.department || '未分配');
             const matchesPos = filters.position.includes('ALL') || filters.position.includes(e.position || '未設定');
             const matchesGender = filters.gender.includes('ALL') || filters.gender.includes(e.gender || 'OTHER');
             return matchesDept && matchesPos && matchesGender;
-        });
+    });
 
+    // Keep chart counts and drill-down members on the same filtered population and buckets.
+    const ageGroup = (e: Employee) => e.birth_date ? getAgeRange(calculateAge(e.birth_date)) : '未知';
+    const seniorityGroup = (e: Employee) => e.join_date ? getSeniorityRange(calculateSeniority(e.join_date)) : '未知';
+    const detailEmployees = detail
+        ? filteredEmployees.filter(e => (detail.kind === 'age' ? ageGroup(e) : seniorityGroup(e)) === detail.range)
+            .sort((a, b) => {
+                const value = (e: Employee) => detail.kind === 'age'
+                    ? e.birth_date ? calculateAge(e.birth_date) : -1
+                    : e.join_date ? calculateSeniority(e.join_date) : -1;
+                return value(b) - value(a) || a.name.localeCompare(b.name, 'zh-Hant');
+            })
+        : [];
+
+    const getStats = (): DeptStats => {
+        const filtered = filteredEmployees;
         const stats: DeptStats = {
             name: filters.department.length === 1 ? filters.department[0] : '多重選取',
             total: filtered.length,
@@ -221,21 +245,8 @@ const StatisticsPage: React.FC = () => {
             else if (e.gender === 'FEMALE') stats.gender.female++;
             else stats.gender.other++;
 
-            if (e.birth_date) {
-                const age = calculateAge(e.birth_date);
-                const range = getAgeRange(age);
-                stats.ageRanges[range] = (stats.ageRanges[range] || 0) + 1;
-            } else {
-                stats.ageRanges['未知']++;
-            }
-
-            if (e.join_date) {
-                const years = calculateSeniority(e.join_date);
-                const range = getSeniorityRange(years);
-                stats.seniorityRanges[range] = (stats.seniorityRanges[range] || 0) + 1;
-            } else {
-                stats.seniorityRanges['未知']++;
-            }
+            stats.ageRanges[ageGroup(e)]++;
+            stats.seniorityRanges[seniorityGroup(e)]++;
 
             const pos = e.position || '未設定';
             stats.positions[pos] = (stats.positions[pos] || 0) + 1;
@@ -385,7 +396,7 @@ const StatisticsPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">人事統計報表</h1>
-                    <p className="text-slate-500 text-base font-medium">即時分析全會人力結構與分佈數據</p>
+                    <p className="text-slate-500 text-base font-medium">人事結構：目前在職，年齡與年資截至今日；打卡與差勤：所選月份</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="relative">
@@ -560,9 +571,12 @@ const StatisticsPage: React.FC = () => {
                         <BarChart3 className="w-6 h-6 text-blue-600" />
                         <h3 className="text-lg font-black text-slate-900 tracking-tight">年資結構分佈</h3>
                     </div>
+                    <p className="mb-4 text-xs text-slate-500">點選有資料的區間查看人員名單</p>
                     <div className="space-y-4">
                         {Object.entries(currentStats.seniorityRanges).map(([range, count]) => (
-                            <div key={range} className="flex items-center gap-5 group">
+                            <button type="button" key={range} disabled={count === 0} onClick={() => setDetail({ kind: 'seniority', range })}
+                                aria-label={`查看年資${range}的${count}位員工`}
+                                className="flex items-center gap-5 group w-full text-left disabled:cursor-default enabled:cursor-pointer enabled:focus-visible:outline-2 enabled:focus-visible:outline-blue-600 rounded-xl">
                                 <span className="text-sm font-black text-slate-500 w-32 text-right tracking-tight group-hover:text-blue-600 transition-colors">{range}</span>
                                 <div className="flex-1 h-8 bg-slate-50 rounded-xl overflow-hidden flex items-center pr-3 border border-slate-50 group-hover:border-slate-100 transition-all">
                                     <div
@@ -573,7 +587,7 @@ const StatisticsPage: React.FC = () => {
                                         {count > 0 ? `${count} 人` : '0'}
                                     </span>
                                 </div>
-                            </div>
+                            </button>
                         ))}
                     </div>
                 </div>
@@ -586,9 +600,12 @@ const StatisticsPage: React.FC = () => {
                         </div>
                         <h3 className="text-lg font-black text-slate-900 tracking-tight">年齡結構分佈</h3>
                     </div>
+                    <p className="mb-4 text-xs text-slate-500">點選有資料的區間查看人員名單</p>
                     <div className="space-y-4">
                         {Object.entries(currentStats.ageRanges).map(([range, count]) => (
-                            <div key={range} className="flex items-center gap-5 group">
+                            <button type="button" key={range} disabled={count === 0} onClick={() => setDetail({ kind: 'age', range })}
+                                aria-label={`查看年齡${range}的${count}位員工`}
+                                className="flex items-center gap-5 group w-full text-left disabled:cursor-default enabled:cursor-pointer enabled:focus-visible:outline-2 enabled:focus-visible:outline-indigo-600 rounded-xl">
                                 <span className="text-sm font-black text-slate-500 w-32 text-right tracking-tight group-hover:text-indigo-600 transition-colors">{range}</span>
                                 <div className="flex-1 h-10 bg-slate-50 rounded-xl overflow-hidden flex items-center pr-3 border border-slate-50 group-hover:border-slate-100 transition-all">
                                     <div
@@ -599,11 +616,39 @@ const StatisticsPage: React.FC = () => {
                                         {count > 0 ? `${count} 人` : '0'}
                                     </span>
                                 </div>
-                            </div>
+                            </button>
                         ))}
                     </div>
                 </div>
             </div>
+
+            {detail && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-3 sm:p-6" onClick={() => setDetail(null)}>
+                    <section role="dialog" aria-modal="true" aria-labelledby="stats-detail-title" onClick={e => e.stopPropagation()}
+                        className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-5 sm:p-7 shadow-xl">
+                        <div className="flex items-start justify-between gap-4 mb-2">
+                            <h2 id="stats-detail-title" className="text-xl font-black text-slate-900">
+                                {detail.kind === 'age' ? '年齡' : '年資'}・{detail.range}（{detailEmployees.length} 人）
+                            </h2>
+                            <button type="button" onClick={() => setDetail(null)} aria-label="關閉明細" className="rounded-lg px-3 py-1 text-slate-600 hover:bg-slate-100 focus-visible:outline-2">關閉</button>
+                        </div>
+                        <p className="mb-5 text-sm text-slate-500">目前在職・沿用頁面部門／職務／性別篩選・年齡及年資截至今日</p>
+                        <div className="space-y-2">
+                            {detailEmployees.map(e => (
+                                <div key={e.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:flex sm:items-center sm:gap-4">
+                                    <div className="font-bold text-slate-900 sm:w-28">{e.name}</div>
+                                    <div className="text-sm text-slate-600 sm:flex-1">{e.department || '未分配'}・{e.position || '未設定'}</div>
+                                    <div className="text-sm font-bold text-slate-700 sm:text-right">
+                                        {detail.kind === 'age'
+                                            ? e.birth_date ? `${calculateAge(e.birth_date)} 歲` : '生日未填'
+                                            : e.join_date ? `到職 ${e.join_date}・${calculateSeniority(e.join_date)} 年` : '到職日未填'}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                </div>
+            )}
 
             {/* 員工扣薪假別統計明細 */}
             <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
