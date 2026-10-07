@@ -209,25 +209,42 @@ export const requestService = {
      */
     async getAllRequests(): Promise<LeaveRequest[]> {
         try {
-            const { data, error } = await supabase
-                .from('leave_requests')
-                .select(`
+            // Supabase may cap each response below a requested .limit(5000).
+            // Read every page so client-side name/date filters include older requests.
+            const pageSize = 500;
+            const requests: any[] = [];
+            let total: number | null = null;
+            while (total === null || requests.length < total) {
+                const { data, error, count } = await supabase
+                    .from('leave_requests')
+                    .select(`
                     *,
                     leave_type:leave_types(*),
                     employee:employees!leave_requests_employee_id_fkey(name, department),
                     deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
-                `)
-                .or('is_modified.is.null,is_modified.eq.false')
-                .order('created_at', { ascending: false })
-                .limit(5000); // 提升上限以應對大量歷史紀錄
+                    `, { count: 'exact' })
+                    .or('is_modified.is.null,is_modified.eq.false')
+                    .order('created_at', { ascending: false })
+                    .order('id', { ascending: false })
+                    .range(requests.length, requests.length + pageSize - 1);
 
-            if (error) {
-                console.error('Error fetching all requests:', error);
-                return [];
+                if (error) {
+                    console.error('Error fetching all requests:', error);
+                    return []; // Never show a misleading partial result.
+                }
+                total = count;
+                if (!data?.length) {
+                    if (total !== null && requests.length < total) {
+                        console.error('Incomplete request history:', requests.length, 'of', total);
+                        return [];
+                    }
+                    break;
+                }
+                requests.push(...data);
             }
 
             // 將 employee.name 映射到 employee_name
-            return (data || []).map((req: any) => ({
+            return requests.map((req: any) => ({
                 ...req,
                 employee_name: req.employee?.name
             }));

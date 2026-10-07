@@ -16,7 +16,7 @@ const taipeiDate = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit'
 });
 
-const submittedDate = (timestamp: string) => {
+const taipeiDay = (timestamp: string) => {
     const parts = taipeiDate.formatToParts(new Date(timestamp));
     const value = (type: string) => parts.find(part => part.type === type)?.value || '';
     return `${value('year')}-${value('month')}-${value('day')}`;
@@ -28,8 +28,8 @@ const RequestsPage: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
     const [filterDepartment, setFilterDepartment] = useState<string>('ALL');
     const [employeeSearch, setEmployeeSearch] = useState('');
-    const [submittedFrom, setSubmittedFrom] = useState('');
-    const [submittedTo, setSubmittedTo] = useState('');
+    const [leaveFrom, setLeaveFrom] = useState('');
+    const [leaveTo, setLeaveTo] = useState('');
     const [departments, setDepartments] = useState<string[]>([]);
     const [importing, setImporting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -72,7 +72,7 @@ const RequestsPage: React.FC = () => {
     useEffect(() => {
         setPage(1);
         setSelectedIds(new Set());
-    }, [filterStatus, filterDepartment, columnFilters, employeeSearch, submittedFrom, submittedTo]);
+    }, [filterStatus, filterDepartment, columnFilters, employeeSearch, leaveFrom, leaveTo]);
 
     useEffect(() => {
         setSelectedIds(new Set());
@@ -299,7 +299,7 @@ const RequestsPage: React.FC = () => {
         }
     };
 
-    // Quick search and submission dates are combined with status, department and column filters.
+    // A request overlaps the selected attendance period if its end >= from and start <= to.
     const filteredRequests = requests.filter(req => {
         // 快速篩選（現有的）
         const statusMatch = filterStatus === 'ALL' || req.status === filterStatus;
@@ -308,8 +308,8 @@ const RequestsPage: React.FC = () => {
         // 表格欄位篩選 (加上 trim 確保比對精確)
         const empName = ((req as any).employee_name || (req as any).employee?.name || '未知員工').trim();
         const searchMatch = empName.toLocaleLowerCase('zh-TW').includes(employeeSearch.trim().toLocaleLowerCase('zh-TW'));
-        const date = (submittedFrom || submittedTo) && req.created_at ? submittedDate(req.created_at) : '';
-        const submittedMatch = (!submittedFrom || date >= submittedFrom) && (!submittedTo || date <= submittedTo);
+        const leaveMatch = (!leaveFrom || (req.end_date && taipeiDay(req.end_date) >= leaveFrom)) &&
+            (!leaveTo || (req.start_date && taipeiDay(req.start_date) <= leaveTo));
         const deptName = ((req as any).employee?.department || '未分配').trim();
         const typeName = ((req as any).leave_type?.name || '-').trim();
 
@@ -327,7 +327,7 @@ const RequestsPage: React.FC = () => {
         const deputyMatch = columnFilters.deputy.length === 0 ||
             columnFilters.deputy.map(v => v.trim()).includes(deputyName);
 
-        return statusMatch && deptMatch && searchMatch && submittedMatch && employeeMatch && deptColumnMatch &&
+        return statusMatch && deptMatch && searchMatch && leaveMatch && employeeMatch && deptColumnMatch &&
             leaveTypeMatch && statusColumnMatch && hasCarMatch && deputyMatch;
     });
 
@@ -589,23 +589,23 @@ const RequestsPage: React.FC = () => {
                             placeholder="輸入姓名關鍵字" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-900 focus:border-blue-500 focus:outline-none" />
                     </label>
                     <label className="flex flex-col gap-1.5 text-sm font-bold text-slate-600">
-                        申請送出日期・起
-                        <input type="date" value={submittedFrom} max={submittedTo || undefined} onChange={e => setSubmittedFrom(e.target.value)}
+                        差勤日期・起
+                        <input type="date" value={leaveFrom} max={leaveTo || undefined} onChange={e => setLeaveFrom(e.target.value)}
                             className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-900 focus:border-blue-500 focus:outline-none" />
                     </label>
                     <label className="flex flex-col gap-1.5 text-sm font-bold text-slate-600">
-                        申請送出日期・迄
-                        <input type="date" value={submittedTo} min={submittedFrom || undefined} onChange={e => setSubmittedTo(e.target.value)}
+                        差勤日期・迄
+                        <input type="date" value={leaveTo} min={leaveFrom || undefined} onChange={e => setLeaveTo(e.target.value)}
                             className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-900 focus:border-blue-500 focus:outline-none" />
                     </label>
-                    {(employeeSearch || submittedFrom || submittedTo) && (
-                        <button type="button" onClick={() => { setEmployeeSearch(''); setSubmittedFrom(''); setSubmittedTo(''); }}
+                    {(employeeSearch || leaveFrom || leaveTo) && (
+                        <button type="button" onClick={() => { setEmployeeSearch(''); setLeaveFrom(''); setLeaveTo(''); }}
                             className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">
                             清除搜尋
                         </button>
                     )}
                 </div>
-                <p className="text-xs text-slate-500">日期依台灣時間的申請送出日篩選，不是請假／出差起訖日；可與下方條件併用。</p>
+                <p className="text-xs text-slate-500">依台灣時間的請假／出差起訖日篩選；跨日申請只要與所選日期區間重疊就會顯示。</p>
                 {/* 狀態篩選 */}
                 <div className="flex items-start gap-3">
                     <label className="text-sm font-bold text-slate-400 whitespace-nowrap mt-1.5 min-w-[3.5rem]">狀態：</label>
