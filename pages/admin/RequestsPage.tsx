@@ -7,11 +7,6 @@ import TableHeaderFilter from '../../components/ui/TableHeaderFilter';
 import EmployeeSelectModal from '../../components/admin/EmployeeSelectModal';
 import LeaveRequestForm from '../../components/LeaveRequestForm';
 
-interface DepartmentStats {
-    department: string;
-    count: number;
-}
-
 const taipeiDate = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit'
 });
@@ -26,11 +21,9 @@ const RequestsPage: React.FC = () => {
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
-    const [filterDepartment, setFilterDepartment] = useState<string>('ALL');
     const [employeeSearch, setEmployeeSearch] = useState('');
     const [leaveFrom, setLeaveFrom] = useState('');
     const [leaveTo, setLeaveTo] = useState('');
-    const [departments, setDepartments] = useState<string[]>([]);
     const [importing, setImporting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -72,7 +65,7 @@ const RequestsPage: React.FC = () => {
     useEffect(() => {
         setPage(1);
         setSelectedIds(new Set());
-    }, [filterStatus, filterDepartment, columnFilters, employeeSearch, leaveFrom, leaveTo]);
+    }, [filterStatus, columnFilters, employeeSearch, leaveFrom, leaveTo]);
 
     useEffect(() => {
         setSelectedIds(new Set());
@@ -82,15 +75,6 @@ const RequestsPage: React.FC = () => {
         setLoading(true);
         const data = await requestService.getAllRequests();
         setRequests(data);
-
-        // 提取所有部門
-        const deptSet = new Set<string>();
-        data.forEach((req: any) => {
-            if (req.employee?.department) {
-                deptSet.add(req.employee.department);
-            }
-        });
-        setDepartments(Array.from(deptSet).sort());
 
         setLoading(false);
         setSelectedIds(new Set()); // 清除選取
@@ -303,7 +287,6 @@ const RequestsPage: React.FC = () => {
     const filteredRequests = requests.filter(req => {
         // 快速篩選（現有的）
         const statusMatch = filterStatus === 'ALL' || req.status === filterStatus;
-        const deptMatch = filterDepartment === 'ALL' || (req as any).employee?.department === filterDepartment;
 
         // 表格欄位篩選 (加上 trim 確保比對精確)
         const empName = ((req as any).employee_name || (req as any).employee?.name || '未知員工').trim();
@@ -327,7 +310,7 @@ const RequestsPage: React.FC = () => {
         const deputyMatch = columnFilters.deputy.length === 0 ||
             columnFilters.deputy.map(v => v.trim()).includes(deputyName);
 
-        return statusMatch && deptMatch && searchMatch && leaveMatch && employeeMatch && deptColumnMatch &&
+        return statusMatch && searchMatch && leaveMatch && employeeMatch && deptColumnMatch &&
             leaveTypeMatch && statusColumnMatch && hasCarMatch && deputyMatch;
     });
 
@@ -335,18 +318,6 @@ const RequestsPage: React.FC = () => {
     const currentPage = Math.min(page, totalPages);
     const pagedRequests = filteredRequests.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-    // 計算各部門的申請數量
-    const getDepartmentStats = (): DepartmentStats[] => {
-        const stats = new Map<string, number>();
-        requests.forEach((req: any) => {
-            // 只計算非撤回的
-            if (req.status === RequestStatus.WITHDRAWN) return;
-
-            const dept = req.employee?.department || '未分配';
-            stats.set(dept, (stats.get(dept) || 0) + 1);
-        });
-        return Array.from(stats.entries()).map(([department, count]) => ({ department, count }));
-    };
 
     if (loading) {
         return (
@@ -356,7 +327,6 @@ const RequestsPage: React.FC = () => {
         );
     }
 
-    const departmentStats = getDepartmentStats();
 
     // 健壯的 CSV 解析器
     const parseCSV = (text: string) => {
@@ -628,50 +598,6 @@ const RequestsPage: React.FC = () => {
                         ))}
                     </div>
                 </div>
-
-                {/* 分隔線 (水平) */}
-                {departments.length > 0 && (
-                    <div className="h-px w-full bg-slate-50"></div>
-                )}
-
-                {/* 部門篩選 */}
-                {departments.length > 0 && (
-                    <div className="flex items-start gap-3">
-                        <label className="text-sm font-bold text-slate-400 whitespace-nowrap mt-1.5 min-w-[3.5rem]">部門：</label>
-                        <div className="flex gap-2 flex-wrap">
-                            <button
-                                onClick={() => setFilterDepartment('ALL')}
-                                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${filterDepartment === 'ALL'
-                                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-100 ring-2 ring-purple-100'
-                                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-                                    }`}
-                            >
-                                全部
-                            </button>
-                            {departments.map((dept) => {
-                                const stat = departmentStats.find(s => s.department === dept);
-                                return (
-                                    <button
-                                        key={dept}
-                                        onClick={() => setFilterDepartment(dept)}
-                                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${filterDepartment === dept
-                                            ? 'bg-purple-600 text-white shadow-lg shadow-purple-100 ring-2 ring-purple-100'
-                                            : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-                                            }`}
-                                    >
-                                        {dept}
-                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${filterDepartment === dept
-                                            ? 'bg-purple-500 text-white'
-                                            : 'bg-slate-200 text-slate-500'
-                                            }`}>
-                                            {stat?.count || 0}
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
             </div>
 
             <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 relative">
