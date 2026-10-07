@@ -21,6 +21,8 @@ const RequestsPage: React.FC = () => {
     const [importing, setImporting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
     const [isEmployeeSelectOpen, setIsEmployeeSelectOpen] = useState(false);
     const [selectedEmployeeIdForRequest, setSelectedEmployeeIdForRequest] = useState<string | null>(null);
 
@@ -52,6 +54,16 @@ const RequestsPage: React.FC = () => {
     useEffect(() => {
         loadRequests();
     }, []);
+
+    // A new filter starts at the first page and cannot leave hidden rows selected.
+    useEffect(() => {
+        setPage(1);
+        setSelectedIds(new Set());
+    }, [filterStatus, filterDepartment, columnFilters]);
+
+    useEffect(() => {
+        setSelectedIds(new Set());
+    }, [page, pageSize]);
 
     const loadRequests = async () => {
         setLoading(true);
@@ -171,11 +183,14 @@ const RequestsPage: React.FC = () => {
     };
 
     const toggleAllSelection = () => {
-        if (selectedIds.size === filteredRequests.length && filteredRequests.length > 0) {
-            setSelectedIds(new Set());
+        const pageIds = pagedRequests.map(r => r.id);
+        const next = new Set(selectedIds);
+        if (pageIds.length > 0 && pageIds.every(id => next.has(id))) {
+            pageIds.forEach(id => next.delete(id));
         } else {
-            setSelectedIds(new Set(filteredRequests.map(r => r.id)));
+            pageIds.forEach(id => next.add(id));
         }
+        setSelectedIds(next);
     };
 
     // 打開修改代理人 Modal
@@ -299,6 +314,10 @@ const RequestsPage: React.FC = () => {
         return statusMatch && deptMatch && employeeMatch && deptColumnMatch &&
             leaveTypeMatch && statusColumnMatch && hasCarMatch && deputyMatch;
     });
+
+    const totalPages = Math.max(1, Math.ceil(filteredRequests.length / pageSize));
+    const currentPage = Math.min(page, totalPages);
+    const pagedRequests = filteredRequests.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     // 計算各部門的申請數量
     const getDepartmentStats = (): DepartmentStats[] => {
@@ -624,12 +643,14 @@ const RequestsPage: React.FC = () => {
                                     <input
                                         type="checkbox"
                                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                        checked={selectedIds.size === filteredRequests.length && filteredRequests.length > 0}
+                                        checked={pagedRequests.length > 0 && pagedRequests.every(r => selectedIds.has(r.id))}
+                                        aria-label="選取本頁全部申請"
                                         onChange={toggleAllSelection}
                                     />
                                 </th>
                                 <TableHeaderFilter
                                     columnKey="employee"
+                                    portal
                                     label="員工"
                                     values={requests.map((r: any) => r.employee_name || r.employee?.name || '未知員工')}
                                     selectedValues={columnFilters.employee}
@@ -638,6 +659,7 @@ const RequestsPage: React.FC = () => {
                                 />
                                 <TableHeaderFilter
                                     columnKey="department"
+                                    portal
                                     label="部門"
                                     values={requests.map((r: any) => r.employee?.department || '未分配')}
                                     selectedValues={columnFilters.department}
@@ -646,6 +668,7 @@ const RequestsPage: React.FC = () => {
                                 />
                                 <TableHeaderFilter
                                     columnKey="leaveType"
+                                    portal
                                     label="類型"
                                     values={requests.map((r: any) => r.leave_type?.name || '-')}
                                     selectedValues={columnFilters.leaveType}
@@ -655,6 +678,7 @@ const RequestsPage: React.FC = () => {
                                 <th className="px-2.5 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest min-w-[200px]">日期時間</th>
                                 <TableHeaderFilter
                                     columnKey="hasCar"
+                                    portal
                                     label="車"
                                     values={requests.map((r: any) => r.car ? '有' : '無')}
                                     selectedValues={columnFilters.hasCar}
@@ -663,6 +687,7 @@ const RequestsPage: React.FC = () => {
                                 />
                                 <TableHeaderFilter
                                     columnKey="deputy"
+                                    portal
                                     label="代理人"
                                     values={requests.map((r: any) => r.deputy?.name || '未指定')}
                                     selectedValues={columnFilters.deputy}
@@ -672,6 +697,7 @@ const RequestsPage: React.FC = () => {
                                 <th className="px-2.5 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-widest min-w-[120px] max-w-[180px]">事由</th>
                                 <TableHeaderFilter<RequestStatus>
                                     columnKey="status"
+                                    portal
                                     label="狀態"
                                     values={[RequestStatus.PENDING, RequestStatus.WITHDRAW_PENDING, RequestStatus.APPROVED, RequestStatus.REJECTED, RequestStatus.WITHDRAWN]}
                                     selectedValues={columnFilters.status}
@@ -700,7 +726,7 @@ const RequestsPage: React.FC = () => {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredRequests.map((request: any) => {
+                                pagedRequests.map((request: any) => {
                                     const statusBadge = getStatusBadge(request.status);
                                     return (
                                         <tr key={request.id} className={`hover:bg-slate-50 ${selectedIds.has(request.id) ? 'bg-blue-50/30' : ''}`}>
@@ -821,6 +847,21 @@ const RequestsPage: React.FC = () => {
                             )}
                         </tbody>
                     </table>
+                </div>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-600">
+                <span>篩選後 {filteredRequests.length} 筆{filteredRequests.length > 0 ? `・顯示第 ${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filteredRequests.length)} 筆` : ''}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                    <label htmlFor="requests-page-size">每頁</label>
+                    <select id="requests-page-size" value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
+                        className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                        {[20, 50, 100].map(size => <option key={size} value={size}>{size} 筆</option>)}
+                    </select>
+                    <button type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 disabled:opacity-40">上一頁</button>
+                    <span className="min-w-[4.5rem] text-center tabular-nums">{currentPage} / {totalPages}</span>
+                    <button type="button" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 disabled:opacity-40">下一頁</button>
                 </div>
             </div>
             <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileChange} className="hidden" />

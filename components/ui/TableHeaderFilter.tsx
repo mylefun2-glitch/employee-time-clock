@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Filter, X, Check, ArrowUpDown, ChevronUp, ChevronDown, Search } from 'lucide-react';
 
 export interface TableHeaderFilterProps<T = string> {
@@ -12,6 +13,7 @@ export interface TableHeaderFilterProps<T = string> {
     onSort?: () => void;
     valueFormatter?: (value: T) => string;
     className?: string;
+    portal?: boolean;
 }
 
 export function TableHeaderFilter<T = string>({
@@ -24,7 +26,8 @@ export function TableHeaderFilter<T = string>({
     sortConfig = null,
     onSort,
     valueFormatter = (v) => String(v),
-    className = ''
+    className = '',
+    portal = false
 }: TableHeaderFilterProps<T>) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -32,49 +35,47 @@ export function TableHeaderFilter<T = string>({
     const buttonRef = useRef<HTMLButtonElement>(null);
     const [dropdownSide, setDropdownSide] = useState<'left' | 'right'>('left');
     const [dropdownVertical, setDropdownVertical] = useState<'top' | 'bottom'>('top');
+    const [portalPosition, setPortalPosition] = useState<React.CSSProperties>({});
 
-    // 點擊外部關閉下拉選單
+    // Keep an open filter within the viewport, even inside a horizontally scrolling table.
     useEffect(() => {
+        if (!isOpen) return;
         const handleClickOutside = (event: MouseEvent) => {
-            if (
-                dropdownRef.current &&
-                !dropdownRef.current.contains(event.target as Node) &&
-                buttonRef.current &&
-                !buttonRef.current.contains(event.target as Node)
-            ) {
-                setIsOpen(false);
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
+                buttonRef.current && !buttonRef.current.contains(event.target as Node)) setIsOpen(false);
+        };
+        const updatePosition = () => {
+            if (!buttonRef.current) return;
+            const rect = buttonRef.current.getBoundingClientRect();
+            const vWidth = window.innerWidth;
+            const vHeight = window.innerHeight;
+            if (portal) {
+                const width = Math.min(256, vWidth - 16);
+                const left = Math.max(8, Math.min(rect.left, vWidth - width - 8));
+                const below = vHeight - rect.bottom;
+                const above = rect.top;
+                const openBelow = below >= Math.min(320, above) || below >= above;
+                setPortalPosition({
+                    position: 'fixed', width, left,
+                    top: openBelow ? Math.max(8, rect.bottom + 8) : undefined,
+                    bottom: openBelow ? undefined : Math.max(8, vHeight - rect.top + 8),
+                    maxHeight: Math.max(100, (openBelow ? below : above) - 16)
+                });
+            } else {
+                setDropdownSide(rect.left + 260 > vWidth ? 'right' : 'left');
+                setDropdownVertical(rect.bottom + 400 > vHeight && rect.top > 400 ? 'bottom' : 'top');
             }
         };
-
-        if (isOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-
-            // 智慧定位邏輯
-            if (buttonRef.current) {
-                const rect = buttonRef.current.getBoundingClientRect();
-                const vWidth = window.innerWidth;
-                const vHeight = window.innerHeight;
-
-                // 檢查右側空間 (w-64 = 256px)
-                if (rect.left + 260 > vWidth) {
-                    setDropdownSide('right');
-                } else {
-                    setDropdownSide('left');
-                }
-
-                // 檢查下方空間 (max-h-80 = 320px + header/footer ~ 400px)
-                if (rect.bottom + 400 > vHeight && rect.top > 400) {
-                    setDropdownVertical('bottom');
-                } else {
-                    setDropdownVertical('top');
-                }
-            }
-        }
-
+        document.addEventListener('mousedown', handleClickOutside);
+        updatePosition();
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, true);
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
         };
-    }, [isOpen]);
+    }, [isOpen, portal]);
 
     // 關閉下拉選單時清除搜尋
     useEffect(() => {
@@ -140,54 +141,13 @@ export function TableHeaderFilter<T = string>({
 
     const isSorted = sortConfig?.key === columnKey;
 
-    return (
-        <th className={`px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest ${className}`}>
-            <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 flex-1">
-                    {label}
-
-                    {/* 排序圖示 */}
-                    {sortable && onSort && (
-                        <button
-                            onClick={onSort}
-                            className="p-0.5 hover:text-blue-600 transition-colors"
-                            title="排序"
-                        >
-                            {isSorted ? (
-                                sortConfig.direction === 'asc' ?
-                                    <ChevronUp className="h-3 w-3" /> :
-                                    <ChevronDown className="h-3 w-3" />
-                            ) : (
-                                <ArrowUpDown className="h-3 w-3 opacity-50" />
-                            )}
-                        </button>
-                    )}
-                </div>
-
-                {/* 篩選按鈕 */}
-                <div className="relative">
-                    <button
-                        ref={buttonRef}
-                        onClick={() => setIsOpen(!isOpen)}
-                        className={`p-1 rounded-lg transition-all ${hasActiveFilter
-                            ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
-                            : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
-                            }`}
-                        title="篩選"
-                    >
-                        <Filter className="h-4 w-4" />
-                        {hasActiveFilter && (
-                            <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
-                        )}
-                    </button>
-
-                    {/* 下拉選單 */}
-                    {isOpen && (
+    const dropdownNode = (
                         <div
                             ref={dropdownRef}
-                            className={`absolute z-[100] w-64 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 ${dropdownVertical === 'top' ? 'top-full mt-2' : 'bottom-full mb-2'
-                                } ${dropdownSide === 'left' ? 'left-0' : 'right-0'
-                                }`}
+                            style={portal ? portalPosition : undefined}
+                            className={portal
+                                ? 'fixed z-[1000] flex flex-col bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden'
+                                : `absolute z-[100] w-64 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden ${dropdownVertical === 'top' ? 'top-full mt-2' : 'bottom-full mb-2'} ${dropdownSide === 'left' ? 'left-0' : 'right-0'}`}
                         >
                             {/* 標題與操作 */}
                             <div className="p-4 border-b border-slate-100 bg-slate-50/50">
@@ -233,7 +193,7 @@ export function TableHeaderFilter<T = string>({
                              </div>
 
                              {/* 選項列表 */}
-                             <div className="max-h-80 overflow-y-auto custom-scrollbar">
+                             <div className="min-h-0 max-h-80 overflow-y-auto custom-scrollbar">
                                  {filteredLabels.length === 0 ? (
                                      <div className="p-8 text-center text-sm text-slate-400 font-bold italic">
                                          沒有符合的選項
@@ -281,7 +241,51 @@ export function TableHeaderFilter<T = string>({
                                 </div>
                             )}
                         </div>
+    );
+
+    return (
+        <th className={`px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-widest ${className}`}>
+            <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 flex-1">
+                    {label}
+
+                    {/* 排序圖示 */}
+                    {sortable && onSort && (
+                        <button
+                            onClick={onSort}
+                            className="p-0.5 hover:text-blue-600 transition-colors"
+                            title="排序"
+                        >
+                            {isSorted ? (
+                                sortConfig.direction === 'asc' ?
+                                    <ChevronUp className="h-3 w-3" /> :
+                                    <ChevronDown className="h-3 w-3" />
+                            ) : (
+                                <ArrowUpDown className="h-3 w-3 opacity-50" />
+                            )}
+                        </button>
                     )}
+                </div>
+
+                {/* 篩選按鈕 */}
+                <div className="relative">
+                    <button
+                        ref={buttonRef}
+                        onClick={() => setIsOpen(!isOpen)}
+                        className={`p-1 rounded-lg transition-all ${hasActiveFilter
+                            ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
+                            : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
+                            }`}
+                        title="篩選"
+                    >
+                        <Filter className="h-4 w-4" />
+                        {hasActiveFilter && (
+                            <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
+                        )}
+                    </button>
+
+                    {/* 下拉選單 */}
+                    {isOpen && (portal ? createPortal(dropdownNode, document.body) : dropdownNode)}
                 </div>
             </div>
         </th>
