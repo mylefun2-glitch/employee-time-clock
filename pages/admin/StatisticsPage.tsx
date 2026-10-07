@@ -2,16 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Employee } from '../../types';
 import { calculateAge, getAgeRange, calculateSeniority, getSeniorityRange } from '../../lib/hrUtils';
-import { Filter, Users, UserCheck, BarChart3, PieChart as PieIcon } from 'lucide-react';
-import {
-    PieChart,
-    Pie,
-    Cell,
-    Tooltip,
-    ResponsiveContainer,
-    Legend,
-    Sector
-} from 'recharts';
+import { Filter, Users, UserCheck, BarChart3 } from 'lucide-react';
 
 interface DeptStats {
     name: string;
@@ -31,17 +22,6 @@ interface DeptStats {
     }[];
     activeLeaveTypes: string[];
 }
-
-const COLORS = [
-    '#3b82f6', // blue
-    '#6366f1', // indigo
-    '#8b5cf6', // violet
-    '#ec4899', // pink
-    '#f43f5e', // rose
-    '#f59e0b', // amber
-    '#10b981', // emerald
-    '#06b6d4', // cyan
-];
 
 const MultiSelectDropdown: React.FC<{
     label: string;
@@ -127,9 +107,8 @@ const StatisticsPage: React.FC = () => {
     const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
     const [leaveTypes, setLeaveTypes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeIndex, setActiveIndex] = useState(0);
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-    const [detail, setDetail] = useState<{ kind: 'seniority' | 'age'; range: string } | null>(null);
+    const [detail, setDetail] = useState<{ kind: 'seniority' | 'age' | 'position'; range: string } | null>(null);
 
     // 複合篩選狀態
     const [filters, setFilters] = useState<{
@@ -205,9 +184,11 @@ const StatisticsPage: React.FC = () => {
     // Keep chart counts and drill-down members on the same filtered population and buckets.
     const ageGroup = (e: Employee) => e.birth_date ? getAgeRange(calculateAge(e.birth_date)) : '未知';
     const seniorityGroup = (e: Employee) => e.join_date ? getSeniorityRange(calculateSeniority(e.join_date)) : '未知';
+    const positionGroup = (e: Employee) => e.position || '未設定';
     const detailEmployees = detail
-        ? filteredEmployees.filter(e => (detail.kind === 'age' ? ageGroup(e) : seniorityGroup(e)) === detail.range)
+        ? filteredEmployees.filter(e => (detail.kind === 'age' ? ageGroup(e) : detail.kind === 'position' ? positionGroup(e) : seniorityGroup(e)) === detail.range)
             .sort((a, b) => {
+                if (detail.kind === 'position') return a.name.localeCompare(b.name, 'zh-Hant');
                 const value = (e: Employee) => detail.kind === 'age'
                     ? e.birth_date ? calculateAge(e.birth_date) : -1
                     : e.join_date ? calculateSeniority(e.join_date) : -1;
@@ -248,7 +229,7 @@ const StatisticsPage: React.FC = () => {
             stats.ageRanges[ageGroup(e)]++;
             stats.seniorityRanges[seniorityGroup(e)]++;
 
-            const pos = e.position || '未設定';
+            const pos = positionGroup(e);
             stats.positions[pos] = (stats.positions[pos] || 0) + 1;
         });
 
@@ -334,60 +315,11 @@ const StatisticsPage: React.FC = () => {
 
     const currentStats = getStats();
 
-    // 格式化職務數據給 Recharts
+    // Counts, percentages and drill-down share the same filtered employee set.
     const positionChartData = Object.entries(currentStats.positions)
         .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value);
-
-    const onPieEnter = (_: any, index: number) => {
-        setActiveIndex(index);
-    };
-
-    const renderActiveShape = (props: any) => {
-        const RADIAN = Math.PI / 180;
-        const { cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
-        const sin = Math.sin(-RADIAN * midAngle);
-        const cos = Math.cos(-RADIAN * midAngle);
-        const sx = cx + (outerRadius + 10) * cos;
-        const sy = cy + (outerRadius + 10) * sin;
-        const mx = cx + (outerRadius + 30) * cos;
-        const my = cy + (outerRadius + 30) * sin;
-        const ex = mx + (cos >= 0 ? 1 : -1) * 22;
-        const ey = my;
-        const textAnchor = cos >= 0 ? 'start' : 'end';
-
-        return (
-            <g>
-                <text x={cx} y={cy} dy={8} textAnchor="middle" fill={fill} className="text-sm font-black uppercase">
-                    {payload.name}
-                </text>
-                <Sector
-                    cx={cx}
-                    cy={cy}
-                    innerRadius={innerRadius}
-                    outerRadius={outerRadius}
-                    startAngle={startAngle}
-                    endAngle={endAngle}
-                    fill={fill}
-                />
-                <Sector
-                    cx={cx}
-                    cy={cy}
-                    startAngle={startAngle}
-                    endAngle={endAngle}
-                    innerRadius={outerRadius + 6}
-                    outerRadius={outerRadius + 10}
-                    fill={fill}
-                />
-                <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" />
-                <circle cx={ex} cy={ey} r={2} fill={fill} stroke="none" />
-                <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} textAnchor={textAnchor} fill="#333" className="text-xs font-black">{`${value} 人`}</text>
-                <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} dy={18} textAnchor={textAnchor} fill="#999" className="text-[10px] uppercase font-bold">
-                    {`(佔 ${(percent * 100).toFixed(1)}%)`}
-                </text>
-            </g>
-        );
-    };
+        .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, 'zh-Hant'));
+    const maxPositionCount = Math.max(1, ...positionChartData.map(item => item.value));
 
     if (loading) return <div className="p-12 text-center text-slate-500 font-black text-xl">數據分析中...</div>;
 
@@ -528,40 +460,31 @@ const StatisticsPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* 職務結構圖表 (原有，調整位置與大小) */}
-                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm overflow-hidden text-center flex flex-col items-center">
-                    <div className="flex items-center gap-3 mb-4 w-full text-left">
+                {/* 職務人數與占比：長條方便比較，點選可查核名單 */}
+                <div className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-100 shadow-sm min-w-0">
+                    <div className="flex items-center gap-3 mb-2">
                         <div className="p-1.5 bg-amber-50 rounded-lg">
-                            <PieIcon className="w-6 h-6 text-amber-600" />
+                            <BarChart3 className="w-6 h-6 text-amber-600" />
                         </div>
                         <h3 className="text-lg font-black text-slate-900 tracking-tight">職務結構細分</h3>
                     </div>
-                    <div className="w-full h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    // @ts-ignore
-                                    activeIndex={activeIndex}
-                                    // @ts-ignore
-                                    activeShape={renderActiveShape}
-                                    data={positionChartData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={90}
-                                    fill="#8884d8"
-                                    dataKey="value"
-                                    onMouseEnter={onPieEnter}
-                                >
-                                    {positionChartData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
+                    <p className="mb-5 text-xs text-slate-500">目前在職・共 {currentStats.total} 人・點選職務查看人員</p>
+                    <div className="space-y-2">
+                        {positionChartData.length === 0 ? (
+                            <p className="py-10 text-center text-sm text-slate-500">目前篩選條件下沒有在職人員</p>
+                        ) : positionChartData.map(({ name, value }) => (
+                            <button key={name} type="button" onClick={() => setDetail({ kind: 'position', range: name })}
+                                aria-label={`查看${name}的${value}位員工`}
+                                className="w-full rounded-xl px-3 py-2.5 text-left hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-amber-600 transition-colors">
+                                <div className="flex items-start justify-between gap-3 text-sm">
+                                    <span className="min-w-0 font-bold text-slate-800 break-words">{name}</span>
+                                    <span className="shrink-0 font-black tabular-nums text-amber-800">{value} 人・{(value / currentStats.total * 100).toFixed(1)}%</span>
+                                </div>
+                                <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                                    <div className="h-full rounded-full bg-amber-500" style={{ width: `${value / maxPositionCount * 100}%` }} />
+                                </div>
+                            </button>
+                        ))}
                     </div>
                 </div>
 
@@ -628,21 +551,23 @@ const StatisticsPage: React.FC = () => {
                         className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-5 sm:p-7 shadow-xl">
                         <div className="flex items-start justify-between gap-4 mb-2">
                             <h2 id="stats-detail-title" className="text-xl font-black text-slate-900">
-                                {detail.kind === 'age' ? '年齡' : '年資'}・{detail.range}（{detailEmployees.length} 人）
+                                {detail.kind === 'age' ? '年齡' : detail.kind === 'position' ? '職務' : '年資'}・{detail.range}（{detailEmployees.length} 人）
                             </h2>
                             <button type="button" onClick={() => setDetail(null)} aria-label="關閉明細" className="rounded-lg px-3 py-1 text-slate-600 hover:bg-slate-100 focus-visible:outline-2">關閉</button>
                         </div>
-                        <p className="mb-5 text-sm text-slate-500">目前在職・沿用頁面部門／職務／性別篩選・年齡及年資截至今日</p>
+                        <p className="mb-5 text-sm text-slate-500">目前在職・沿用頁面部門／職務／性別篩選{detail.kind !== 'position' ? '・年齡及年資截至今日' : ''}</p>
                         <div className="space-y-2">
                             {detailEmployees.map(e => (
                                 <div key={e.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:flex sm:items-center sm:gap-4">
                                     <div className="font-bold text-slate-900 sm:w-28">{e.name}</div>
                                     <div className="text-sm text-slate-600 sm:flex-1">{e.department || '未分配'}・{e.position || '未設定'}</div>
-                                    <div className="text-sm font-bold text-slate-700 sm:text-right">
-                                        {detail.kind === 'age'
-                                            ? e.birth_date ? `${calculateAge(e.birth_date)} 歲` : '生日未填'
-                                            : e.join_date ? `到職 ${e.join_date}・${calculateSeniority(e.join_date)} 年` : '到職日未填'}
-                                    </div>
+                                    {detail.kind !== 'position' && (
+                                        <div className="text-sm font-bold text-slate-700 sm:text-right">
+                                            {detail.kind === 'age'
+                                                ? e.birth_date ? `${calculateAge(e.birth_date)} 歲` : '生日未填'
+                                                : e.join_date ? `到職 ${e.join_date}・${calculateSeniority(e.join_date)} 年` : '到職日未填'}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
