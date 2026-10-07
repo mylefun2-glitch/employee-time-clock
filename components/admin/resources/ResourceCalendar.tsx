@@ -6,6 +6,7 @@ import { ResourceRequest } from '../../../types';
 import { format, startOfMonth, endOfMonth, isSameDay, parseISO, addMonths, subMonths, startOfWeek, getDay } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { isNationalHoliday } from '../../../lib/holidays';
+import { getDailyResourceRequests } from '../../../lib/resourceCalendar';
 
 const ResourceCalendar: React.FC = () => {
     const { user } = useAuth();
@@ -89,15 +90,7 @@ const ResourceCalendar: React.FC = () => {
             const dateKey = format(day, 'yyyy-MM-dd');
             const holidayName = isNationalHoliday(day);
 
-            const dayRequests = requests.filter(req => {
-                const s = parseISO(req.start_time);
-                const e = parseISO(req.end_time);
-                const startOfDay = new Date(day);
-                startOfDay.setHours(0, 0, 0, 0);
-                const endOfDay = new Date(day);
-                endOfDay.setHours(23, 59, 59, 999);
-                return s <= endOfDay && e >= startOfDay;
-            });
+            const dayRequests = getDailyResourceRequests(requests, day);
 
             data[dateKey] = { requests: dayRequests, holidayName };
         });
