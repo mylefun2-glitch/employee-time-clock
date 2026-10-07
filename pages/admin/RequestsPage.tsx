@@ -20,6 +20,8 @@ const taipeiDay = (timestamp: string) => {
 const RequestsPage: React.FC = () => {
     const [requests, setRequests] = useState<LeaveRequest[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingFullHistory, setLoadingFullHistory] = useState(false);
+    const [fullHistoryLoaded, setFullHistoryLoaded] = useState(false);
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
     const [employeeSearch, setEmployeeSearch] = useState('');
     const [leaveFrom, setLeaveFrom] = useState('');
@@ -73,11 +75,21 @@ const RequestsPage: React.FC = () => {
 
     const loadRequests = async () => {
         setLoading(true);
-        const data = await requestService.getAllRequests();
+        const data = await requestService.getRecentRequests();
         setRequests(data);
+        setFullHistoryLoaded(false);
 
         setLoading(false);
         setSelectedIds(new Set()); // 清除選取
+    };
+
+    const loadFullHistory = async () => {
+        setLoadingFullHistory(true);
+        const data = await requestService.getAllRequests();
+        setRequests(data);
+        setFullHistoryLoaded(true);
+        setLoadingFullHistory(false);
+        setSelectedIds(new Set());
     };
 
     const handleApprove = async (requestId: string) => {
@@ -525,7 +537,7 @@ const RequestsPage: React.FC = () => {
             {/* 統計卡片 */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-                    <div className="text-xs font-black text-slate-400 uppercase tracking-widest">總申請數</div>
+                    <div className="text-xs font-black text-slate-400 uppercase tracking-widest">已載入申請數</div>
                     <div className="text-2xl font-black text-slate-900 mt-1">
                         {requests.filter(r => r.status !== RequestStatus.WITHDRAWN && !r.is_modified).length}
                     </div>
@@ -575,7 +587,23 @@ const RequestsPage: React.FC = () => {
                         </button>
                     )}
                 </div>
-                <p className="text-xs text-slate-500">依台灣時間的請假／出差起訖日篩選；跨日申請只要與所選日期區間重疊就會顯示。</p>
+                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                    <p>依台灣時間的請假／出差起訖日篩選；跨日申請只要與所選日期區間重疊就會顯示。</p>
+                    {!fullHistoryLoaded && (
+                        <>
+                            <span className="text-amber-600 font-bold">目前先載入最新 {requests.length} 筆以加快開啟速度。</span>
+                            <button
+                                type="button"
+                                onClick={loadFullHistory}
+                                disabled={loadingFullHistory}
+                                className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700 hover:bg-amber-100 disabled:opacity-60"
+                            >
+                                {loadingFullHistory ? '載入完整歷史中…' : '載入完整歷史'}
+                            </button>
+                        </>
+                    )}
+                    {fullHistoryLoaded && <span className="text-emerald-600 font-bold">已載入完整歷史。</span>}
+                </div>
                 {/* 狀態篩選 */}
                 <div className="flex items-start gap-3">
                     <label className="text-sm font-bold text-slate-400 whitespace-nowrap mt-1.5 min-w-[3.5rem]">狀態：</label>

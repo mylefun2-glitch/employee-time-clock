@@ -207,6 +207,39 @@ export const requestService = {
     /**
      * 取得所有請假申請（管理員用）
      */
+    async getRecentRequests(limit = 500): Promise<LeaveRequest[]> {
+        try {
+            const { data, error } = await supabase
+                .from('leave_requests')
+                .select(`
+                    *,
+                    leave_type:leave_types(*),
+                    employee:employees!leave_requests_employee_id_fkey(name, department),
+                    deputy:employees!leave_requests_deputy_id_fkey(id, name, department)
+                `)
+                .or('is_modified.is.null,is_modified.eq.false')
+                .order('created_at', { ascending: false })
+                .order('id', { ascending: false })
+                .range(0, limit - 1);
+
+            if (error) {
+                console.error('Error fetching recent requests:', error);
+                return [];
+            }
+
+            return (data || []).map((req: any) => ({
+                ...req,
+                employee_name: req.employee?.name
+            }));
+        } catch (err) {
+            console.error('Unexpected error fetching recent requests:', err);
+            return [];
+        }
+    },
+
+    /**
+     * 取得完整請假申請歷史（需要完整搜尋時才用）
+     */
     async getAllRequests(): Promise<LeaveRequest[]> {
         try {
             // Supabase may cap each response below a requested .limit(5000).
