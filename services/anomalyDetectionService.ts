@@ -55,7 +55,7 @@ export const anomalyDetectionService = {
      * 偵測指定日期範圍內的差勤異常
      * excludeToday: 預設 true，排除當日（因為當天尚未結束）
      */
-    async detectAnomalies(startDate: string, endDate: string, excludeToday = true): Promise<AnomalyRecord[]> {
+    async detectAnomalies(startDate: string, endDate: string, excludeToday = true, employeeId?: string): Promise<AnomalyRecord[]> {
         const anomalies: AnomalyRecord[] = [];
         const todayStr = format(new Date(), 'yyyy-MM-dd');
 
@@ -72,29 +72,37 @@ export const anomalyDetectionService = {
         
         try {
             // 1. 取得所有在職人員（含個人休假日設定）
-            const { data: employees, error: empError } = await supabase
+            let employeeQuery = supabase
                 .from('employees')
                 .select('id, name, department, work_start_time, work_end_time, rest_days')
                 .eq('is_active', true);
+            if (employeeId) employeeQuery = employeeQuery.eq('id', employeeId);
+            const { data: employees, error: empError } = await employeeQuery;
                 
             if (empError || !employees) throw empError;
 
             // 2. 取得打卡紀錄
-            const logs = await allRows(supabase
+            let logQuery = supabase
                 .from('attendance_logs')
                 .select('*')
                 .gte('timestamp', `${startDate}T00:00:00+08:00`)
                 .lt('timestamp', `${format(addDays(parseISO(effectiveEndDate), 1), 'yyyy-MM-dd')}T00:00:00+08:00`)
-                .order('timestamp', { ascending: true }));
+                .order('timestamp', { ascending: true });
+            if (employeeId) logQuery = logQuery.eq('employee_id', employeeId);
+            const logs = await allRows(logQuery);
 
-            const schedules = await allRows(supabase.from('employee_schedules')
+            let scheduleQuery = supabase.from('employee_schedules')
                 .select('employee_id,effective_date,work_start_time,work_end_time,rest_days')
                 .lte('effective_date', effectiveEndDate)
-                .order('effective_date', { ascending: false }));
-            const overrides = await allRows(supabase.from('employee_day_overrides')
+                .order('effective_date', { ascending: false });
+            if (employeeId) scheduleQuery = scheduleQuery.eq('employee_id', employeeId);
+            const schedules = await allRows(scheduleQuery);
+            let overrideQuery = supabase.from('employee_day_overrides')
                 .select('employee_id,override_date,work_start_time,work_end_time,day_type')
                 .gte('override_date', startDate).lte('override_date', effectiveEndDate)
-                .order('override_date', { ascending: true }));
+                .order('override_date', { ascending: true });
+            if (employeeId) overrideQuery = overrideQuery.eq('employee_id', employeeId);
+            const overrides = await allRows(overrideQuery);
             const logsByDay = new Map<string, any[]>();
             for (const log of logs) {
                 const clock = taipeiPunch(log.timestamp);
@@ -104,21 +112,25 @@ export const anomalyDetectionService = {
             }
 
             // 3. 取得請假紀錄（已核准）
-            const leaves = await allRows(supabase
+            let leaveQuery = supabase
                 .from('leave_requests')
                 .select('*')
                 .eq('status', 'APPROVED')
                 .gte('end_date', `${startDate}T00:00:00+08:00`)
                 .lt('start_date', `${format(addDays(parseISO(effectiveEndDate), 1), 'yyyy-MM-dd')}T00:00:00+08:00`)
-                .order('start_date', { ascending: true }));
+                .order('start_date', { ascending: true });
+            if (employeeId) leaveQuery = leaveQuery.eq('employee_id', employeeId);
+            const leaves = await allRows(leaveQuery);
 
             // 4. 取得補登紀錄（已核准）- 排除已有補登的缺卡異常
-            const { data: makeups, error: makeupError } = await supabase
+            let makeupQuery = supabase
                 .from('makeup_attendance_requests')
                 .select('employee_id, request_date, check_type')
                 .eq('status', 'APPROVED')
                 .gte('request_date', startDate)
                 .lte('request_date', effectiveEndDate);
+            if (employeeId) makeupQuery = makeupQuery.eq('employee_id', employeeId);
+            const { data: makeups, error: makeupError } = await makeupQuery;
 
             if (makeupError) throw makeupError;
 
