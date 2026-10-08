@@ -3,16 +3,45 @@ import { Outlet, Link, useNavigate, useLocation, Navigate } from 'react-router-d
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
+type NavItem = { path: string; icon: string; label: string; isExternal?: boolean };
+
+const navGroups: { label: string; icon: string; items: NavItem[] }[] = [
+    { label: '人員與出勤', icon: 'groups', items: [
+        { path: '/admin/employees', icon: 'badge', label: '員工管理' },
+        { path: '/admin/attendance-calendar', icon: 'calendar_month', label: '出勤月曆' },
+        { path: '/admin/important-activities', icon: 'event', label: '共同活動' }
+    ] },
+    { label: '申請與審核', icon: 'fact_check', items: [
+        { path: '/admin/requests', icon: 'assignment', label: '差勤／公務車' },
+        { path: '/admin/makeup-requests', icon: 'edit_calendar', label: '補登審核' },
+        { path: '/admin/shift-requests', icon: 'swap_calls', label: '挪移審核' }
+    ] },
+    { label: '統計報表', icon: 'bar_chart', items: [
+        { path: '/admin/stats', icon: 'monitoring', label: '人事統計' },
+        { path: '/admin/leave-stats', icon: 'pie_chart', label: '差勤統計' }
+    ] },
+    { label: '資源與設定', icon: 'settings', items: [
+        { path: '/admin/resource-manager', icon: 'inventory_2', label: '公務資源管理' },
+        { path: '/admin/settings', icon: 'tune', label: '系統設定' }
+    ] }
+];
+
+const matchesPath = (pathname: string, path: string) =>
+    pathname === path || pathname.startsWith(`${path}/`);
+
 const AdminLayout: React.FC = () => {
     const { user, loading } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
     const [isCollapsed, setIsCollapsed] = React.useState(false);
+    const activeGroup = navGroups.find(group => group.items.some(item => matchesPath(location.pathname, item.path)))?.label;
+    const [openGroup, setOpenGroup] = React.useState<string | null>(activeGroup || null);
 
     // Close menu when route changes
     React.useEffect(() => {
         setIsMobileMenuOpen(false);
+        if (activeGroup) setOpenGroup(activeGroup);
     }, [location.pathname]);
 
     // Show loading state
@@ -39,20 +68,21 @@ const AdminLayout: React.FC = () => {
 
     const payrollUrl = (import.meta as any).env.VITE_PAYROLL_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '/payroll/');
 
-    const navItems = [
-        { path: '/admin/dashboard', icon: 'dashboard', label: '儀表板' },
-        { path: '/admin/employees', icon: 'groups', label: '員工管理' },
-        { path: '/admin/stats', icon: 'bar_chart', label: '人事統計' },
-        { path: '/admin/leave-stats', icon: 'pie_chart', label: '差勤統計' },
-        { path: '/admin/attendance-calendar', icon: 'calendar_month', label: '出勤月曆' },
-        { path: '/admin/important-activities', icon: 'event', label: '共同活動' },
-        { path: '/admin/makeup-requests', label: '補登審核', icon: 'edit_calendar' },
-        { path: '/admin/shift-requests', label: '挪移審核', icon: 'swap_calls' },
-        { path: '/admin/requests', label: '差勤/公務車', icon: 'fact_check' },
-        { path: '/admin/resource-manager', label: '公務資源管理', icon: 'inventory_2' },
-        { path: '/admin/settings', label: '系統設定', icon: 'settings' },
-        { path: payrollUrl, icon: 'payments', label: '薪資系統', isExternal: true }
-    ];
+    const renderNavItem = (item: NavItem, nested = false) => {
+        const isSelected = !item.isExternal && matchesPath(location.pathname, item.path);
+        const className = `flex items-center gap-3 rounded-xl font-bold transition-colors ${nested ? 'py-2.5 text-sm' : 'py-3'} ${
+            isSelected ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+        } ${isCollapsed ? 'lg:justify-center lg:px-0 px-4' : 'px-4'}`;
+        const content = <>
+            <span className="material-symbols-outlined text-xl" aria-hidden="true">{item.icon}</span>
+            <span className={isCollapsed ? 'lg:hidden' : ''}>{item.label}</span>
+        </>;
+        return item.isExternal ? (
+            <a key={item.path} href={item.path} target="_blank" rel="noopener noreferrer" className={className} title={isCollapsed ? item.label : undefined}>{content}</a>
+        ) : (
+            <Link key={item.path} to={item.path} className={className} aria-current={isSelected ? 'page' : undefined} title={isCollapsed ? item.label : undefined}>{content}</Link>
+        );
+    };
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
@@ -105,41 +135,34 @@ const AdminLayout: React.FC = () => {
                         </button>
                     </div>
 
-                    <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                        {navItems.map((item) => {
-                            const isSelected = !item.isExternal && (location.pathname === item.path || (location.pathname.startsWith(item.path) && location.pathname[item.path.length] === '/'));
-                            const className = `flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${
-                                isSelected
-                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
-                                    : 'text-slate-500 hover:bg-slate-50'
-                            } ${isCollapsed ? 'justify-center px-0' : 'px-4'}`;
-
-                            if (item.isExternal) {
-                                return (
-                                    <a
-                                        key={item.path}
-                                        href={item.path}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={className}
-                                        title={isCollapsed ? item.label : ''}
-                                    >
-                                        <span className={`material-symbols-outlined text-xl ${isCollapsed ? 'text-2xl' : ''}`}>{item.icon}</span>
-                                        {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
-                                    </a>
-                                );
-                            }
-
+                    <nav className="flex-1 p-4 space-y-1 overflow-y-auto" aria-label="管理後台選單">
+                        {renderNavItem({ path: '/admin/dashboard', icon: 'dashboard', label: '儀表板' })}
+                        {navGroups.map(group => {
+                            const isOpen = openGroup === group.label;
+                            const containsActive = activeGroup === group.label;
                             return (
-                                <Link
-                                    key={item.path}
-                                    to={item.path}
-                                    className={className}
-                                    title={isCollapsed ? item.label : ''}
-                                >
-                                    <span className={`material-symbols-outlined text-xl ${isCollapsed ? 'text-2xl' : ''}`}>{item.icon}</span>
-                                    {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
-                                </Link>
+                                <div key={group.label}>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (isCollapsed) setIsCollapsed(false);
+                                            setOpenGroup(isOpen && !isCollapsed ? null : group.label);
+                                        }}
+                                        aria-expanded={isOpen && (!isCollapsed || isMobileMenuOpen)}
+                                        title={isCollapsed ? group.label : undefined}
+                                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-colors ${containsActive ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'} ${isCollapsed ? 'lg:justify-center lg:px-0' : ''}`}
+                                    >
+                                        <span className="material-symbols-outlined text-xl" aria-hidden="true">{group.icon}</span>
+                                        <span className={`flex-1 text-left whitespace-nowrap ${isCollapsed ? 'lg:hidden' : ''}`}>{group.label}</span>
+                                        <span className={`material-symbols-outlined text-lg ${isCollapsed ? 'lg:hidden' : ''}`} aria-hidden="true">{isOpen ? 'expand_less' : 'expand_more'}</span>
+                                    </button>
+                                    {isOpen && (!isCollapsed || isMobileMenuOpen) && (
+                                        <div id={`admin-nav-${group.icon}`} className="ml-5 pl-2 border-l border-slate-200 mt-1 mb-2 space-y-0.5">
+                                            {group.items.map(item => renderNavItem(item, true))}
+                                            {group.label === '資源與設定' && renderNavItem({ path: payrollUrl, icon: 'payments', label: '薪資系統', isExternal: true }, true)}
+                                        </div>
+                                    )}
+                                </div>
                             );
                         })}
                     </nav>
