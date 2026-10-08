@@ -23,6 +23,7 @@ const ANOMALY_TYPE_COLOR: Record<string, string> = {
 const AttendanceAnomalyDashboard: React.FC = () => {
     const [anomalies, setAnomalies] = useState<AnomalyRecord[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [filter, setFilter] = useState<'ALL' | 'HIGH' | 'MEDIUM'>('ALL');
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
@@ -35,11 +36,13 @@ const AttendanceAnomalyDashboard: React.FC = () => {
     useEffect(() => {
         const fetchAnomalies = async () => {
             setLoading(true);
+            setLoadError(false);
             try {
                 const data = await anomalyDetectionService.detectAnomalies(startDate, endDate, true);
                 setAnomalies(data);
             } catch (error) {
                 console.error('Failed to fetch anomalies:', error);
+                setLoadError(true);
             } finally {
                 setLoading(false);
             }
@@ -77,6 +80,10 @@ const AttendanceAnomalyDashboard: React.FC = () => {
                 <p className="text-slate-500 font-bold">正在掃描差勤異常...</p>
             </div>
         );
+    }
+
+    if (loadError) {
+        return <div role="alert" className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-amber-900 font-bold">差勤資料讀取失敗，無法判定異常；請稍後重新整理。</div>;
     }
 
     if (anomalies.length === 0) {

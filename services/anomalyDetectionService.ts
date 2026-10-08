@@ -1,5 +1,26 @@
 import { supabase } from '../lib/supabase';
-import { parseISO, format, subDays } from 'date-fns';
+import { parseISO, format, subDays, addDays } from 'date-fns';
+
+const taipeiClock = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+});
+
+export const taipeiPunch = (timestamp: string) => {
+    const parts = Object.fromEntries(taipeiClock.formatToParts(new Date(timestamp)).map(part => [part.type, part.value]));
+    return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+};
+
+// Supabase may cap each response at 1000 rows even if a larger limit is requested.
+async function allRows(query: any): Promise<any[]> {
+    const result: any[] = [];
+    for (let from = 0; ; from += 500) {
+        const { data, error } = await query.range(from, from + 499);
+        if (error) throw error;
+        result.push(...(data || []));
+        if (!data || data.length < 500) return result;
+    }
+}
 
 export interface AnomalyRecord {
     id: string; // pseudo id
@@ -59,23 +80,37 @@ export const anomalyDetectionService = {
             if (empError || !employees) throw empError;
 
             // 2. 取得打卡紀錄
-            const { data: logs, error: logError } = await supabase
+            const logs = await allRows(supabase
                 .from('attendance_logs')
                 .select('*')
-                .gte('timestamp', `${startDate}T00:00:00Z`)
-                .lte('timestamp', `${effectiveEndDate}T23:59:59Z`);
+                .gte('timestamp', `${startDate}T00:00:00+08:00`)
+                .lt('timestamp', `${format(addDays(parseISO(effectiveEndDate), 1), 'yyyy-MM-dd')}T00:00:00+08:00`)
+                .order('timestamp', { ascending: true }));
 
-            if (logError) throw logError;
+            const schedules = await allRows(supabase.from('employee_schedules')
+                .select('employee_id,effective_date,work_start_time,work_end_time,rest_days')
+                .lte('effective_date', effectiveEndDate)
+                .order('effective_date', { ascending: false }));
+            const overrides = await allRows(supabase.from('employee_day_overrides')
+                .select('employee_id,override_date,work_start_time,work_end_time,day_type')
+                .gte('override_date', startDate).lte('override_date', effectiveEndDate)
+                .order('override_date', { ascending: true }));
+            const logsByDay = new Map<string, any[]>();
+            for (const log of logs) {
+                const clock = taipeiPunch(log.timestamp);
+                const key = `${log.employee_id}:${clock.date}`;
+                if (!logsByDay.has(key)) logsByDay.set(key, []);
+                logsByDay.get(key)!.push({ ...log, localTime: clock.time });
+            }
 
             // 3. 取得請假紀錄（已核准）
-            const { data: leaves, error: leaveError } = await supabase
+            const leaves = await allRows(supabase
                 .from('leave_requests')
                 .select('*')
                 .eq('status', 'APPROVED')
-                .gte('end_date', `${startDate}T00:00:00Z`)
-                .lte('start_date', `${effectiveEndDate}T23:59:59Z`);
-
-            if (leaveError) throw leaveError;
+                .gte('end_date', `${startDate}T00:00:00+08:00`)
+                .lt('start_date', `${format(addDays(parseISO(effectiveEndDate), 1), 'yyyy-MM-dd')}T00:00:00+08:00`)
+                .order('start_date', { ascending: true }));
 
             // 4. 取得補登紀錄（已核准）- 排除已有補登的缺卡異常
             const { data: makeups, error: makeupError } = await supabase
@@ -85,7 +120,7 @@ export const anomalyDetectionService = {
                 .gte('request_date', startDate)
                 .lte('request_date', effectiveEndDate);
 
-            if (makeupError) console.warn('Warning fetching makeup records:', makeupError);
+            if (makeupError) throw makeupError;
 
             // 分析每一天、每位員工
             const startD = parseISO(startDate);
@@ -98,17 +133,20 @@ export const anomalyDetectionService = {
 
                 for (const emp of employees) {
                     // 判斷個人休假日（使用 rest_days 欄位，預設週六日）
-                    const empRestDays: number[] = emp.rest_days || [0, 6];
-                    const isRestDay = empRestDays.includes(dayOfWeek);
+                    const schedule = schedules.find(s => s.employee_id === emp.id && s.effective_date <= dateStr);
+                    const override = overrides.find(o => o.employee_id === emp.id && o.override_date === dateStr);
+                    const empRestDays: number[] = schedule?.rest_days || emp.rest_days || [0, 6];
+                    const isRestDay = override?.day_type === 'REST_DAY' ? true :
+                        override?.day_type === 'WORKDAY' ? false : empRestDays.includes(dayOfWeek);
 
                     // 基本班表
-                    const expectedStart = emp.work_start_time || '09:00';
-                    const expectedEnd = emp.work_end_time || '18:00';
+                    const expectedStart = (override?.work_start_time || schedule?.work_start_time || emp.work_start_time || '09:00').slice(0, 5);
+                    const expectedEnd = (override?.work_end_time || schedule?.work_end_time || emp.work_end_time || '18:00').slice(0, 5);
 
                     // 檢查當天是否有請假
-                    const hasLeave = leaves?.some(l => {
-                        const lStart = l.start_date.split('T')[0];
-                        const lEnd = l.end_date.split('T')[0];
+                    const hasLeave = leaves.some(l => {
+                        const lStart = taipeiPunch(l.start_date).date;
+                        const lEnd = taipeiPunch(l.end_date).date;
                         return l.employee_id === emp.id && dateStr >= lStart && dateStr <= lEnd;
                     });
 
@@ -121,12 +159,12 @@ export const anomalyDetectionService = {
                     );
 
                     // 找出當天打卡紀錄
-                    const dayLogs = logs?.filter(l => l.employee_id === emp.id && l.timestamp.startsWith(dateStr)) || [];
+                    const dayLogs = logsByDay.get(`${emp.id}:${dateStr}`) || [];
                     const inLogs = dayLogs.filter(l => l.check_type === 'IN').sort((a, b) => a.timestamp.localeCompare(b.timestamp));
                     const outLogs = dayLogs.filter(l => l.check_type === 'OUT').sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
-                    const firstIn = inLogs[0]?.timestamp.split('T')[1]?.substring(0, 5);
-                    const lastOut = outLogs[0]?.timestamp.split('T')[1]?.substring(0, 5);
+                    const firstIn = inLogs[0]?.localTime;
+                    const lastOut = outLogs[0]?.localTime;
 
                     // 判斷異常（非休假日且無請假）
                     if (!isRestDay && !hasLeave) {
@@ -218,7 +256,7 @@ export const anomalyDetectionService = {
             
         } catch (err) {
             console.error('Error detecting anomalies:', err);
-            return [];
+            throw err;
         }
     },
 
