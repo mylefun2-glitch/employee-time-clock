@@ -32,7 +32,7 @@ const EmployeeAnomalyPanel: React.FC<{ employeeId: string }> = ({ employeeId }) 
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h3 className="text-lg font-black text-slate-900">我的差勤異常</h3>
-                    <p className="text-xs text-slate-500 mt-1">{startDate}～{endDate}（不含今日）・只顯示本人，不受上方人員切換影響；僅供核對，非正式曠職或扣薪認定</p>
+                    <p className="text-xs text-slate-500 mt-1">{startDate}～{endDate}（不含今日）・只顯示本人；僅供核對，非正式曠職或扣薪認定</p>
                 </div>
                 <label className="text-sm text-slate-600 font-bold flex items-center gap-2">
                     查看區間

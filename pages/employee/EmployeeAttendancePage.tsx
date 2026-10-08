@@ -12,9 +12,8 @@ import { useMemo } from 'react';
 import { Employee } from '../../types';
 import ModificationRequestForm from '../../components/ModificationRequestForm';
 import { formatDateTimeRange } from '../../lib/hrUtils';
-import EmployeeAnomalyPanel from '../../components/EmployeeAnomalyPanel';
 
-type TabType = 'overview' | 'records' | 'makeup' | 'leave' | 'anomalies';
+type TabType = 'overview' | 'records' | 'makeup' | 'leave';
 
 const EmployeeAttendancePage: React.FC = () => {
     const { employee } = useEmployee();
@@ -431,7 +430,6 @@ const EmployeeAttendancePage: React.FC = () => {
 
     const tabs = [
         { id: 'overview' as TabType, label: '統計概覽', icon: 'analytics' },
-        { id: 'anomalies' as TabType, label: '我的異常', icon: 'notification_important' },
         { id: 'records' as TabType, label: '詳細記錄', icon: 'list_alt' },
         { id: 'leave' as TabType, label: '差勤額度', icon: 'event_available' },
         { id: 'makeup' as TabType, label: '補登記錄', icon: 'edit_calendar', badge: makeupRequests.length },
@@ -592,7 +590,6 @@ const EmployeeAttendancePage: React.FC = () => {
 
                 {/* Tab Content */}
                 <div className="p-6">
-                    {activeTab === 'anomalies' && employee && <EmployeeAnomalyPanel employeeId={employee.id} />}
                     {/* 統計概覽 */}
                     {activeTab === 'overview' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">

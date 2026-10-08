@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { getPendingApprovalsForSupervisor } from '../../services/supervisorService';
 import { requestService } from '../../services/requestService';
 import { RequestStatus } from '../../types';
+import EmployeeAnomalyPanel from '../../components/EmployeeAnomalyPanel';
 
 const EmployeeDashboardPage: React.FC = () => {
     const { employee } = useEmployee();
@@ -318,6 +319,13 @@ const EmployeeDashboardPage: React.FC = () => {
                     );
                 })}
             </div>
+
+            {/* 本人差勤異常：放在統計卡片下方，無需切換頁面 */}
+            {employee && (
+                <div className="bg-white rounded-3xl border border-slate-100 p-5 sm:p-6 shadow-sm">
+                    <EmployeeAnomalyPanel employeeId={employee.id} />
+                </div>
+            )}
 
             {/* Today's Department Activity - All Employees */}
             <div className="space-y-6">
