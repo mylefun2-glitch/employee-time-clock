@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { parseISO, format, subDays, addDays } from 'date-fns';
+import { getDefaultHolidays } from '../lib/holidays';
 
 const taipeiClock = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -17,8 +18,9 @@ async function allRows(query: any): Promise<any[]> {
     for (let from = 0; ; from += 500) {
         const { data, error } = await query.range(from, from + 499);
         if (error) throw error;
-        result.push(...(data || []));
-        if (!data || data.length < 500) return result;
+        if (!Array.isArray(data)) throw new Error('差勤異常偵測資料讀取未回傳有效列表');
+        result.push(...data);
+        if (data.length < 500) return result;
     }
 }
 
@@ -74,12 +76,11 @@ export const anomalyDetectionService = {
             // 1. 取得所有在職人員（含個人休假日設定）
             let employeeQuery = supabase
                 .from('employees')
-                .select('id, name, department, work_start_time, work_end_time, rest_days')
-                .eq('is_active', true);
+                .select('id, name, department, work_start_time, work_end_time, rest_days, salary_type')
+                .eq('is_active', true)
+                .order('id', { ascending: true });
             if (employeeId) employeeQuery = employeeQuery.eq('id', employeeId);
-            const { data: employees, error: empError } = await employeeQuery;
-                
-            if (empError || !employees) throw empError;
+            const employees = await allRows(employeeQuery);
 
             // 2. 取得打卡紀錄
             let logQuery = supabase
@@ -87,20 +88,20 @@ export const anomalyDetectionService = {
                 .select('*')
                 .gte('timestamp', `${startDate}T00:00:00+08:00`)
                 .lt('timestamp', `${format(addDays(parseISO(effectiveEndDate), 1), 'yyyy-MM-dd')}T00:00:00+08:00`)
-                .order('timestamp', { ascending: true });
+                .order('timestamp', { ascending: true }).order('id', { ascending: true });
             if (employeeId) logQuery = logQuery.eq('employee_id', employeeId);
             const logs = await allRows(logQuery);
 
             let scheduleQuery = supabase.from('employee_schedules')
-                .select('employee_id,effective_date,work_start_time,work_end_time,rest_days')
+                .select('employee_id,effective_date,work_start_time,work_end_time,rest_days,salary_type')
                 .lte('effective_date', effectiveEndDate)
-                .order('effective_date', { ascending: false });
+                .order('effective_date', { ascending: false }).order('id', { ascending: true });
             if (employeeId) scheduleQuery = scheduleQuery.eq('employee_id', employeeId);
             const schedules = await allRows(scheduleQuery);
             let overrideQuery = supabase.from('employee_day_overrides')
                 .select('employee_id,override_date,work_start_time,work_end_time,day_type')
                 .gte('override_date', startDate).lte('override_date', effectiveEndDate)
-                .order('override_date', { ascending: true });
+                .order('override_date', { ascending: true }).order('id', { ascending: true });
             if (employeeId) overrideQuery = overrideQuery.eq('employee_id', employeeId);
             const overrides = await allRows(overrideQuery);
             const logsByDay = new Map<string, any[]>();
@@ -118,7 +119,7 @@ export const anomalyDetectionService = {
                 .eq('status', 'APPROVED')
                 .gte('end_date', `${startDate}T00:00:00+08:00`)
                 .lt('start_date', `${format(addDays(parseISO(effectiveEndDate), 1), 'yyyy-MM-dd')}T00:00:00+08:00`)
-                .order('start_date', { ascending: true });
+                .order('start_date', { ascending: true }).order('id', { ascending: true });
             if (employeeId) leaveQuery = leaveQuery.eq('employee_id', employeeId);
             const leaves = await allRows(leaveQuery);
 
@@ -128,11 +129,38 @@ export const anomalyDetectionService = {
                 .select('employee_id, request_date, check_type')
                 .eq('status', 'APPROVED')
                 .gte('request_date', startDate)
-                .lte('request_date', effectiveEndDate);
+                .lte('request_date', effectiveEndDate)
+                .order('request_date', { ascending: true }).order('id', { ascending: true });
             if (employeeId) makeupQuery = makeupQuery.eq('employee_id', employeeId);
-            const { data: makeups, error: makeupError } = await makeupQuery;
+            const makeups = await allRows(makeupQuery);
 
-            if (makeupError) throw makeupError;
+            // Await range-bounded reads rather than relying on the holiday module's
+            // non-blocking cache. Defaults supplement an empty DB, not a failed read.
+            const holidays = await allRows(supabase.from('holidays')
+                .select('date,type').gte('date', startDate).lte('date', effectiveEndDate)
+                .order('date', { ascending: true }).order('id', { ascending: true }));
+            // company_holidays has an organization-wide date and is_active flag;
+            // there are no employee/department recipient fields in its read contract.
+            const companyHolidays = await allRows(supabase.from('company_holidays')
+                .select('holiday_date,is_active').eq('is_active', true)
+                .gte('holiday_date', startDate).lte('holiday_date', effectiveEndDate)
+                .order('holiday_date', { ascending: true }).order('id', { ascending: true }));
+            const holidayTypes = new Map(getDefaultHolidays()
+                .filter(h => h.date >= startDate && h.date <= effectiveEndDate)
+                .map(h => [h.date, h.type]));
+            for (const h of holidays) holidayTypes.set(h.date.slice(0, 10), h.type || 'custom');
+            const companyClosureDates = new Set(companyHolidays.map(h => h.holiday_date.slice(0, 10)));
+            // Attendance exemptions only: none of these branches grants paid hours.
+            // A typhoon or active organization-wide shutdown requires no attendance
+            // for either salary type. Ordinary national/custom holidays exempt MONTHLY
+            // only; explicit WORKDAY below still takes priority over every reason.
+            const exemptionReason = (date: string, salaryType?: string): string | undefined => {
+                if (companyClosureDates.has(date)) return 'COMPANY_SHUTDOWN';
+                const type = holidayTypes.get(date);
+                if (type === 'typhoon') return 'TYPHOON_SHUTDOWN';
+                if (salaryType === 'MONTHLY' && type) return type === 'national_holiday' ? 'NATIONAL_HOLIDAY' : 'CUSTOM_HOLIDAY';
+                return undefined;
+            };
 
             // 分析每一天、每位員工
             const startD = parseISO(startDate);
@@ -148,8 +176,12 @@ export const anomalyDetectionService = {
                     const schedule = schedules.find(s => s.employee_id === emp.id && s.effective_date <= dateStr);
                     const override = overrides.find(o => o.employee_id === emp.id && o.override_date === dateStr);
                     const empRestDays: number[] = schedule?.rest_days || emp.rest_days || [0, 6];
+                    const salaryType = schedule?.salary_type ?? emp.salary_type;
+                    // Explicit rest/work swaps take priority over weekends and holidays.
+                    // Hourly scheduled work is not excused merely because it is a holiday.
                     const isRestDay = override?.day_type === 'REST_DAY' ? true :
-                        override?.day_type === 'WORKDAY' ? false : empRestDays.includes(dayOfWeek);
+                        override?.day_type === 'WORKDAY' ? false :
+                            empRestDays.includes(dayOfWeek) || !!exemptionReason(dateStr, salaryType);
 
                     // 基本班表
                     const expectedStart = (override?.work_start_time || schedule?.work_start_time || emp.work_start_time || '09:00').slice(0, 5);
@@ -177,6 +209,14 @@ export const anomalyDetectionService = {
 
                     const firstIn = inLogs[0]?.localTime;
                     const lastOut = outLogs[0]?.localTime;
+                    // Use raw instants for the boundary: 30:00 qualifies, 30:01 does not.
+                    // Only anomaly comparisons shift; punches and payroll are untouched.
+                    const scheduledInMs = Date.parse(`${dateStr}T${expectedStart}:00+08:00`);
+                    const scheduledOutMs = Date.parse(`${dateStr}T${expectedEnd}:00+08:00`);
+                    const lateMs = firstIn ? Date.parse(inLogs[0].timestamp) - scheduledInMs : 0;
+                    const flexOffsetMs = Math.min(Math.max(lateMs, 0), 30 * 60 * 1000);
+                    const requiredOutMs = scheduledOutMs + flexOffsetMs;
+                    const requiredOutTime = taipeiPunch(new Date(requiredOutMs).toISOString()).time;
 
                     // 判斷異常（非休假日且無請假）
                     if (!isRestDay && !hasLeave) {
@@ -222,8 +262,10 @@ export const anomalyDetectionService = {
                                 });
                             }
 
-                            // 遲到
-                            if (firstIn && firstIn > expectedStart) {
+                            // Within 30 minutes, departure must make up the shift. A
+                            // shortfall is EARLY_LEAVE only, not also LATE. Missing OUT
+                            // stays MISSING_CHECK (we cannot infer a departure time).
+                            if (firstIn && lateMs > 30 * 60 * 1000) {
                                 anomalies.push({
                                     id: `${emp.id}-${dateStr}-LATE`,
                                     employeeId: emp.id,
@@ -240,7 +282,7 @@ export const anomalyDetectionService = {
                             }
 
                             // 早退
-                            if (lastOut && lastOut < expectedEnd) {
+                            if (lastOut && Date.parse(outLogs[0].timestamp) < requiredOutMs) {
                                 anomalies.push({
                                     id: `${emp.id}-${dateStr}-EARLY_LEAVE`,
                                     employeeId: emp.id,
@@ -249,9 +291,9 @@ export const anomalyDetectionService = {
                                     date: dateStr,
                                     type: 'EARLY_LEAVE',
                                     severity: 'MEDIUM',
-                                    description: `早退 (規定 ${expectedEnd})`,
+                                    description: flexOffsetMs > 0 ? `出勤不足 (彈性上班應於 ${requiredOutTime} 下班)` : `早退 (規定 ${expectedEnd})`,
                                     actualTime: lastOut,
-                                    expectedTime: expectedEnd,
+                                    expectedTime: requiredOutTime,
                                     status: 'PENDING'
                                 });
                             }
