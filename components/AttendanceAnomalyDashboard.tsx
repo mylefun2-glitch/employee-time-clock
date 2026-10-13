@@ -91,7 +91,7 @@ const AttendanceAnomalyDashboard: React.FC = () => {
                     </select>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">{startDate} ～ {endDate}（不含今日）</p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-500">僅列需確認的異常；月薪國假補假、已啟用的風災停班及符合彈性規則者不列異常，單日指定上班仍依班表檢查。無打卡不代表曠職，請先核對班表、假單與補登。</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">僅偵測月薪制人員；月薪國假補假、已啟用的風災停班及符合彈性規則者不列異常，單日指定上班仍依班表檢查。無打卡不代表曠職，請先核對班表、假單與補登。</p>
                 {!loading && !loadError && <>
                     <div className="mt-3 flex flex-wrap gap-2">
                         <input aria-label="搜尋員工、姓名或單位" placeholder="搜尋姓名／單位／員工 ID" value={query} onChange={e => setQuery(e.target.value)} className={`${controlClass} w-full min-w-0 sm:w-64`} />

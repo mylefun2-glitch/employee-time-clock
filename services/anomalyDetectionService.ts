@@ -177,8 +177,11 @@ export const anomalyDetectionService = {
                     const override = overrides.find(o => o.employee_id === emp.id && o.override_date === dateStr);
                     const empRestDays: number[] = schedule?.rest_days || emp.rest_days || [0, 6];
                     const salaryType = schedule?.salary_type ?? emp.salary_type;
+                    // Only monthly-paid staff participate, based on the effective
+                    // salary type for this date (not merely their current profile).
+                    if (salaryType !== 'MONTHLY') continue;
                     // Explicit rest/work swaps take priority over weekends and holidays.
-                    // Hourly scheduled work is not excused merely because it is a holiday.
+                    // Non-monthly staff have already been excluded above.
                     const isRestDay = override?.day_type === 'REST_DAY' ? true :
                         override?.day_type === 'WORKDAY' ? false :
                             empRestDays.includes(dayOfWeek) || !!exemptionReason(dateStr, salaryType);

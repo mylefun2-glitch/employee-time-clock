@@ -96,19 +96,37 @@ test('historical MONTHLY wins over current HOURLY, using the latest effective sc
         schedule('HOURLY', { id: 'future', effective_date: '2026-11-01' })
     ] }); assert.deepEqual(await detect(holiday), []);
 });
-test('historical HOURLY and current HOURLY fallback still require holiday attendance', async () => {
+test('historical HOURLY and current HOURLY fallback are excluded', async () => {
     for (const extra of [{ employee_schedules: [schedule('HOURLY')] },
         { employees: [{ ...employee, salary_type: 'HOURLY' }] }]) {
-        reset(extra); assert.deepEqual(types(await detect(holiday)), ['ABSENT']);
+        reset(extra); assert.deepEqual(await detect(holiday), []);
     }
 });
-test('missing historical salary falls back to employee; unknown salary is not excused', async () => {
+test('missing historical salary falls back to employee; unknown salary is excluded', async () => {
     reset({ employee_schedules: [schedule(null)] }); assert.deepEqual(await detect(holiday), []);
     reset({ employees: [{ ...employee, salary_type: null }] });
-    assert.deepEqual(types(await detect(holiday)), ['ABSENT']);
+    assert.deepEqual(await detect(holiday), []);
 });
 test('ordinary workday absence is not excused', async () => {
     reset(); assert.deepEqual(types(await detect()), ['ABSENT']);
+});
+test('hourly ordinary workday is excluded even with explicit WORKDAY and anomalous punches', async () => {
+    reset({ employees: [{ ...employee, salary_type: 'HOURLY' }],
+        employee_day_overrides: [override('WORKDAY')], attendance_logs: punches('10:00', '15:00') });
+    assert.deepEqual(await detect(), []);
+});
+test('mixed staff includes monthly only in admin and employee-scoped results', async () => {
+    reset({ employees: [employee, { ...employee, id: 'e2', salary_type: 'HOURLY' }] });
+    const result = await service.detectAnomalies(day, day, false);
+    assert.deepEqual(result.map(a => a.employeeId), ['e1']);
+    assert.deepEqual(await detect(day, 'e2'), []);
+});
+test('salary transition uses the effective historical type on each date', async () => {
+    reset({ employees: [{ ...employee, salary_type: 'HOURLY' }], employee_schedules: [
+        schedule('MONTHLY'), schedule('HOURLY', { id: 'transition', effective_date: '2026-10-08' })
+    ] });
+    const result = await service.detectAnomalies('2026-10-07', '2026-10-08', false);
+    assert.deepEqual(result.map(a => a.date), ['2026-10-07']);
 });
 test('awaited DB-only holiday works without waiting for global cache', async () => {
     reset({ holidays: [{ id: 'db-holiday', date: day }] });
@@ -127,7 +145,7 @@ test('active company shutdown excuses attendance for both salaries, inactive dat
         company_holidays: [{ id: 'company', holiday_date: day, is_active: true }] });
     assert.deepEqual(await detect(), []);
     tables.employee_day_overrides = [override('WORKDAY')];
-    assert.deepEqual(types(await detect()), ['ABSENT']);
+    assert.deepEqual(await detect(), []);
 });
 test('typhoon shutdown excuses both salaries but explicit WORKDAY still requires attendance', async () => {
     for (const salary_type of ['MONTHLY', 'HOURLY']) {
@@ -135,14 +153,14 @@ test('typhoon shutdown excuses both salaries but explicit WORKDAY still requires
             holidays: [{ id: 'typhoon', date: day, type: 'typhoon' }] });
         assert.deepEqual(await detect(), []);
         tables.employee_day_overrides = [override('WORKDAY')];
-        assert.deepEqual(types(await detect()), ['ABSENT']);
+        assert.deepEqual(types(await detect()), salary_type === 'MONTHLY' ? ['ABSENT'] : []);
     }
 });
-test('DB national/custom holidays do not blanket excuse hourly scheduled attendance', async () => {
+test('hourly staff excluded regardless of national/custom holiday', async () => {
     for (const type of ['national_holiday', 'custom']) {
         reset({ employees: [{ ...employee, salary_type: 'HOURLY' }],
             holidays: [{ id: 'holiday', date: day, type }] });
-        assert.deepEqual(types(await detect()), ['ABSENT']);
+        assert.deepEqual(await detect(), []);
     }
 });
 test('WORKDAY overrides holiday/weekend, REST_DAY overrides scheduled work and custom times', async () => {
