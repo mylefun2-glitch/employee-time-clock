@@ -429,7 +429,7 @@ const StatisticsPage: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* 差勤時數百分比 */}
-                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-w-0">
                     <div className="flex items-center gap-3 mb-8">
                         <div className="p-1.5 bg-rose-50 rounded-lg">
                             <span className="material-symbols-outlined text-rose-600 text-xl font-black">event_available</span>
@@ -443,14 +443,14 @@ const StatisticsPage: React.FC = () => {
                             Object.entries(currentStats.leaveTypeStats)
                                 .sort((a, b) => b[1] - a[1])
                                 .map(([type, hours]) => (
-                                    <div key={type} className="flex items-center gap-5 group">
-                                        <span className="text-sm font-black text-slate-500 w-24 text-right tracking-tight group-hover:text-rose-600 transition-colors truncate">{type}</span>
-                                        <div className="flex-1 h-8 bg-slate-50 rounded-xl overflow-hidden flex items-center pr-3 border border-slate-50 group-hover:border-slate-100 transition-all">
+                                    <div key={type} className="flex items-center gap-2 sm:gap-5 group">
+                                        <span className="text-sm font-black text-slate-500 w-20 sm:w-24 shrink-0 text-right tracking-tight group-hover:text-rose-600 transition-colors truncate">{type}</span>
+                                        <div className="relative min-w-0 flex-1 h-8 bg-slate-50 rounded-xl overflow-hidden border border-slate-50 group-hover:border-slate-100 transition-all">
                                             <div
-                                                className="h-full bg-rose-100 border-r-4 border-rose-500 transition-all duration-1000 shadow-sm"
+                                                className="absolute inset-y-0 left-0 bg-rose-100 border-r-4 border-rose-500 transition-all duration-1000 shadow-sm"
                                                 style={{ width: `${(hours / Math.max(...Object.values(currentStats.leaveTypeStats), 1)) * 100}%` }}
                                             />
-                                            <span className={`ml-3 text-base font-black ${hours > 0 ? 'text-rose-600' : 'text-slate-300'}`}>
+                                            <span className={`relative z-10 flex h-full items-center justify-end px-3 whitespace-nowrap text-base font-black tabular-nums ${hours > 0 ? 'text-rose-600' : 'text-slate-300'}`}>
                                                 {hours > 0 ? `${hours} 小時` : '0'}
                                             </span>
                                         </div>
@@ -489,7 +489,7 @@ const StatisticsPage: React.FC = () => {
                 </div>
 
                 {/* 年資分佈 (原有) */}
-                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+                <div className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-100 shadow-sm min-w-0">
                     <div className="flex items-center gap-3 mb-8">
                         <BarChart3 className="w-6 h-6 text-blue-600" />
                         <h3 className="text-lg font-black text-slate-900 tracking-tight">年資結構分佈</h3>
@@ -499,14 +499,14 @@ const StatisticsPage: React.FC = () => {
                         {Object.entries(currentStats.seniorityRanges).map(([range, count]) => (
                             <button type="button" key={range} disabled={count === 0} onClick={() => setDetail({ kind: 'seniority', range })}
                                 aria-label={`查看年資${range}的${count}位員工`}
-                                className="flex items-center gap-5 group w-full text-left disabled:cursor-default enabled:cursor-pointer enabled:focus-visible:outline-2 enabled:focus-visible:outline-blue-600 rounded-xl">
-                                <span className="text-sm font-black text-slate-500 w-32 text-right tracking-tight group-hover:text-blue-600 transition-colors">{range}</span>
-                                <div className="flex-1 h-8 bg-slate-50 rounded-xl overflow-hidden flex items-center pr-3 border border-slate-50 group-hover:border-slate-100 transition-all">
+                                className="flex items-center gap-2 sm:gap-5 group w-full text-left disabled:cursor-default enabled:cursor-pointer enabled:focus-visible:outline-2 enabled:focus-visible:outline-blue-600 rounded-xl">
+                                <span className="text-sm font-black text-slate-500 w-24 sm:w-32 shrink-0 text-right tracking-tight group-hover:text-blue-600 transition-colors">{range}</span>
+                                <div className="relative min-w-0 flex-1 h-8 bg-slate-50 rounded-xl overflow-hidden border border-slate-50 group-hover:border-slate-100 transition-all">
                                     <div
-                                        className="h-full bg-blue-100 border-r-4 border-blue-500 transition-all duration-1000 shadow-sm"
+                                        className="absolute inset-y-0 left-0 bg-blue-100 border-r-4 border-blue-500 transition-all duration-1000 shadow-sm"
                                         style={{ width: `${(count / Math.max(...Object.values(currentStats.seniorityRanges), 1)) * 100}%` }}
                                     />
-                                    <span className={`ml-3 text-base font-black ${count > 0 ? 'text-blue-600' : 'text-slate-300'}`}>
+                                    <span className={`relative z-10 flex h-full items-center justify-end px-3 whitespace-nowrap text-base font-black tabular-nums ${count > 0 ? 'text-blue-600' : 'text-slate-300'}`}>
                                         {count > 0 ? `${count} 人` : '0'}
                                     </span>
                                 </div>
@@ -516,7 +516,7 @@ const StatisticsPage: React.FC = () => {
                 </div>
 
                 {/* 年齡分佈 (原有) */}
-                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+                <div className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-100 shadow-sm min-w-0">
                     <div className="flex items-center gap-3 mb-8">
                         <div className="p-1.5 bg-indigo-50 rounded-lg">
                             <span className="material-symbols-outlined text-indigo-600 text-xl font-black">cake</span>
@@ -528,14 +528,14 @@ const StatisticsPage: React.FC = () => {
                         {Object.entries(currentStats.ageRanges).map(([range, count]) => (
                             <button type="button" key={range} disabled={count === 0} onClick={() => setDetail({ kind: 'age', range })}
                                 aria-label={`查看年齡${range}的${count}位員工`}
-                                className="flex items-center gap-5 group w-full text-left disabled:cursor-default enabled:cursor-pointer enabled:focus-visible:outline-2 enabled:focus-visible:outline-indigo-600 rounded-xl">
-                                <span className="text-sm font-black text-slate-500 w-32 text-right tracking-tight group-hover:text-indigo-600 transition-colors">{range}</span>
-                                <div className="flex-1 h-10 bg-slate-50 rounded-xl overflow-hidden flex items-center pr-3 border border-slate-50 group-hover:border-slate-100 transition-all">
+                                className="flex items-center gap-2 sm:gap-5 group w-full text-left disabled:cursor-default enabled:cursor-pointer enabled:focus-visible:outline-2 enabled:focus-visible:outline-indigo-600 rounded-xl">
+                                <span className="text-sm font-black text-slate-500 w-24 sm:w-32 shrink-0 text-right tracking-tight group-hover:text-indigo-600 transition-colors">{range}</span>
+                                <div className="relative min-w-0 flex-1 h-10 bg-slate-50 rounded-xl overflow-hidden border border-slate-50 group-hover:border-slate-100 transition-all">
                                     <div
-                                        className="h-full bg-indigo-100 border-r-4 border-indigo-500 transition-all duration-1000 shadow-sm"
+                                        className="absolute inset-y-0 left-0 bg-indigo-100 border-r-4 border-indigo-500 transition-all duration-1000 shadow-sm"
                                         style={{ width: `${(count / Math.max(...Object.values(currentStats.ageRanges), 1)) * 100}%` }}
                                     />
-                                    <span className={`ml-3 text-base font-black ${count > 0 ? 'text-indigo-600' : 'text-slate-300'}`}>
+                                    <span className={`relative z-10 flex h-full items-center justify-end px-3 whitespace-nowrap text-base font-black tabular-nums ${count > 0 ? 'text-indigo-600' : 'text-slate-300'}`}>
                                         {count > 0 ? `${count} 人` : '0'}
                                     </span>
                                 </div>
