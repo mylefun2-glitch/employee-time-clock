@@ -185,17 +185,17 @@ const DashboardPage: React.FC = () => {
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">管理儀表板</h1>
                     <p className="text-sm text-slate-500 font-medium">人員概況、待審事項與差勤異常</p>
                 </div>
-                <div className="hidden sm:flex items-center gap-4">
+                <div className="flex items-center gap-4">
                     {/* 版本更新紀錄按鈕 */}
                     <button
                         onClick={() => setShowChangelog(true)}
                         className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-100 text-slate-500 px-4 py-2.5 rounded-2xl text-xs font-black transition-all active:scale-95 cursor-pointer shadow-sm"
                     >
                         <span className="material-symbols-outlined text-sm">info</span>
-                        v1.3.9
+                        更新紀錄
                     </button>
-                    <div className="text-right">
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">最後更新時間</p>
+                    <div className="hidden md:block text-right">
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">目前時間</p>
                         <p className="text-sm font-bold text-slate-700">{new Date().toLocaleString('zh-TW')}</p>
                     </div>
                 </div>
@@ -265,7 +265,7 @@ const DashboardPage: React.FC = () => {
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-black text-slate-900">系統更新紀錄</h2>
-                                    <p className="text-xs text-slate-400 font-bold">查看 YAcc 平台的版本迭代歷程</p>
+                                    <p className="text-xs text-slate-400 font-bold">近期更新與既有版本紀錄</p>
                                 </div>
                             </div>
                             <button
@@ -278,6 +278,53 @@ const DashboardPage: React.FC = () => {
 
                         {/* 更新歷史時間軸內容 */}
                         <div className="flex-1 overflow-y-auto py-6 pr-2 space-y-8 scrollbar-thin">
+                            <p className="text-xs text-slate-500">以下近期項目依程式提交紀錄整理，僅列主要變更；不是自動同步的完整清單。</p>
+
+                            <div className="relative pl-6 border-l-2 border-blue-500/20">
+                                <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-blue-500 border-2 border-white ring-4 ring-blue-50" />
+                                <p className="text-sm font-black text-slate-900">2026-10-16・儀表板與統計報表</p>
+                                <ul className="mt-2 list-disc pl-4 text-xs font-bold leading-relaxed text-slate-600 space-y-1">
+                                    <li>管理儀表板統一人數口徑：今日打卡以台灣日期、在職員工及不重複的上班打卡人數計算；待審申請另以件數呈現，差勤異常清單移至下方。</li>
+                                    <li>統計報表的差勤時數、年資及年齡長條數值改為單行顯示，避免被長條擠壓換行。</li>
+                                </ul>
+                            </div>
+
+                            <div className="relative pl-6 border-l-2 border-blue-500/20">
+                                <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white ring-4 ring-slate-50" />
+                                <p className="text-sm font-black text-slate-900">2026-10-07～10-13・差勤與管理操作</p>
+                                <ul className="mt-2 list-disc pl-4 text-xs font-bold leading-relaxed text-slate-600 space-y-1">
+                                    <li>差勤異常偵測依台灣日期、有效班表與月薪制期間判斷，納入國假及公司停班日；員工儀表板新增本人異常檢視。</li>
+                                    <li>管理選單改為可展開分組；申請紀錄加入日期與員工搜尋、分頁及完整歷史載入入口。</li>
+                                </ul>
+                            </div>
+
+                            <div className="relative pl-6 border-l-2 border-blue-500/20">
+                                <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white ring-4 ring-slate-50" />
+                                <p className="text-sm font-black text-slate-900">2026-10-01～10-06・報表與班務</p>
+                                <ul className="mt-2 list-disc pl-4 text-xs font-bold leading-relaxed text-slate-600 space-y-1">
+                                    <li>人事統計新增年齡／年資名單檢視、職務長條比較；年資特休 PDF 的額度及明細分配陸續調整。</li>
+                                    <li>心安居午間值班加入差勤與薪資認列；修正彈性上班時數計算，避免將未工作時間計入。</li>
+                                </ul>
+                            </div>
+
+                            <div className="relative pl-6 border-l-2 border-blue-500/20">
+                                <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white ring-4 ring-slate-50" />
+                                <p className="text-sm font-black text-slate-900">2026-09-29～09-30・月曆</p>
+                                <ul className="mt-2 list-disc pl-4 text-xs font-bold leading-relaxed text-slate-600 space-y-1">
+                                    <li>員工與管理月曆加入共用活動及補登審核狀態；已核准補登在打卡紀錄標示來源。</li>
+                                </ul>
+                            </div>
+
+                            <div className="relative pl-6 border-l-2 border-blue-500/20">
+                                <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-slate-300 border-2 border-white ring-4 ring-slate-50" />
+                                <p className="text-sm font-black text-slate-900">2026-07-08～07-26・管理功能</p>
+                                <ul className="mt-2 list-disc pl-4 text-xs font-bold leading-relaxed text-slate-600 space-y-1">
+                                    <li>新增假日管理、差勤異常儀表板與日期範圍選擇；個人出勤月曆調整為響應式版面。</li>
+                                    <li>請假撤回支援兩層級審核，特休計算說明更清楚。</li>
+                                </ul>
+                            </div>
+
+                            <p className="border-t border-slate-100 pt-4 text-xs font-black text-slate-500">較早版本紀錄（2026 年 6 月及以前）</p>
                             {/* v1.3.9 */}
                             <div className="relative pl-6 border-l-2 border-blue-500/20 last:border-l-0">
                                 <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-blue-500 border-2 border-white ring-4 ring-blue-50"></span>
