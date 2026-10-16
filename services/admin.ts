@@ -8,42 +8,42 @@ export interface DashboardStats {
 }
 
 export const getDashboardStats = async (): Promise<DashboardStats> => {
-    try {
-        // Total Employees
-        const { count: totalEmployees, error: err1 } = await supabase
-            .from('employees')
-            .select('*', { count: 'exact', head: true });
+    const { count: totalEmployees, error: countError } = await supabase
+        .from('employees').select('id', { count: 'exact', head: true });
+    if (countError || totalEmployees === null) throw countError || new Error('無法取得員工總數');
 
-        if (err1) throw err1;
-
-        // Active Employees
-        const { count: activeEmployees, error: err2 } = await supabase
-            .from('employees')
-            .select('*', { count: 'exact', head: true })
-            .eq('is_active', true);
-
-        if (err2) throw err2;
-
-        // Today's Attendance
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const { count: todayAttendance, error: err3 } = await supabase
-            .from('attendance_logs')
-            .select('*', { count: 'exact', head: true })
-            .gte('timestamp', today.toISOString());
-
-        if (err3) throw err3;
-
-        return {
-            totalEmployees: totalEmployees || 0,
-            activeEmployees: activeEmployees || 0,
-            todayAttendance: todayAttendance || 0
-        };
-    } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
-        return { totalEmployees: 0, activeEmployees: 0, todayAttendance: 0 };
+    // Fetch all active IDs in pages: Supabase may cap a single response at 1000 rows.
+    const activeIds = new Set<string>();
+    const pageSize = 500;
+    for (let offset = 0; ; offset += pageSize) {
+        const { data, error } = await supabase.from('employees')
+            .select('id').eq('is_active', true).order('id').range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        (data || []).forEach(employee => activeIds.add(employee.id));
+        if (!data || data.length < pageSize) break;
     }
+
+    // A punch count is not a headcount: one employee can have several IN logs.
+    // Use the Taiwan calendar day, active employees and distinct employee IDs.
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(new Date());
+    const datePart = (type: string) => parts.find(part => part.type === type)!.value;
+    const today = `${datePart('year')}-${datePart('month')}-${datePart('day')}`;
+    const tomorrow = new Date(Date.parse(`${today}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
+    const punchedIds = new Set<string>();
+    for (let offset = 0; ; offset += pageSize) {
+        const { data, error } = await supabase.from('attendance_logs')
+            .select('employee_id').eq('check_type', 'IN')
+            .gte('timestamp', `${today}T00:00:00+08:00`)
+            .lt('timestamp', `${tomorrow}T00:00:00+08:00`)
+            .order('timestamp').order('id').range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        (data || []).forEach(log => { if (activeIds.has(log.employee_id)) punchedIds.add(log.employee_id); });
+        if (!data || data.length < pageSize) break;
+    }
+
+    return { totalEmployees, activeEmployees: activeIds.size, todayAttendance: punchedIds.size };
 };
 
 export const getRecentActivity = async () => {

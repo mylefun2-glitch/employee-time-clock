@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserCheck, Clock, AlertCircle } from 'lucide-react';
+import { Users, UserCheck, Clock } from 'lucide-react';
 import { getDashboardStats, DashboardStats } from '../../services/admin';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -21,6 +21,7 @@ const DashboardPage: React.FC = () => {
     const [currentEmployee, setCurrentEmployee] = useState<any>(null);
     const [employeeLoading, setEmployeeLoading] = useState(true);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [showChangelog, setShowChangelog] = useState(false);
 
     useEffect(() => {
@@ -78,6 +79,10 @@ const DashboardPage: React.FC = () => {
                     supabase.from('resource_requests').select('*', { count: 'exact', head: true }).eq('status', 'PENDING')
                 ]);
                 
+                const pendingResults = [leaveRes, makeupRes, shiftRes, carRes, resourceRes];
+                const failed = pendingResults.find(result => result.error || result.count === null);
+                if (failed) throw failed.error || new Error('無法取得待審件數');
+
                 setStats(statsData);
                 setPendingStats({
                     leave: leaveRes.count || 0,
@@ -86,8 +91,10 @@ const DashboardPage: React.FC = () => {
                     car: carRes.count || 0,
                     resource: resourceRes.count || 0
                 });
+                setLoadError(false);
             } catch (error) {
                 console.error('Error fetching dashboard stats and pending approvals:', error);
+                setLoadError(true);
             } finally {
                 setLoading(false);
             }
@@ -98,10 +105,9 @@ const DashboardPage: React.FC = () => {
     const totalPending = pendingStats.leave + pendingStats.makeup + pendingStats.shift + pendingStats.car + pendingStats.resource;
 
     const statCards = [
-        { name: '總員工數', value: stats.totalEmployees, icon: Users, color: 'bg-blue-500' },
-        { name: '在職員工', value: stats.activeEmployees, icon: UserCheck, color: 'bg-emerald-500' },
-        { name: '今日打卡數', value: stats.todayAttendance, icon: Clock, color: 'bg-orange-500' },
-        { name: '待審核申請', value: totalPending, icon: AlertCircle, color: 'bg-red-500', highlight: totalPending > 0 },
+        { name: '員工總人數', value: stats.totalEmployees, note: '含在職及離職', icon: Users, color: 'bg-blue-500' },
+        { name: '目前在職人數', value: stats.activeEmployees, note: '員工主檔・在職', icon: UserCheck, color: 'bg-emerald-500' },
+        { name: '今日已打卡人數', value: stats.todayAttendance, note: '台灣今日・在職・上班卡去重', icon: Clock, color: 'bg-orange-500' },
     ];
 
     const approvalCards = [
@@ -165,12 +171,19 @@ const DashboardPage: React.FC = () => {
         );
     }
 
+    if (loadError) return (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800">
+            <p className="font-bold">儀表板統計讀取失敗，暫不顯示可能錯誤的數字。</p>
+            <button type="button" onClick={() => window.location.reload()} className="mt-3 rounded-lg bg-white px-4 py-2 text-sm font-bold">重新載入</button>
+        </div>
+    );
+
     return (
-        <div className="space-y-8">
-            <div className="flex items-center justify-between">
+        <div className="space-y-6 pb-8">
+            <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">管理儀表板</h1>
-                    <p className="text-slate-500 font-medium">概覽系統狀態與近期營運數據。</p>
+                    <p className="text-sm text-slate-500 font-medium">人員概況、待審事項與差勤異常</p>
                 </div>
                 <div className="hidden sm:flex items-center gap-4">
                     {/* 版本更新紀錄按鈕 */}
@@ -188,79 +201,57 @@ const DashboardPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Anomaly Dashboard */}
-            <div className="mt-8">
-                <AttendanceAnomalyDashboard />
-            </div>
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {/* 人數皆依員工 ID 去重；申請件數另列，不混作人數。 */}
+            <section className="space-y-3" aria-label="人員概況">
+                <h2 className="text-lg font-black text-slate-900">人員概況 <span className="text-xs font-medium text-slate-500">單位：人</span></h2>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {statCards.map((item) => (
                     <div
                         key={item.name}
-                        className={`bg-white rounded-3xl p-6 border transition-all hover:shadow-lg hover:shadow-slate-100 ${item.highlight
-                            ? 'border-red-200 bg-red-50/30'
-                            : 'border-slate-100 shadow-sm'
-                            }`}
+                        className="min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5"
                     >
-                        <div className="flex items-center gap-4">
-                            <div className={`${item.color} h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-100`}>
-                                <item.icon className="h-6 w-6 text-white" />
+                        <div className="flex items-center gap-3">
+                            <div className={`${item.color} h-10 w-10 shrink-0 rounded-xl flex items-center justify-center`}>
+                                <item.icon className="h-5 w-5 text-white" />
                             </div>
-                            <div className="flex-1">
-                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{item.name}</p>
-                                <div className="flex items-baseline gap-2">
-                                    <p className="text-2xl font-black text-slate-900">{item.value}</p>
-                                    {item.highlight && (
-                                        <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">
-                                            需處理
-                                        </span>
-                                    )}
-                                </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-bold text-slate-600">{item.name}</p>
+                                <p className="text-2xl font-black tabular-nums text-slate-900">{item.value}<span className="ml-1 text-sm text-slate-500">人</span></p>
                             </div>
                         </div>
+                        <p className="mt-2 text-xs text-slate-500">{item.note}</p>
                     </div>
                 ))}
-            </div>
-
-            {/* 各項待核准統計圖卡 */}
-            <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight">各項待核准統計</h3>
-                    <span className="text-xs font-black text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full uppercase tracking-wider">
-                        系統即時更新
-                    </span>
                 </div>
-                
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
+            </section>
+
+            <section className="space-y-3" aria-label="待審事項">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-lg font-black text-slate-900">待審事項 <span className="text-xs font-medium text-slate-500">單位：件</span></h2>
+                    <span className="rounded-full bg-rose-50 px-3 py-1 text-sm font-bold text-rose-700">共 {totalPending} 件</span>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     {approvalCards.map((card) => (
-                        <div
+                        <button type="button"
                             key={card.id}
                             onClick={() => handleCardClick(card)}
-                            className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-slate-100 hover:-translate-y-1 cursor-pointer flex flex-col items-center text-center justify-between group"
+                            className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600"
                         >
-                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-105 bg-slate-50 border border-slate-100 ${card.color.split(' ').slice(1).join(' ')}`}>
-                                <span className={`material-symbols-outlined text-2xl font-bold ${card.color.split(' ')[0]}`}>
+                            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${card.color.split(' ').slice(1).join(' ')}`}>
+                                <span className={`material-symbols-outlined text-xl ${card.color.split(' ')[0]}`}>
                                     {card.icon}
                                 </span>
-                            </div>
-                            <div className="space-y-1">
-                                <h4 className="text-sm font-black text-slate-700">{card.name}</h4>
-                                <p className="text-2xl font-black text-slate-900">{card.count}</p>
-                            </div>
-                            {card.count > 0 ? (
-                                <span className="mt-4 px-3 py-1 bg-rose-50 text-rose-600 text-[10px] font-black rounded-full uppercase tracking-wider animate-pulse border border-rose-100">
-                                    待處理
-                                </span>
-                            ) : (
-                                <span className="mt-4 px-3 py-1 bg-slate-50 text-slate-400 text-[10px] font-bold rounded-full uppercase tracking-wider border border-slate-100">
-                                    無待處理
-                                </span>
-                            )}
-                        </div>
+                            </span>
+                            <span className="min-w-0 flex-1 text-sm font-bold text-slate-700">{card.name}</span>
+                            <span className={`shrink-0 text-lg font-black tabular-nums ${card.count > 0 ? 'text-rose-700' : 'text-slate-500'}`}>{card.count}<span className="ml-1 text-xs">件</span></span>
+                        </button>
                     ))}
                 </div>
-            </div>
+            </section>
+
+            <section aria-label="差勤異常偵測">
+                <AttendanceAnomalyDashboard />
+            </section>
 
             {/* 系統更新紀錄對話框 */}
             {showChangelog && (
