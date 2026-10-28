@@ -14,6 +14,7 @@ import { companyHolidayService } from '../../services/companyHolidayService';
 import ModificationRequestForm from '../../components/ModificationRequestForm';
 import LeaveRequestForm from '../../components/LeaveRequestForm';
 import { calculateLeaveHoursDetailed, calculateOTHours } from '../../lib/leaveUtils';
+import { getApprovedSingleDayStoredHours } from '../../lib/calendarLeaveHours';
 import { formatDateTimeRange } from '../../lib/hrUtils';
 import { shiftService } from '../../services/shiftService';
 import { importantActivityService, ImportantActivity } from '../../services/importantActivityService';
@@ -739,20 +740,30 @@ const AttendanceCalendarPage: React.FC = () => {
                             );
                         }
                     } else {
-                        const detailed = calculateLeaveHoursDetailed(
-                            overlapStart,
-                            overlapEnd,
-                            employee || {},
-                            false, // ignoreWorkWindow
-                            true, // deductBreaks
-                            historicalSchedules,
-                            leave.manual_break_hours || 0,
-                            !!leave.is_makeup_workday,
-                            !!leave.is_makeup_holiday,
-                            dayOverrides,
-                            flexOffsetMs // 這裡傳入算好的偏移量！
+                        const storedSingleDayHours = getApprovedSingleDayStoredHours(
+                            leave.status,
+                            leave.hours,
+                            s,
+                            e
                         );
-                        dayHours = detailed.finalHours;
+                        if (storedSingleDayHours !== null) {
+                            dayHours = storedSingleDayHours;
+                        } else {
+                            const detailed = calculateLeaveHoursDetailed(
+                                overlapStart,
+                                overlapEnd,
+                                employee || {},
+                                false, // ignoreWorkWindow
+                                true, // deductBreaks
+                                historicalSchedules,
+                                leave.manual_break_hours || 0,
+                                !!leave.is_makeup_workday,
+                                !!leave.is_makeup_holiday,
+                                dayOverrides,
+                                flexOffsetMs // 這裡傳入算好的偏移量！
+                            );
+                            dayHours = detailed.finalHours;
+                        }
                     }
                 }
                 return { ...leave, dayHours };

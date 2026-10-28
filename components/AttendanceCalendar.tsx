@@ -11,6 +11,7 @@ import ModificationRequestForm from './ModificationRequestForm';
 import { requestService } from '../services/requestService';
 import { getEmployeeInfo } from '../services/employee';
 import { calculateLeaveHoursDetailed, calculateOTHours } from '../lib/leaveUtils';
+import { getApprovedSingleDayStoredHours } from '../lib/calendarLeaveHours';
 import { formatDateTimeRange } from '../lib/hrUtils';
 import { getEmployeeSchedules } from '../services/admin';
 import { companyHolidayService } from '../services/companyHolidayService';
@@ -403,20 +404,30 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ targetEmployeeI
                             );
                         }
                     } else {
-                        const detailed = calculateLeaveHoursDetailed(
-                            overlapStart,
-                            overlapEnd,
-                            targetEmployee,
-                            false,
-                            true,
-                            historicalSchedules,
-                            0,
-                            false,
-                            false,
-                            undefined, // dayOverrides
-                            flexOffsetMs // 帶入當天算出的彈性偏移量！
+                        const storedSingleDayHours = getApprovedSingleDayStoredHours(
+                            leave.status,
+                            leave.hours,
+                            s,
+                            e
                         );
-                        dayHours = detailed.finalHours;
+                        if (storedSingleDayHours !== null) {
+                            dayHours = storedSingleDayHours;
+                        } else {
+                            const detailed = calculateLeaveHoursDetailed(
+                                overlapStart,
+                                overlapEnd,
+                                targetEmployee,
+                                false,
+                                true,
+                                historicalSchedules,
+                                0,
+                                false,
+                                false,
+                                undefined, // dayOverrides
+                                flexOffsetMs // 帶入當天算出的偏移量！
+                            );
+                            dayHours = detailed.finalHours;
+                        }
                     }
                 }
                 return { ...leave, dayHours };
