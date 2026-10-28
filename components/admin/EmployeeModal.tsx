@@ -7,6 +7,10 @@ import SenioritySuspensionList from './SenioritySuspensionList';
 import FourDayWorkweekList from './FourDayWorkweekList';
 import { RotateCw } from 'lucide-react';
 
+const distinctEmployeeOptions = (values: Array<string | null | undefined>) =>
+    Array.from(new Set(values.map(value => value?.trim()).filter((value): value is string => Boolean(value))))
+        .sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+
 interface EmployeeModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -16,6 +20,9 @@ interface EmployeeModalProps {
 }
 
 const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit, employee, allEmployees = [] }) => {
+    const departmentOptions = distinctEmployeeOptions(allEmployees.map(emp => emp.department));
+    const positionOptions = distinctEmployeeOptions(allEmployees.map(emp => emp.position));
+
     // 基礎欄位
     const [name, setName] = useState('');
     const [username, setUsername] = useState('');
@@ -243,21 +250,43 @@ const EmployeeModal: React.FC<EmployeeModalProps> = ({ isOpen, onClose, onSubmit
                                 </div>
                                 <div>
                                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">部門</label>
-                                    <input
-                                        type="text"
-                                        value={department}
-                                        onChange={(e) => setDepartment(e.target.value)}
-                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                    />
+                                    {employee ? (
+                                        <input
+                                            type="text"
+                                            value={department}
+                                            onChange={(e) => setDepartment(e.target.value)}
+                                            className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                        />
+                                    ) : (
+                                        <select
+                                            value={department}
+                                            onChange={(e) => setDepartment(e.target.value)}
+                                            className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                        >
+                                            <option value="">請選擇部門</option>
+                                            {departmentOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                                        </select>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">職務</label>
-                                    <input
-                                        type="text"
-                                        value={position}
-                                        onChange={(e) => setPosition(e.target.value)}
-                                        className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
-                                    />
+                                    {employee ? (
+                                        <input
+                                            type="text"
+                                            value={position}
+                                            onChange={(e) => setPosition(e.target.value)}
+                                            className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                        />
+                                    ) : (
+                                        <select
+                                            value={position}
+                                            onChange={(e) => setPosition(e.target.value)}
+                                            className="w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-3 bg-slate-50/50"
+                                        >
+                                            <option value="">請選擇職務</option>
+                                            {positionOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                                        </select>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">直屬主管</label>
