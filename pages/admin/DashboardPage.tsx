@@ -230,7 +230,7 @@ const DashboardPage: React.FC = () => {
                     <h2 className="text-lg font-black text-slate-900">待審事項 <span className="text-xs font-medium text-slate-500">單位：件</span></h2>
                     <span className="rounded-full bg-rose-50 px-3 py-1 text-sm font-bold text-rose-700">共 {totalPending} 件</span>
                 </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
                     {approvalCards.map((card) => (
                         <button type="button"
                             key={card.id}
