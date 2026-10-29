@@ -1,33 +1,39 @@
 import { supabase } from '../lib/supabase';
 import { Employee, CheckType, EmployeeSchedule } from '../types';
+import { calculateDashboardHeadcount, type DashboardEmployeeRecord } from './dashboardHeadcount';
 
 export interface DashboardStats {
-    totalEmployees: number;
     activeEmployees: number;
+    monthlyResignedEmployees: number;
+    headcountMonth: string;
     todayAttendance: number;
 }
 
 export const getDashboardStats = async (): Promise<DashboardStats> => {
-    const { count: totalEmployees, error: countError } = await supabase
-        .from('employees').select('id', { count: 'exact', head: true });
-    if (countError || totalEmployees === null) throw countError || new Error('無法取得員工總數');
-
-    // Fetch all active IDs in pages: Supabase may cap a single response at 1000 rows.
+    const now = new Date();
+    const employeeRecords: DashboardEmployeeRecord[] = [];
+    // Keep every active ID for today's punch metric, but exclude the chairman
+    // from employee headcounts in calculateDashboardHeadcount.
     const activeIds = new Set<string>();
     const pageSize = 500;
     for (let offset = 0; ; offset += pageSize) {
         const { data, error } = await supabase.from('employees')
-            .select('id').eq('is_active', true).order('id').range(offset, offset + pageSize - 1);
+            .select('id,is_active,is_chairman,insurance_end_date')
+            .order('id').range(offset, offset + pageSize - 1);
         if (error) throw error;
-        (data || []).forEach(employee => activeIds.add(employee.id));
-        if (!data || data.length < pageSize) break;
+        const page = (data || []) as unknown as DashboardEmployeeRecord[];
+        employeeRecords.push(...page);
+        page.forEach(employee => { if (employee.is_active) activeIds.add(employee.id); });
+        if (page.length < pageSize) break;
     }
+
+    const headcount = calculateDashboardHeadcount(employeeRecords, now);
 
     // A punch count is not a headcount: one employee can have several IN logs.
     // Use the Taiwan calendar day, active employees and distinct employee IDs.
     const parts = new Intl.DateTimeFormat('en-US', {
         timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit'
-    }).formatToParts(new Date());
+    }).formatToParts(now);
     const datePart = (type: string) => parts.find(part => part.type === type)!.value;
     const today = `${datePart('year')}-${datePart('month')}-${datePart('day')}`;
     const tomorrow = new Date(Date.parse(`${today}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
@@ -43,7 +49,7 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
         if (!data || data.length < pageSize) break;
     }
 
-    return { totalEmployees, activeEmployees: activeIds.size, todayAttendance: punchedIds.size };
+    return { ...headcount, todayAttendance: punchedIds.size };
 };
 
 export const getRecentActivity = async () => {

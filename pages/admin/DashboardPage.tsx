@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserCheck, Clock } from 'lucide-react';
+import { UserCheck, UserMinus, Clock } from 'lucide-react';
 import { getDashboardStats, DashboardStats } from '../../services/admin';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -10,7 +10,7 @@ import AttendanceAnomalyDashboard from '../../components/AttendanceAnomalyDashbo
 const DashboardPage: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [stats, setStats] = useState<DashboardStats>({ totalEmployees: 0, activeEmployees: 0, todayAttendance: 0 });
+    const [stats, setStats] = useState<DashboardStats>({ activeEmployees: 0, monthlyResignedEmployees: 0, headcountMonth: '', todayAttendance: 0 });
     const [pendingStats, setPendingStats] = useState({
         leave: 0,
         makeup: 0,
@@ -105,8 +105,8 @@ const DashboardPage: React.FC = () => {
     const totalPending = pendingStats.leave + pendingStats.makeup + pendingStats.shift + pendingStats.car + pendingStats.resource;
 
     const statCards = [
-        { name: '員工總人數', value: stats.totalEmployees, note: '含在職及離職', icon: Users, color: 'bg-blue-500' },
-        { name: '目前在職人數', value: stats.activeEmployees, note: '員工主檔・在職', icon: UserCheck, color: 'bg-emerald-500' },
+        { name: '目前在職人數', value: stats.activeEmployees, note: `${stats.headcountMonth}・在職員工・不含理事長`, icon: UserCheck, color: 'bg-emerald-500' },
+        { name: '本月離職人數', value: stats.monthlyResignedEmployees, note: `${stats.headcountMonth}・依退保日期・不含理事長`, icon: UserMinus, color: 'bg-rose-500' },
         { name: '今日已打卡人數', value: stats.todayAttendance, note: '台灣今日・在職・上班卡去重', icon: Clock, color: 'bg-orange-500' },
     ];
 
