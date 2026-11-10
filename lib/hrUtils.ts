@@ -14,12 +14,32 @@ export const calculateAge = (birthDateString: string): number => {
     return age;
 };
 
-export const getAgeRange = (age: number): string => {
-    if (age < 35) return '35歲以下';
-    if (age >= 35 && age <= 44) return '35歲～44歲';
-    if (age >= 45 && age <= 64) return '45歲～64歲';
-    if (age >= 65) return '65歲以上';
-    return '未知';
+// Keep calculateAge's existing profile-page API unchanged. Reports use an explicit
+// Taiwan calendar cutoff instead of the browser's clock/timezone.
+const validCalendarDate = (value: unknown): value is string => {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const [year, month, day] = value.split('-').map(Number);
+    if (year < 1 || month < 1 || month > 12 || day < 1) return false;
+    const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    return day <= days[month - 1];
+};
+
+export const calculateAgeAsOf = (birthDate: string | null | undefined, asOf: string): number | null => {
+    if (!validCalendarDate(birthDate) || !validCalendarDate(asOf) || birthDate > asOf) return null;
+    const age = Number(asOf.slice(0, 4)) - Number(birthDate.slice(0, 4));
+    return age - (asOf.slice(5) < birthDate.slice(5) ? 1 : 0);
+};
+
+export const AGE_RANGES = ['未滿35歲', '35歲～44歲', '45歲～64歲', '65歲～69歲', '70歲以上', '未知'] as const;
+
+export const getAgeRange = (age: number | null | undefined): string => {
+    if (typeof age !== 'number' || !Number.isInteger(age) || age < 0) return '未知';
+    if (age < 35) return '未滿35歲';
+    if (age < 45) return '35歲～44歲';
+    if (age < 65) return '45歲～64歲';
+    if (age < 70) return '65歲～69歲';
+    return '70歲以上';
 };
 
 export const calculateSeniority = (joinDateString: string): number => {

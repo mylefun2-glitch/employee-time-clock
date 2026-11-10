@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { buildHrReport, reportCsv, reportHtml, readStatisticsSources, taiwanDate, taiwanMinutes, monthBounds, genderGroup, genderLabel } from '../../lib/hrReport';
 import { supabase } from '../../lib/supabase';
 import { Employee } from '../../types';
-import { calculateAge, getAgeRange, calculateSeniority, getSeniorityRange } from '../../lib/hrUtils';
+import { AGE_RANGES, calculateAgeAsOf, getAgeRange, calculateSeniority, getSeniorityRange } from '../../lib/hrUtils';
 import { Filter, Users, UserCheck, BarChart3 } from 'lucide-react';
+import WorkHoursStatistics from '../../components/WorkHoursStatistics';
 
 interface DeptStats {
     name: string;
@@ -200,7 +201,7 @@ const StatisticsPage: React.FC = () => {
     });
 
     // Keep chart counts and drill-down members on the same filtered population and buckets.
-    const ageGroup = (e: Employee) => e.birth_date ? getAgeRange(calculateAge(e.birth_date)) : '未知';
+    const ageGroup = (e: Employee) => getAgeRange(calculateAgeAsOf(e.birth_date, asOf));
     const seniorityGroup = (e: Employee) => e.join_date ? getSeniorityRange(calculateSeniority(e.join_date)) : '未知';
     const positionGroup = (e: Employee) => e.position || '未設定';
     const detailEmployees = detail
@@ -208,7 +209,7 @@ const StatisticsPage: React.FC = () => {
             .sort((a, b) => {
                 if (detail.kind !== 'age' && detail.kind !== 'seniority') return a.name.localeCompare(b.name, 'zh-Hant');
                 const value = (e: Employee) => detail.kind === 'age'
-                    ? e.birth_date ? calculateAge(e.birth_date) : -1
+                    ? calculateAgeAsOf(e.birth_date, asOf) ?? -1
                     : e.join_date ? calculateSeniority(e.join_date) : -1;
                 return value(b) - value(a) || a.name.localeCompare(b.name, 'zh-Hant');
             })
@@ -220,7 +221,7 @@ const StatisticsPage: React.FC = () => {
             name: filters.department.length === 1 ? filters.department[0] : '多重選取',
             total: filtered.length,
             gender: { male: 0, female: 0, other: 0 },
-            ageRanges: { '35歲以下': 0, '35歲～44歲': 0, '45歲～64歲': 0, '65歲以上': 0, '未知': 0 },
+            ageRanges: Object.fromEntries(AGE_RANGES.map(range => [range, 0])),
             seniorityRanges: {
                 '0.25年以下': 0, '0.25年～0.5年以下': 0, '0.5年～1年': 0, '1年～2年': 0,
                 '2年～3年': 0, '3年～4年': 0, '4年～5年': 0, '5年以上': 0, '10年以上': 0, '未知': 0
@@ -394,7 +395,7 @@ const StatisticsPage: React.FC = () => {
             <details className="rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-600">
                 <summary className="cursor-pointer font-bold">口徑與來源・基準日 {asOf}・Asia/Taipei</summary>
                 <div className="mt-2 space-y-1 break-words">
-                    <p>employees：is_active=true，含理事長；人事／年齡／年資為目前資料，非所選月份歷史快照。年齡、年資沿用 hrUtils 計算及區間。</p>
+                    <p>employees：is_active=true，含理事長；人事／年齡／年資為目前資料，非所選月份歷史快照。年齡截至 {asOf}（Asia/Taipei），生日未填、無效或晚於基準日列為未知；年資沿用 hrUtils 計算及區間。</p>
                     <p>月份：{monthBounds(selectedMonth).start}（含）～{monthBounds(selectedMonth).end}（不含）。</p>
                     <p>attendance_logs.timestamp：所有 IN／OUT 分別平均，非每日首末筆；平均時間以台灣時區顯示。</p>
                     <p>leave_requests.start_date：核准 APPROVED 且 is_modified 為空或 false，按開始月份歸屬，不跨月攤提；假別來源 leave_types。僅沿用現有統計，未變更薪資／聘僱規則。</p>
@@ -624,7 +625,7 @@ const StatisticsPage: React.FC = () => {
                                     {(detail.kind === 'age' || detail.kind === 'seniority') && (
                                         <div className="text-sm font-bold text-slate-700 sm:text-right">
                                             {detail.kind === 'age'
-                                                ? e.birth_date ? `${calculateAge(e.birth_date)} 歲` : '生日未填'
+                                                ? calculateAgeAsOf(e.birth_date, asOf) !== null ? `${calculateAgeAsOf(e.birth_date, asOf)} 歲` : '年齡未知'
                                                 : e.join_date ? `到職 ${e.join_date}・${calculateSeniority(e.join_date)} 年` : '到職日未填'}
                                         </div>
                                     )}
@@ -634,6 +635,8 @@ const StatisticsPage: React.FC = () => {
                     </section>
                 </div>
             )}
+
+            <WorkHoursStatistics month={selectedMonth} asOf={asOf} filters={filters} namedExport={namedExport} />
 
             {/* 員工扣薪假別統計明細 */}
             <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm overflow-hidden">

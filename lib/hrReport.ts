@@ -60,7 +60,7 @@ export function buildHrReport(input: ReportInput): HrReport {
     }
     const { start, end } = monthBounds(input.month);
     return { title: input.detail ? `人事統計明細・${input.detail}` : '人事統計報表', metadata: [
-        ['產製時間', taiwanTimestamp(input.producedAt)], ['人事基準日', `${input.asOf}（目前在職含理事長；年齡／年資截至當日，非所選月份歷史快照；沿用 hrUtils 區間）`],
+        ['產製時間', taiwanTimestamp(input.producedAt)], ['人事基準日', `${input.asOf}（目前在職含理事長；年齡／年資截至當日，非所選月份歷史快照；年齡依 Asia/Taipei 基準日，生日未填、無效或晚於基準日列為未知；年資沿用 hrUtils 區間）`],
         ['所選月份', input.month], ['月份範圍', `${start} ≤ 時間 < ${end}`],
         ['部門篩選', input.filters.department.includes('ALL') ? '全部' : input.filters.department.join('、')],
         ['職務篩選', input.filters.position.includes('ALL') ? '全部' : input.filters.position.join('、')],
