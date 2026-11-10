@@ -35,6 +35,7 @@ export default function HourlyScheduleStatistics({ sources, month, filters, name
         } catch { setActionError('班表工時匯出失敗，請重試；列印請確認瀏覽器允許彈出視窗。'); }
     }
     const groups = report ? [...report.buckets, { key: 'no-data', label: '未登錄班表', count: report.counts.noData, rows: report.rows.filter(r => r.status === 'no-data') }, { key: 'invalid', label: '班表資料異常', count: report.counts.invalid, rows: report.rows.filter(r => r.status === 'invalid') }] : [];
+    const maxGroupCount = Math.max(1, ...groups.map(group => group.count));
     return <section aria-labelledby="hourly-schedule-heading" className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 id="hourly-schedule-heading" className="text-lg font-bold">時薪制班表工時人數分布</h2>
@@ -54,10 +55,15 @@ export default function HourlyScheduleStatistics({ sources, month, filters, name
                 <summary className="cursor-pointer font-semibold">班表來源與分組定義</summary>
                 <ul className="mt-2 list-disc pl-4 space-y-1">{report.definitions.map(text => <li key={text}>{text}</li>)}</ul>
             </details>
-            <div key={month + filterKey} className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {groups.map(group => <details key={group.key} className="min-w-0 self-start rounded-lg border border-slate-200 p-2">
-                    <summary className="cursor-pointer text-sm [overflow-wrap:anywhere]">
-                        <span className="font-semibold">{group.label}</span> <strong>{group.count} 人</strong><span className="text-xs text-slate-500">・展開名單</span>
+            <p className="text-xs text-slate-600">長條長度表示人數；點選任一列可展開名單。藍色為工時區間，灰色為另列的未登錄／異常資料。</p>
+            <div key={month + filterKey} role="group" aria-label="時薪制班表工時人數長條圖" className="min-w-0 space-y-1">
+                {groups.map(group => <details key={group.key} className={`min-w-0 border-b border-slate-200 py-2 ${group.key === 'no-data' || group.key === 'invalid' ? 'bg-slate-50' : ''}`}>
+                    <summary className="grid min-w-0 cursor-pointer list-none grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_3rem] items-center gap-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 [&::-webkit-details-marker]:hidden">
+                        <span className="font-semibold [overflow-wrap:anywhere]">{group.label}</span>
+                        <span aria-hidden="true" className="block h-5 min-w-0 overflow-hidden rounded bg-slate-100">
+                            <span data-hourly-bar={group.key} data-count={group.count} data-max={maxGroupCount} className={`block h-full rounded ${group.key === 'no-data' || group.key === 'invalid' ? 'bg-slate-400' : 'bg-blue-600'}`} style={{ width: `${group.count / maxGroupCount * 100}%` }} />
+                        </span>
+                        <strong className="text-right tabular-nums">{group.count} 人<span aria-hidden="true" className="ml-1 text-xs text-slate-500">▾</span></strong>
                     </summary>
                     <div className="mt-2 min-w-0 space-y-2">
                         <p className="text-xs text-slate-600">此組名單與匯出均為以下 {group.count} 人；匯出將包含姓名。</p>
