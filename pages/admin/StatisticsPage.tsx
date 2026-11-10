@@ -35,13 +35,15 @@ const MultiSelectDropdown: React.FC<{
     const [isOpen, setIsOpen] = useState(false);
 
     const toggleOption = (val: string) => {
+        setIsOpen(false);
         if (val === 'ALL') {
             onChange(['ALL']);
         } else {
             let newSelected = selected.filter(v => v !== 'ALL');
             if (newSelected.includes(val)) {
+                // Reset only through the explicit All option, never a repeated tap.
+                if (newSelected.length === 1) return;
                 newSelected = newSelected.filter(v => v !== val);
-                if (newSelected.length === 0) newSelected = ['ALL'];
             } else {
                 newSelected = [...newSelected, val];
             }
@@ -62,6 +64,9 @@ const MultiSelectDropdown: React.FC<{
                 {label}
             </div>
             <button
+                type="button"
+                aria-label={label}
+                aria-expanded={isOpen}
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full flex items-center justify-between px-4 py-3 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 hover:border-slate-300 transition-all shadow-sm group-hover:shadow-md"
             >
