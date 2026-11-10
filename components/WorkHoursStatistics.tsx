@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import HourlyScheduleStatistics from './HourlyScheduleStatistics';
 import { supabase } from '../lib/supabase';
 import { buildWorkHoursReport, readWorkHoursSources } from '../lib/workHoursReport';
 import { reportCsv, reportHtml } from '../lib/hrReport';
@@ -79,6 +80,7 @@ export default function WorkHoursStatistics({ month, asOf, filters, namedExport 
         {error ? <div role="alert" className="text-sm text-red-700">{error} <button type="button" className={buttonClass} onClick={() => setRetry(value => value + 1)}>重新載入工時</button></div> : !ready ? <p role="status" className="text-sm text-slate-500">正在完整載入工時來源…</p> : null}
         {actionError && <p role="alert" className="text-sm text-red-700">{actionError}</p>}
         {ready && <>
+            <HourlyScheduleStatistics sources={loaded!.sources} month={month} filters={filters} namedExport={namedExport} />
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <label className="min-w-0 text-sm">姓名搜尋 <input type="search" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} className="ml-1 w-40 max-w-full rounded-lg border border-slate-300 p-2 text-base" placeholder="輸入姓名" /></label>
                 <span className="text-xs text-slate-600">符合 {selection.count} 人</span>
