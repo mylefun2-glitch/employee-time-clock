@@ -1613,7 +1613,7 @@ const AttendanceCalendarPage: React.FC = () => {
 
             {/* Calendar Grid */}
             <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-lg overflow-hidden print:shadow-none print:border-slate-200 print-shrink mt-4 print:mt-2">
-                <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50 print:bg-white">
+                <div className="hidden sm:grid print:grid grid-cols-7 border-b border-slate-100 bg-slate-50/50 print:bg-white">
                     {weekDays.map(day => (
                         <div key={day} className="py-4 text-center text-xs font-black text-slate-400 uppercase tracking-widest border-r last:border-r-0 border-slate-100">
                             {day}
@@ -1622,12 +1622,12 @@ const AttendanceCalendarPage: React.FC = () => {
                 </div>
                 <div className="divide-y divide-slate-100">
                     {weeks.map((week, weekIndex) => (
-                        <div key={`week-${weekIndex}`} className="grid grid-cols-7">
+                        <div key={`week-${weekIndex}`} className="grid grid-cols-1 sm:grid-cols-7 print:grid-cols-7">
                             {week.map(day => {
                                 const isCurrentMonth = day.getMonth() === currentDate.getMonth();
                                 if (!isCurrentMonth) {
                                     return (
-                                        <div key={day.toISOString()} className="min-h-[80px] bg-slate-50/20 border-r last:border-r-0 border-slate-100" />
+                                        <div key={day.toISOString()} className="hidden sm:block print:block min-h-[80px] bg-slate-50/20 border-r last:border-r-0 border-slate-100" />
                                     );
                                 }
 
@@ -1671,8 +1671,9 @@ const AttendanceCalendarPage: React.FC = () => {
                                 return (
                                     <div
                                         key={dateKey}
+                                        data-calendar-date={dateKey}
                                         onClick={(e) => handleDateClick(day, e)}
-                                     className={`min-h-[80px] print:min-h-[60px] p-3 print:p-1.5 border-r last:border-r-0 border-slate-100 flex flex-col group hover:bg-slate-50/50 transition-colors cursor-pointer relative
+                                     className={`min-w-0 min-h-[80px] print:min-h-[60px] p-3 print:p-1.5 border-b sm:border-b-0 print:border-b-0 border-r last:border-r-0 border-slate-100 flex flex-col group hover:bg-slate-50/50 transition-colors cursor-pointer relative
                                             ${isRestDay ? (holidayName || (override && !override.work_start_time) ? 'bg-rose-50/30' : isSaturday ? 'bg-amber-50/30' : 'bg-slate-100/40') : ''} 
                                             ${override?.work_start_time ? 'bg-blue-50/30' : ''}`}
                                     >
@@ -1686,6 +1687,7 @@ const AttendanceCalendarPage: React.FC = () => {
                                                     }`}>
                                                      {format(day, 'd')}
                                                  </span>
+                                                 <span className="sm:hidden print:hidden text-xs font-bold text-slate-500">{format(day, 'EEE', { locale: zhTW })}</span>
                                                  {(holidayName || overrideLabel) && (
                                                      <div className="flex flex-col">
                                                          {holidayName && (
@@ -1905,20 +1907,20 @@ const AttendanceCalendarPage: React.FC = () => {
                                                  };
 
                                                  return (
-                                                     <div className="space-y-0.5 mt-1 max-h-[120px] overflow-y-auto overscroll-contain print:max-h-none pr-0.5 custom-scrollbar">
+                                                     <div data-calendar-schedules className="space-y-0.5 mt-1">
                                                          {daySchedules.map(sched => (
                                                              <div
                                                                  key={sched.id}
-                                                                 className={`px-1.5 py-0.5 rounded text-[9px] font-black border flex items-center justify-between gap-1 overflow-hidden whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity ${SHIFT_COLORS[sched.shift_type] || 'bg-slate-100 text-slate-700 border-slate-200'}`}
+                                                                 className={`px-1.5 py-0.5 rounded text-xs sm:text-[9px] font-black border flex flex-wrap items-center justify-between gap-1 break-words cursor-pointer hover:opacity-80 transition-opacity ${SHIFT_COLORS[sched.shift_type] || 'bg-slate-100 text-slate-700 border-slate-200'}`}
                                                                  title={[sched.case_name && `個案：${sched.case_name}`, `服務時間：${sched.service_mins} 分鐘`, sched.note && `備註：${sched.note}`].filter(Boolean).join('\n')}
                                                                  onClick={(e) => handleSalaryScheduleClick(sched, e)}
                                                              >
-                                                                 <div className="flex items-center gap-1 overflow-hidden">
+                                                                 <div className="flex min-w-0 flex-wrap items-center gap-1">
                                                                      {sched.shift_type !== '正常班' && (
-                                                                         <span className="shrink-0">{sched.shift_type}</span>
+                                                                         <span>{sched.shift_type}</span>
                                                                      )}
                                                                      {sched.case_name && (
-                                                                         <span className="opacity-80 truncate" title={sched.case_name}>
+                                                                         <span className="opacity-80 break-all" title={sched.case_name}>
                                                                              {sched.case_name}
                                                                          </span>
                                                                      )}
