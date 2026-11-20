@@ -8,6 +8,8 @@ import { getCars, checkCarAvailability, getBusyCarIds } from '../services/carSer
 import { getEmployeeLeaveBalances } from '../services/employee';
 import { LeaveBalance } from '../types';
 import TimeInput24h from './ui/TimeInput24h';
+import { CAR_BOOKING_WINDOW_HINT } from '../lib/carBookingWindow';
+import { validateCarBookingWindow } from '../services/carBookingWindowService';
 
 interface LeaveRequestFormProps {
     employeeId: string;
@@ -352,35 +354,25 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
             return;
         }
 
-        // 需求：公務車的借用須由前一日的 8:00 至今提出申請
-        if (needCar && selectedCarId) {
-            const now = new Date();
-            const startDay = new Date(startDate); // 只取日期部分
-            
-            // 最早申請時間：前一日 08:00
-            const earliestAllowed = new Date(startDay);
-            earliestAllowed.setDate(earliestAllowed.getDate() - 1);
-            earliestAllowed.setHours(8, 0, 0, 0);
-
-            if (now < earliestAllowed) {
-                const dateStr = earliestAllowed.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
-                setError(`公務車借用限於前一日 08:00 後提出申請。您預計於 ${startDate} 使用，最早可於 ${dateStr} 08:00 申請。`);
-                return;
-            }
-        }
-
-        // 若差勤的日數超過 5 日，跳出確認提醒
-        if (requiresChairmanApproval) {
-            const confirmSubmit = window.confirm(`此申請天數已達 ${totalDays} 天（5天含以上），提交後將需要主管及理事長雙重審核，是否確定要提交？`);
-            if (!confirmSubmit) {
-                return;
-            }
-        }
-
         setIsSubmitting(true);
         setError(null);
-
         try {
+            // 公務車於前一個工作日 08:00 開放（跳過週末及假日）。
+            if (needCar && selectedCarId) {
+                const bookingError = await validateCarBookingWindow(startDate);
+                if (bookingError) {
+                    setError(bookingError);
+                    return;
+                }
+            }
+
+            // 若差勤的日數超過 5 日，跳出確認提醒
+            if (requiresChairmanApproval) {
+                const confirmSubmit = window.confirm(`此申請天數已達 ${totalDays} 天（5天含以上），提交後將需要主管及理事長雙重審核，是否確定要提交？`);
+                if (!confirmSubmit) {
+                    return;
+                }
+            }
             // 如果有選擇借用公務車，請先檢查是否有衝突
             if (needCar && selectedCarId) {
                 const isBusy = await checkCarAvailability(
@@ -886,7 +878,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ employeeId, onClose
                                         <span className="material-symbols-outlined text-blue-600">directions_car</span>
                                         <span className="text-sm font-black text-slate-700 dark:text-slate-200">借用公務車</span>
                                         <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 ml-1">
-                                            限前一日 08:00 後申請
+                                            {CAR_BOOKING_WINDOW_HINT}
                                         </span>
                                     </div>
                                     <button

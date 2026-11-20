@@ -166,28 +166,33 @@ export const refreshHolidayCache = async (): Promise<void> => {
  * @param year 指定年度（選填，不指定則取得全部）
  */
 export const getHolidays = async (year?: number): Promise<Holiday[]> => {
-    let query = supabase
-        .from('holidays')
-        .select('*')
-        .order('date');
+    const pageSize = 1000;
+    const holidays: Holiday[] = [];
+    for (let offset = 0; ; offset += pageSize) {
+        let query = supabase
+            .from('holidays')
+            .select('*')
+            .order('date')
+            .order('id');
 
-    if (year) {
-        query = query
-            .gte('date', `${year}-01-01`)
-            .lte('date', `${year}-12-31`);
+        if (year) {
+            query = query
+                .gte('date', `${year}-01-01`)
+                .lte('date', `${year}-12-31`);
+        }
+
+        const { data, error } = await query.range(offset, offset + pageSize - 1);
+        if (error) {
+            console.error('Error fetching holidays:', error);
+            throw error;
+        }
+
+        holidays.push(...(data || []).map((h: any) => ({
+            ...h,
+            date: h.date.substring(0, 10), // 確保 yyyy-MM-dd 格式
+        })));
+        if (!data || data.length < pageSize) return holidays;
     }
-
-    const { data, error } = await query;
-
-    if (error) {
-        console.error('Error fetching holidays:', error);
-        throw error;
-    }
-
-    return (data || []).map((h: any) => ({
-        ...h,
-        date: h.date.substring(0, 10), // 確保 yyyy-MM-dd 格式
-    }));
 };
 
 /**

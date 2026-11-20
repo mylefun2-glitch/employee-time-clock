@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getCars, submitCarRequest, checkCarAvailability, getBusyCarIds } from '../services/carService';
 import TimeInput24h from './ui/TimeInput24h';
+import { CAR_BOOKING_WINDOW_HINT } from '../lib/carBookingWindow';
+import { validateCarBookingWindow } from '../services/carBookingWindowService';
 
 interface CarRequestFormProps {
     employeeId: string;
@@ -72,23 +74,14 @@ const CarRequestForm: React.FC<CarRequestFormProps> = ({ employeeId, onClose, on
             return;
         }
 
-        // 需求：公務車的借用須由前一日的 8:00 至今提出申請
-        const now = new Date();
-        const startDay = new Date(formData.start_date); // 只取日期部分
-        
-        // 最早申請時間：前一日 08:00
-        const earliestAllowed = new Date(startDay);
-        earliestAllowed.setDate(earliestAllowed.getDate() - 1);
-        earliestAllowed.setHours(8, 0, 0, 0);
-
-        if (now < earliestAllowed) {
-            const dateStr = earliestAllowed.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
-            alert(`公務車借用限於前一日 08:00 後提出申請。您預計於 ${formData.start_date} 使用，最早可於 ${dateStr} 08:00 申請。`);
-            return;
-        }
-
         setSubmitting(true);
         try {
+            const bookingError = await validateCarBookingWindow(formData.start_date);
+            if (bookingError) {
+                alert(bookingError);
+                return;
+            }
+
             const isBusy = await checkCarAvailability(
                 formData.car_id,
                 start.toISOString(),
@@ -128,7 +121,7 @@ const CarRequestForm: React.FC<CarRequestFormProps> = ({ employeeId, onClose, on
                         <p className="text-slate-500 font-bold text-sm mt-1">請填寫預計使用的時間與用途</p>
                         <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 rounded-lg border border-amber-100">
                             <span className="material-symbols-outlined text-sm">info</span>
-                            <span className="text-[11px] font-black uppercase tracking-wider">限前一日 08:00 後申請</span>
+                            <span className="text-[11px] font-black uppercase tracking-wider">{CAR_BOOKING_WINDOW_HINT}</span>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-all">
