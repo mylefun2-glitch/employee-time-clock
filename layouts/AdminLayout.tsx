@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { useRewardsDisciplinePermission } from '../hooks/useRewardsDisciplinePermission';
 
 type NavItem = { path: string; icon: string; label: string; isExternal?: boolean };
 
@@ -31,11 +32,12 @@ const matchesPath = (pathname: string, path: string) =>
 
 const AdminLayout: React.FC = () => {
     const { user, loading } = useAuth();
+    const rewardsPermission = useRewardsDisciplinePermission();
     const navigate = useNavigate();
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
     const [isCollapsed, setIsCollapsed] = React.useState(false);
-    const activeGroup = navGroups.find(group => group.items.some(item => matchesPath(location.pathname, item.path)))?.label;
+    const activeGroup = matchesPath(location.pathname, '/admin/rewards-discipline') ? '人員與出勤' : navGroups.find(group => group.items.some(item => matchesPath(location.pathname, item.path)))?.label;
     const [openGroup, setOpenGroup] = React.useState<string | null>(activeGroup || null);
 
     // Close menu when route changes
@@ -159,6 +161,7 @@ const AdminLayout: React.FC = () => {
                                     {isOpen && (!isCollapsed || isMobileMenuOpen) && (
                                         <div id={`admin-nav-${group.icon}`} className="ml-5 pl-2 border-l border-slate-200 mt-1 mb-2 space-y-0.5">
                                             {group.items.map(item => renderNavItem(item, true))}
+                                            {group.label === '人員與出勤' && rewardsPermission.status === 'allowed' && renderNavItem({ path: '/admin/rewards-discipline', icon: 'workspace_premium', label: '員工獎懲管理' }, true)}
                                             {group.label === '資源與設定' && renderNavItem({ path: payrollUrl, icon: 'payments', label: '薪資系統', isExternal: true }, true)}
                                         </div>
                                     )}

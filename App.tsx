@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { EmployeeProvider } from './contexts/EmployeeContext';
 import LoadingScreen from './components/LoadingScreen';
+import { RewardsDisciplinePermissionProvider } from './hooks/useRewardsDisciplinePermission';
 
 // 動態匯入頁面與佈局 (Code Splitting)
 const KioskPage = lazy(() => import('./pages/KioskPage'));
@@ -19,6 +20,7 @@ const StatisticsPage = lazy(() => import('./pages/admin/StatisticsPage'));
 const AdminLeaveStatsPage = lazy(() => import('./pages/admin/AdminLeaveStatsPage'));
 const AttendanceCalendarPage = lazy(() => import('./pages/admin/AttendanceCalendarPage'));
 const ImportantActivitiesPage = lazy(() => import('./pages/admin/ImportantActivitiesPage'));
+const EmployeeRewardsDisciplinePage = lazy(() => import('./pages/admin/EmployeeRewardsDisciplinePage'));
 
 const EmployeeLayout = lazy(() => import('./layouts/EmployeeLayout'));
 const EmployeeLoginPage = lazy(() => import('./pages/employee/EmployeeLoginPage'));
@@ -47,10 +49,11 @@ const App: React.FC = () => {
 
               {/* Admin Routes */}
               <Route path="/admin/login" element={<LoginPage />} />
-              <Route path="/admin" element={<AdminLayout />}>
+              <Route path="/admin" element={<RewardsDisciplinePermissionProvider><AdminLayout /></RewardsDisciplinePermissionProvider>}>
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="employees" element={<EmployeesPage />} />
+                <Route path="rewards-discipline" element={<EmployeeRewardsDisciplinePage />} />
                 <Route path="stats" element={<StatisticsPage />} />
                 <Route path="leave-stats" element={<AdminLeaveStatsPage />} />
                 <Route path="attendance-calendar" element={<AttendanceCalendarPage />} />
